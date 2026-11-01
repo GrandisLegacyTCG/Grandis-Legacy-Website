@@ -1,3 +1,5 @@
+**v1.58 corrective patch:** includes root `CNAME` for `grandislegacytcg.web.id` and fixes `file://` Style 1/2 navigation. Keep this file alongside `index.html` and `.nojekyll` when deploying to the GitHub repository root. Details: `docs/HOTFIX_v1.58_GITHUB_AND_LOCAL_NAVIGATION.md`.
+
 # Grandis Legacy Deck Builder v1.58 — Standalone Website Navigation + Hero Keyword Review (1 November 2026)
 
 **Baseline:** v1.57. Site target: `grandislegacytcg.web.id`. Single app hosted at repository root, Style 1 `/`, Style 2 `/style-2/`. VS AI/PvP not yet launched and hidden; Hero Rank II/III RANGE keyword now displayed in review. See `docs/RELEASE_NOTE_v1.58.md`.

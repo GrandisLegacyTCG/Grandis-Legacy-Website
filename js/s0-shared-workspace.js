@@ -45,10 +45,20 @@
      // HTTP(S): both styles have shared origin/localStorage. Avoid long, ugly
      // #gl-s0-workspace fragments (and URLs containing deck details).
      // file:// or cross-origin: retain the portable fallback handoff.
-     if(root.location.protocol==='file:' || url.origin!==root.location.origin){
+     if(root.location.protocol==='file:'){
+       // Browsers do not consistently open index.html when a file:// link
+       // targets a directory. Use the actual HTML file for local launches.
+       if(url.pathname.endsWith('/'))url.pathname+='index.html';
+       // file:// storage isolation differs by browser; pass the draft and
+       // immediately clear its fragment when the destination initializes.
+       url.hash=encode(getDraft());
+       link.href=url.href;
+     }else if(url.origin!==root.location.origin){
        url.hash=encode(getDraft());
        link.href=url.href;
      }else{
+       // Keep short canonical URLs on the published website.
+       url.hash='';
        link.href=url.pathname+url.search;
      }
     }catch(e){console.warn('Could not prepare style change:',e.message);}
