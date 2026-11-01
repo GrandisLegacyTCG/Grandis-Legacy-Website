@@ -155,6 +155,21 @@
   inlineKeywords(p);
   return tags(printed);
  }
+ function enhanceHero(card,rootNode){
+  if(card?.family!=='Hero'||!rootNode)return;
+  const allKeywords=new Set();
+  // The Hero source transcription says "Range Attack" in text; the four
+  // Marksman / Grand Ranger artworks print a RANGE badge (no extra "Attack").
+  // This is a review-only presentation fix, not a card-data/rules mutation.
+  for(const p of rootNode.querySelectorAll('.review-hero-block p,.review-hero-dual-section p,.rank-up-review p')){
+   if(p.closest('.hero-class-section') && /\bRange Attack\b/.test(p.textContent||'')){
+    p.textContent=p.textContent.replace(/\bRange Attack\b/g,'RANGE');
+   }
+   for(const keyword of tags(p.textContent||''))allKeywords.add(keyword);
+   inlineKeywords(p);
+  }
+  if(allKeywords.size)rootNode.append(renderExplanation([...allKeywords]));
+ }
  function enhance(card,rootNode){
   if(!card||!rootNode||card.family==='Hero'||card.family==='LegacyModeDefinition')return;
   const rows=Array.isArray(card.rows)&&card.rows.length?card.rows:[{effect_text:card.text||''}];
@@ -187,5 +202,5 @@
   const statuses=renderStatuses([...statusNames]);
   if(statuses)rootNode.append(statuses);
  }
- root.GL_S0_REVIEW_CLARITY={EXPLANATIONS,STATUSES,STATUS_COLORS,KEYS,tags,conditionOf,stripCondition,enhance};
+ root.GL_S0_REVIEW_CLARITY={EXPLANATIONS,STATUSES,STATUS_COLORS,KEYS,tags,conditionOf,stripCondition,enhance,enhanceHero};
 })(window);

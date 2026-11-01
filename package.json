@@ -1,8 +1,8 @@
 {
   "name": "grandis-legacy-deck-builder",
-  "version": "1.57",
+  "version": "1.58",
   "private": true,
-  "description": "Season 0 Deck Builder v1.57: enlarge Hero Review artwork to fill the available middle panel without Rank I scrolling; preserve matching Rank I–III popup, header and footer geometry in both styles.",
+  "description": "Season 0 Deck Builder v1.58: standalone web.id launch; hide unreleased app links, canonical style routes and same-origin deck handoff, restore Hero RANGE keyword badges.",
   "scripts": {
     "build:data": "node tools/build-deck-data.cjs",
     "check:syntax": "node --check tools/build-deck-data.cjs && node --check js/data.js && node --check js/app.js && node --check style-2/js/data.js && node --check style-2/js/app-v1.31.js",

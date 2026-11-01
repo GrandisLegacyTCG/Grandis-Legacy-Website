@@ -701,7 +701,7 @@ function openCardReview(cardId){
   const card=cardById(cardId);if(!card)return;state.selectedCardId=cardId;hideHover();
   const dialog=$('cardReviewDialog');dialog.dataset.reviewKind=card.family==='Hero'?'hero':card.family==='Skill'?'skill':card.family==='Item'?'item':card.family==='Event'?'event':card.family==='LegacyModeDefinition'?'legacy':'standard';
   $('reviewTitle').textContent=card.name;$('reviewEyebrow').textContent=reviewEyebrow(card);$('reviewArt').src=card.image;$('reviewArt').alt=card.name;
-  if(card.family==='Hero')heroReviewHtml(card);else {standardReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhance(card,$('reviewRows'));}
+  if(card.family==='Hero'){heroReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhanceHero(card,$('reviewRows'));}else {standardReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhance(card,$('reviewRows'));}
   const progression=state.progressionByHeroId.get(card.id),progressionBox=$('reviewProgression');
   if(progression){
     progressionBox.hidden=false;$('reviewProgressionCards').innerHTML=progression.cardIds.map(id=>{const hero=cardById(id);return `<button class="review-progression-card ${id===card.id?'active':''}" type="button" data-review-rank-id="${id}"><img src="${hero.image}" alt="${esc(hero.name)}"></button>`}).join('');

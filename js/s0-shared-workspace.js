@@ -41,9 +41,16 @@
    function prepare(){
     try{
      persist();
-     const url=new URL(link.href,root.location.href);
-     url.hash=encode(getDraft());
-     link.href=url.href;
+     const url=new URL(link.getAttribute('href'),root.document.baseURI);
+     // HTTP(S): both styles have shared origin/localStorage. Avoid long, ugly
+     // #gl-s0-workspace fragments (and URLs containing deck details).
+     // file:// or cross-origin: retain the portable fallback handoff.
+     if(root.location.protocol==='file:' || url.origin!==root.location.origin){
+       url.hash=encode(getDraft());
+       link.href=url.href;
+     }else{
+       link.href=url.pathname+url.search;
+     }
     }catch(e){console.warn('Could not prepare style change:',e.message);}
    }
    link.addEventListener('click',prepare,{capture:true});

@@ -1,3 +1,9 @@
+# Grandis Legacy Deck Builder v1.58 — Standalone Website Navigation + Hero Keyword Review (1 November 2026)
+
+**Baseline:** v1.57. Site target: `grandislegacytcg.web.id`. Single app hosted at repository root, Style 1 `/`, Style 2 `/style-2/`. VS AI/PvP not yet launched and hidden; Hero Rank II/III RANGE keyword now displayed in review. See `docs/RELEASE_NOTE_v1.58.md`.
+
+---
+
 # Grandis Legacy Deck Builder v1.57 — Hero Artwork Fit (1 November 2026)
 
 **Baseline:** v1.56 Hero Review Alignment Fix. **Status:** promoted after the v1.56 review changes.
