@@ -1,6 +1,8 @@
-/* Grandis Legacy Season 0 — Card Review keyword explanations: Player Rulebook v2.8 EN, p.12 (29 October 2026).
-   Special MANA COST +1/+2 are printed card-specific labels, NOT Rulebook p.12 keywords; unchanged.
-   Display-only: no change to deck construction, cards, OSA mechanics, or gameplay validation. */
+/* Grandis Legacy Season 0 — Card Review: official Player Rulebook v2.9 EN (2026-11-01), pp.13–14.
+   The card-artwork RULES footer is transcribed from the Season 0 R3.4 printed artworks.
+   MANA BURN / MANA STEAL wording is intentionally unchanged, per designer instruction.
+   MANA COST +1/+2 are printed card-specific labels, not Rulebook keywords.
+   Display only; no changes to deck legality, card effects, gameplay or OSA. */
 (function(root){'use strict';
  const EXPLANATIONS=Object.freeze({
   'MELEE':'This Attack can only target an opposing active Hero in the directly opposite position.',
@@ -13,7 +15,7 @@
   'CONDITION':'The card can only be used when the condition stated on the card is met.',
   'REACTION':'May be used as a Response outside the Battle Phase when its stated trigger occurs.',
   'HEAL':'Restores HP as stated on the card.',
-  'REVIVE':'Revives a defeated Hero as stated on the card.',
+  'REVIVE':'Return the Legacy Card to the Legacy Deck. The Hero regains HP as stated on the Revive Card.',
   'INVINCIBLE':'The Hero cannot take damage from an opponent or receive new Status from an opponent. Existing Status remains active.',
   'ALL OPPONENTS':'Affects all opposing active Heroes, ignoring normal Area of Attack.',
   'REFLECT':'When this Hero is attacked, deal damage to the attacker as stated on the card.',
@@ -22,15 +24,38 @@
   'MANA COST +1':'The required Mana is 1 higher than the printed Mana Cost.',
   'MANA COST +2':'The required Mana is 2 higher than the printed Mana Cost.'
  });
+ // These 18 RULES bands are present on the printed Main Deck artwork,
+ // separate from card effects and from the Legacy artwork RULES already in data-s0.
+ // Explicitly transcribed, not synthesized from class names or old Shard terminology.
+ const PRINTED_FOOTER_RULES=Object.freeze({
+  'S0-ARC-018':'Only Korvak can use this card or tribute it with a Green Mana Shard for EXP.',
+  'S0-ARC-019':'Only Sylvan can use this card or tribute it with a Green Mana Shard for EXP.',
+  'S0-ARC-025':'Only Alden can use this card or tribute it with a Green Mana Shard for EXP.',
+  'S0-CLE-018':'Only Elara can use this card or tribute it with a White Mana Shard for EXP.',
+  'S0-CLE-019':'Only Thrain can use this card or tribute it with a White Mana Shard for EXP.',
+  'S0-CLE-025':'Only Aurex can use this card or tribute it with a White Mana Shard for EXP.',
+  'S0-MAG-018':'Only Vaelis can use this card or tribute it with a Blue Mana Shard for EXP.',
+  'S0-MAG-019':'Only Aldric can use this card or tribute it with a Blue Mana Shard for EXP.',
+  'S0-MAG-025':'Only Lucien can use this card or tribute it with a Blue Mana Shard for EXP.',
+  'S0-THF-018':'Only Finnian can use this card or tribute it with a Yellow Mana Shard for EXP.',
+  'S0-THF-019':'Only Akra can use this card or tribute it with a Yellow Mana Shard for EXP.',
+  'S0-WAR-018':'Only Draxen can use this card or tribute it with a Red Mana Shard for EXP.',
+  'S0-WAR-019':'Only Garrick can use this card or tribute it with a Red Mana Shard for EXP.',
+  'S0-CLE-031':'Only Melody can use this card or tribute it with a White Mana Shard for EXP.',
+  'S0-MAG-031':'Only Bromir can use this card or tribute it with a Blue Mana Shard for EXP.',
+  'S0-EVT-001':'You can only have 1 of this card in your deck.',
+  'S0-EVT-003':'You can only have 1 of this card in your deck.',
+  'S0-EVT-008':'You can only have 1 of this card in your deck.'
+ });
  const KEYS=Object.keys(EXPLANATIONS);
- // Player Rulebook v2.8.2 EN, p.14: status mechanics, not gameplay engine logic.
+ // Player Rulebook v2.9 EN, p.14: verbatim status descriptions; no engine logic changes.
  const STATUSES=Object.freeze({
-  'Bleed':'The affected Hero cannot receive Healing. Bleed does not deal damage.',
-  'Burn':'The affected Hero takes 10 additional damage from Attacks that deal damage.',
-  'Freeze':'The affected Hero cannot DODGE or be swapped.',
-  'Poison':"The affected Hero takes 10 damage during its owner's End Phase.",
-  'Sleep':'The affected Hero cannot use Skill or Event Cards, except Skills with DODGE. It wakes up when hit by another Attack.',
-  'Stun':'The affected Hero cannot use Skill or Event Cards, activate Racial Traits, BLOCK, DODGE, or be swapped. It cannot initiate other active effects.'
+  'Bleed':'This Hero cannot receive Healing. Bleed does not deal damage.',
+  'Burn':'This Hero takes 10 additional damage from Attacks that deal damage.',
+  'Freeze':'This Hero cannot DODGE or swap positions.',
+  'Poison':"This Hero takes 10 damage during its owner's End Phase.",
+  'Sleep':'This Hero cannot use Skill or Event Cards, except Skills with DODGE. It wakes up when hit by another Attack.',
+  'Stun':'This Hero cannot use Skill or Event Cards, activate Racial Traits, BLOCK, DODGE, or swap positions. It cannot initiate other active effects.'
  });
  const STATUS_COLORS=Object.freeze({Bleed:'#e46b6b',Burn:'#f6a24b',Freeze:'#79d7f6',Poison:'#a5d65a',Sleep:'#b895ee',Stun:'#f2d72e'});
  const STATUS_NAME_PATTERN=/\b(Bleed|Burn|Freeze|Poison|Sleep|Stun)\b/g;
@@ -170,6 +195,19 @@
   }
   if(allKeywords.size)rootNode.append(renderExplanation([...allKeywords]));
  }
+ function syncPrintedFooterRules(card,rootNode){
+  const rule=PRINTED_FOOTER_RULES[card?.id];
+  if(!rule)return;
+  if(card.family==='Skill'&&card.ultimate?.isUltimate){
+   let panel=rootNode.querySelector('.review-ultimate-rules');
+   if(!panel){panel=node('div','review-ultimate-rules');panel.append(node('span','', 'ULTIMATE RULES'),node('p'));rootNode.append(panel);}
+   panel.querySelector('p').textContent=rule;
+  }else if(card.family==='Event'){
+   let panel=rootNode.querySelector('.review-card-printed-rules');
+   if(!panel){panel=node('div','review-generic-row review-card-printed-rules');panel.append(node('span','', 'RULES'),node('p'));rootNode.append(panel);}
+   panel.querySelector('p').textContent=rule;
+  }
+ }
  function enhance(card,rootNode){
   if(!card||!rootNode||card.family==='Hero'||card.family==='LegacyModeDefinition')return;
   const rows=Array.isArray(card.rows)&&card.rows.length?card.rows:[{effect_text:card.text||''}];
@@ -184,6 +222,9 @@
    effectIndex+=1;
    for(const keyword of enrichEffect(p,row,card))allKeywords.add(keyword);
   }
+  // Replace stale Ultimate footer and add the RULES line of Special Events.
+  // Do this after iterating effect rows so it never gets interpreted as an Effect.
+  syncPrintedFooterRules(card,rootNode);
   const conditionPanel=renderConditions(conditions);
   if(conditionPanel){
    // A shared, card-level panel immediately before the first Class/Rank + Effect card.
@@ -202,5 +243,5 @@
   const statuses=renderStatuses([...statusNames]);
   if(statuses)rootNode.append(statuses);
  }
- root.GL_S0_REVIEW_CLARITY={EXPLANATIONS,STATUSES,STATUS_COLORS,KEYS,tags,conditionOf,stripCondition,enhance,enhanceHero};
+ root.GL_S0_REVIEW_CLARITY={EXPLANATIONS,STATUSES,STATUS_COLORS,PRINTED_FOOTER_RULES,KEYS,tags,conditionOf,stripCondition,enhance,enhanceHero};
 })(window);

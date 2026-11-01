@@ -1,3 +1,5 @@
+**v1.58 review-only Rulebook v2.9 hotfix:** keyword/status descriptions now follow official Player Rulebook v2.9 (MANA BURN/STEAL unchanged), 15 Ultimate and 3 Special Event RULES footers match printed card artwork, and Ultimate RULES stroke removed; both styles. See `docs/HOTFIX_v1.58_RULEBOOK_V2.9_REVIEW.md`.
+
 **v1.58 corrective patch:** includes root `CNAME` for `grandislegacytcg.web.id` and fixes `file://` Style 1/2 navigation. Keep this file alongside `index.html` and `.nojekyll` when deploying to the GitHub repository root. Details: `docs/HOTFIX_v1.58_GITHUB_AND_LOCAL_NAVIGATION.md`.
 
 # Grandis Legacy Deck Builder v1.58 — Standalone Website Navigation + Hero Keyword Review (1 November 2026)
