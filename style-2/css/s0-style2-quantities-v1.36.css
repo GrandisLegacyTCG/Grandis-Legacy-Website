@@ -1,0 +1,11 @@
+/* DB-12/13: Style 2 Main Deck only. Card itself opens Review; quantity changes use explicit buttons. */
+#deckGrid .deck-card{cursor:pointer!important;touch-action:pan-y}
+#deckGrid .deck-card:hover{transform:none!important}
+#deckGrid .deck-card>.review-button{display:none!important}
+#deckGrid .deck-qty-bar{position:absolute;left:5px;right:5px;bottom:5px;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:3px;min-height:30px;padding:2px 3px;border:1px solid rgba(152,156,172,.58);border-radius:7px;background:rgba(10,14,23,.92);box-shadow:0 2px 9px #000a}
+#deckGrid .deck-qty-step{flex:0 0 29px;display:grid;place-items:center;height:26px;min-width:0;padding:0!important;border:1px solid rgba(214,175,79,.6)!important;border-radius:5px!important;background:#252531!important;color:#ffdc89!important;font-size:19px!important;font-weight:900!important;line-height:1!important;cursor:pointer}
+#deckGrid .deck-qty-step:hover:not(:disabled){background:#655122!important;border-color:#ffd67f!important}
+#deckGrid .deck-qty-step:disabled{opacity:.32;cursor:not-allowed}
+#deckGrid .deck-qty-value{flex:1 1 auto;min-width:0;text-align:center;color:#fff;font-size:11px;font-weight:900}
+@media(max-width:1180px){#deckGrid .deck-qty-step{flex-basis:25px;height:25px}}
+@media(max-width:760px){#deckGrid .mobile-deck-row{touch-action:pan-y}}

@@ -1,0 +1,55 @@
+/* v1.32.2: only approved adjustments; source Style 2 theme/layout stays intact. */
+/* All dialogs: responsive content reflow, vertical scrolling, never horizontal scrolling. */
+.app-dialog{box-sizing:border-box;max-width:100vw;max-height:100vh;overflow-x:hidden}
+.app-dialog *, .app-dialog *::before,.app-dialog *::after{box-sizing:border-box;min-width:0}
+.app-dialog .dialog-card{
+  box-sizing:border-box;
+  width:min(100%,calc(100vw - 32px));
+  max-width:calc(100vw - 24px);
+  height:auto;
+  max-height:calc(100vh - 28px);
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.app-dialog .dialog-card img{max-width:100%}
+.app-dialog .dialog-card h2,.app-dialog .dialog-card p,.app-dialog .dialog-message,
+.app-dialog .confirm-item,.app-dialog .review-rows{overflow-wrap:anywhere}
+.app-dialog .hero-picker-card{width:min(1160px,calc(100vw - 24px));height:auto;max-height:calc(100vh - 24px);overflow-x:hidden;overflow-y:auto}
+.app-dialog .hero-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:auto;gap:8px 10px;width:100%}
+.app-dialog .hero-choice{width:100%;min-width:0;height:auto;min-height:92px;grid-template-columns:minmax(0,190px) minmax(0,1fr);align-items:center;gap:12px;overflow:visible}
+.app-dialog .hero-choice-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;gap:4px}
+.app-dialog .hero-choice-cards img{display:block;width:100%;height:auto;max-height:90px;aspect-ratio:5/7;object-fit:contain;justify-self:center}
+.app-dialog .hero-choice-info{min-width:0}
+.app-dialog .hero-choice-info span{display:block!important;overflow:visible;white-space:normal;text-overflow:clip;overflow-wrap:anywhere}
+.app-dialog .review-card{width:min(1100px,calc(100vw - 24px));height:auto;max-height:calc(100vh - 24px);overflow-x:hidden;overflow-y:auto;display:block}
+.app-dialog .review-layout{min-width:0;grid-template-columns:minmax(0,280px) minmax(0,1fr);height:auto;min-height:0}
+.app-dialog .review-detail-column,.app-dialog .review-rows{min-width:0;max-height:none;overflow-x:hidden;overflow-y:visible}
+.app-dialog .review-progression{min-width:0;max-width:100%;flex-wrap:wrap}
+.app-dialog .confirm-list{overflow-y:auto;overflow-x:hidden}
+.app-dialog .confirm-item{min-width:0;max-width:100%}
+/* Original dropdown language and feel; no new custom widget. */
+.keyword-filters{grid-template-columns:minmax(0,1fr)}
+.keyword-filters label{width:min(235px,100%);min-width:0}
+.keyword-filters select{width:100%;height:31px;padding:0 8px;font-size:10px}
+@media(max-width:960px){
+ .app-dialog .hero-picker-grid{grid-template-columns:minmax(0,1fr)}
+ .app-dialog .hero-choice{grid-template-columns:minmax(0,170px) minmax(0,1fr)}
+ .app-dialog .review-layout{grid-template-columns:minmax(0,1fr)}
+ .app-dialog .review-art{width:min(280px,100%);height:auto;justify-self:center}
+ .app-dialog .review-stats{width:100%;min-width:0}
+}
+@media(max-width:480px){
+ .app-dialog .dialog-card{padding:14px 12px}
+ .app-dialog .hero-choice{grid-template-columns:minmax(0,112px) minmax(0,1fr);gap:8px;padding:8px}
+ .app-dialog .hero-choice-cards img{max-height:72px}
+ .app-dialog .dialog-actions{flex-wrap:wrap}
+ .app-dialog .dialog-actions button{flex:1 1 120px}
+ .app-dialog .review-stats,.app-dialog .review-summary{grid-template-columns:minmax(0,1fr)}
+}
+
+/* 1.32.4: original Style 2 filter row now includes Effect beside Keyword. */
+.keyword-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.keyword-filters label{width:100%;min-width:0}
+#effectField select{width:100%;min-width:0}
+@media(max-width:420px){.keyword-filters{grid-template-columns:minmax(0,1fr)}}

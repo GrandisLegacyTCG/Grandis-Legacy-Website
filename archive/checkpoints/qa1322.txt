@@ -1,0 +1,51 @@
+
+> grandis-legacy-deck-builder@1.32.2 check
+> npm run check:syntax:s0 && npm test
+
+
+> grandis-legacy-deck-builder@1.32.2 check:syntax:s0
+> node --check js/season0-catalog.js && node --check js/season0-legality.browser.js && node --check js/data-s0.js && node --check js/s1-to-s0-import.js && node --check js/app-s0.js && node --check style-2/js/app-s0.js
+
+
+> grandis-legacy-deck-builder@1.32.2 test
+> node tests/run-s0-styles.cjs && node tests/run-v1322-s1-migration.cjs
+
+PASS Source card count and Season 0 IDs
+PASS 11 complete Hero progressions and 38 excluded slots
+PASS Authoritative source corrections
+PASS Original style assets unchanged by SHA-256
+PASS Original visual shells and two-way Style switch preserved
+PASS 204 artwork hashes match OSA source catalog
+PASS Fall back count 24, current count 180
+PASS 50/12/12 construction sample and invalid 49-card control
+PASS Ultimate Class Shard deriving
+PASS 9/9 S0 static/source/legality checks
+PASS Detect legacy S1 and never classify S0
+PASS Real archived 60-card S1 starter migrates by names and preserves unrecognized copies
+PASS 60-card source with eight total missing copies loads 52, not truncated to 50
+PASS Explicit example 60 -> 52 and missing entries are reported
+PASS Name-only main entry is accepted if unambiguous; old names never guessed
+PASS Hybrid hero IDs migrate by printed identity/name, not old number
+PASS 6/6 legacy migration checks
+
+> grandis-legacy-deck-builder@1.32.2 check:browser:s0
+> python3 tests/browser-v1322-qa.py
+
+style1 keyword options: 15 ['All Keywords', 'ALL OPPONENTS', 'BLOCK', 'BUFF', 'CONDITION', 'DODGE', 'HEAL', 'INVINCIBLE']
+style1 DODGE results 8
+style1 import preview 58 of 60 Main Deck copies matched by name; 2 skipped. 3 Hero progressions and 3 Legacies matched. Cards beyond 50 remain in the draft and the 50-
+style1 imported count: 58/50
+style2 keyword options: 15 ['All Keywords', 'ALL OPPONENTS', 'BLOCK', 'BUFF', 'CONDITION', 'DODGE', 'HEAL', 'INVINCIBLE']
+style2 DODGE results 9
+style2 hover Library {'boxX': 607, 'mainX': 607.25}
+style2 hover Deck {'boxR': 599, 'libR': 599.25}
+style2 popup measurements {'client': 1158, 'scroll': 1158, 'gridClient': 1122, 'gridScroll': 1122, 'height': 708, 'scrollHeight': 708}
+style2 import preview 58 of 60 Main Deck copies matched by name; 2 skipped. 3 Hero progressions and 3 Legacies matched. The draft may contain over 50 cards; the 50-car
+style2 imported count: 58
+browser errors []
+PASS interactive tests: both styles, keyword, S1 import, hover, popup
+responsive style1 900 520 {'vw': 900, 'dialog': 788, 'scroll': 788, 'visible': 324, 'total': 324, 'choices': None, 'choicesClient': None}
+responsive style1 390 700 {'vw': 390, 'dialog': 364, 'scroll': 364, 'visible': 312, 'total': 312, 'choices': None, 'choicesClient': None}
+responsive style2 900 520 {'vw': 900, 'dialog': 874, 'scroll': 874, 'visible': 494, 'total': 1165, 'choices': 842, 'choicesClient': 842}
+responsive style2 390 700 {'vw': 390, 'dialog': 364, 'scroll': 364, 'visible': 674, 'total': 1212, 'choices': 340, 'choicesClient': 340}
+PASS constrained responsive popup checks

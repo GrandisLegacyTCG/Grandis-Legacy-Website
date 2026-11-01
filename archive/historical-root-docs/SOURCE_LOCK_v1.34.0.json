@@ -1,0 +1,30 @@
+{
+  "package": "Grandis Legacy Season 0 Deck Builder",
+  "release_version": "1.34.0",
+  "date": "2026-10-28",
+  "scope": "DECK_CONSTRUCTION_ONLY_NOT_GAMEPLAY_ENGINE",
+  "season": "S0",
+  "rulebook": "Player Rulebook v2.7.8 EN",
+  "main_deck": "GL_S0_MainDeck_R3.3.rar",
+  "main_deck_card_count": 187,
+  "main_deck_override": "S0-MAG-028-Provoke.webp — Arcane Warrior Rank II, user supplied",
+  "legacy_deck": "GL_S0_LegacyDeck_R3.2.rar",
+  "hero_legacy_count": 55,
+  "mana_deck": "GL_S0_ManaDeck_R1.rar — 12 physical Mana composition; artwork display is outside this Deck Builder card library",
+  "source_snapshot": "OSA v5.86.0 / MainDeck-R3/main-deck-r3.3-engine-v5.81.json — printed metadata only",
+  "steal_print_override": "S0-THF-005 MANA STEAL 1 (from printed R3.3 WEBP)",
+  "keywords_added": [
+    "MANA BURN",
+    "MANA STEAL"
+  ],
+  "style1": "index.html",
+  "style2": "style-2/index.html",
+  "starter_presets": 0,
+  "gameplay_engine_certified": false,
+  "current_authoritative_data": [
+    "js/season0-catalog.js",
+    "js/data-s0.js",
+    "data/source-snapshots/main-deck-r3.3-v5.86-print.json"
+  ],
+  "historical_metadata_note": "SOURCE_LOCK_v3.20.json and SOURCE_AUDIT_UPDATE5.json are historical records, not current release authority."
+}

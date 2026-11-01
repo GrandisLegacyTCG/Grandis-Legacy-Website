@@ -1,0 +1,17 @@
+
+> grandis-legacy-deck-builder@1.32.3 check:browser:s0
+> python3 tests/browser-v1323-qa.py
+
+style1 init
+style1 chosen heroes [{'progressionId': 'S0-ARC-H001', 'legacyId': 'S0-ARC-L001'}, {'progressionId': 'S0-CLE-H001', 'legacyId': 'S0-CLE-L001'}, {'progressionId': 'S0-WAR-H001', 'legacyId': 'S0-WAR-L001'}]
+style1 heroes/filter checks OK
+style1 building 50
+style1 50 construction {'issues': [], 'count': 50}
+style1 workspace count 60/50 ; export disabled at 60
+style2 init
+style2 heroes/filter checks OK
+style2 building 50
+style2 50 construction {'issues': [], 'count': 50}
+style2 workspace count 60 ; export disabled at 60
+style1 inline Chromium browser PASS
+style2 inline Chromium browser PASS

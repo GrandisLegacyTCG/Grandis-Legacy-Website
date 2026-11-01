@@ -1,0 +1,61 @@
+/* Grandis Legacy — Deck Builder Style 2 v1.46.0
+ * Compact ONLY Style 2 controls. Style 1 and review overlays untouched.
+ * At 1600x900 aims for four library columns, six deck columns, three visible rows.
+ */
+@media (min-width: 761px) {
+  /* Preserve header/logo sizing. Reduce whitespace between header and cards. */
+  .app-shell { gap: 4px !important; padding-bottom: 5px !important; }
+  .deck-tools-bar { height: 43px !important; flex: 0 0 43px !important; padding: 4px 9px !important; }
+  .deck-tools { gap: 7px !important; align-items: center !important; }
+  .deck-name-field { gap: 1px !important; }
+  .deck-name-field>span { font-size: 8px !important; line-height: 1.05 !important; }
+  .deck-name-field input { height: 27px !important; padding: 0 9px !important; font-size: 13px !important; }
+  .deck-tools>button { height: 29px !important; padding: 0 12px !important; font-size: 9px !important; letter-spacing: .015em !important; }
+  .deck-tabs { height: 27px !important; flex: 0 0 27px !important; gap: 7px !important; }
+  .tab-button { height: 27px !important; min-width: 0 !important; width: 190px !important; padding: 0 9px !important; font-size: 10px !important; }
+  .main-view { grid-template-columns: minmax(0,45fr) minmax(0,55fr) !important; gap: 8px !important; }
+  .main-view .compact-head { height: 39px !important; min-height: 39px !important; padding: 4px 12px !important; }
+  .main-view .compact-head h2 { font-size: 18px !important; margin: 0 !important; }
+  .main-view .head-count { height: 25px !important; min-width: 37px !important; font-size: 14px !important; }
+  .main-view .library-controls { padding: 5px 8px !important; }
+  .main-view .search-filter-row { grid-template-columns: minmax(0,1fr) 85px !important; gap: 6px !important; }
+  .main-view .search-input { height: 29px !important; padding: 0 9px !important; font-size: 13px !important; }
+  .main-view .filter-toggle { height: 29px !important; padding: 0 7px !important; font-size: 10px !important; }
+  .main-view .main-deck-view-open { height: 27px !important; min-height: 27px !important; padding: 3px 10px !important; font-size: 9px !important; }
+  .main-view .large-total strong { font-size: 22px !important; }
+  .main-view .large-total span { font-size: 12px !important; }
+  .main-view .deck-summary { height: 36px !important; min-height: 36px !important; gap: 11px !important; padding: 0 10px !important; font-size: 10px !important; }
+  .main-view .deck-validation { padding: 3px 7px !important; font-size: 10px !important; }
+  .main-view .interaction-hint { font-size: 9px !important; }
+  /* Consistent 4-column grid: fills the library to the scrollbar and
+     keeps an incomplete final row next to one another on the LEFT. */
+  #cardLibrary {
+    display:grid !important;
+    grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+    grid-auto-flow:row !important;
+    grid-auto-rows:max-content !important;
+    justify-content:initial !important;
+    justify-items:stretch !important;
+    align-content:start !important;
+    gap:7px 6px !important;
+    padding:7px 6px !important;
+  }
+  #cardLibrary>.library-card {
+    min-width:0 !important;
+    width:100% !important;
+    max-width:none !important;
+    flex:none !important;
+    aspect-ratio:5/7 !important;
+  }
+  #deckGrid { gap: 7px !important; padding: 7px 8px !important; }
+  #deckGrid>.deck-card { flex: 0 0 calc((100% - 35px)/6) !important; width: calc((100% - 35px)/6) !important; }
+}
+/* On narrower desktop, four columns still fit with proportionally smaller art. */
+@media (min-width:761px) and (max-width:1040px) {
+  .deck-tools>button { padding:0 6px !important; font-size:8px !important; }
+  #deckGrid .deck-qty-step { flex-basis:22px !important; font-size:16px !important; }
+}
+/* Mobile retains existing vertical layout and controls. */
+/* Starter artwork is the center-position Rank I Hero, shown uncropped. */
+#starterList .starter-option img { object-fit:contain !important; object-position:center !important; }
+#starterList .starter-option { min-width:0; }
