@@ -80,6 +80,33 @@ const laneOrder=['LEFT','CENTER','RIGHT'];
 function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
 function cv(id){return id?E().cardView(id):null;}
 function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp':'';}
+// Hand artwork is fetched ahead of the reveal. Keep only a small bounded set
+// of warm Image objects; browser HTTP caching handles later hand re-renders.
+const glHandArtworkPreloads=new Map();
+function preloadHandArtwork(id){
+  if(!id)return;
+  const key=String(id);
+  if(glHandArtworkPreloads.has(key))return;
+  const image=new Image();
+  glHandArtworkPreloads.set(key,image);
+  image.src=art(key);
+  if(glHandArtworkPreloads.size>16)glHandArtworkPreloads.delete(glHandArtworkPreloads.keys().next().value);
+}
+function bindPlayerHandArtwork(card,image,id){
+  // Hold the front transparent against the real card back until it is decoded.
+  // Prevents alt-text flashing on a slow or cold image request.
+  card.classList.add('gl-hand-art','gl-hand-art-loading');
+  const reveal=()=>{if(image.naturalWidth>0)card.classList.remove('gl-hand-art-loading')};
+  const loaded=()=>{
+    if(typeof image.decode==='function')image.decode().then(reveal,()=>{if(image.complete)reveal()});
+    else reveal();
+  };
+  image.addEventListener('load',loaded,{once:true});
+  image.src=art(id);
+  if(image.complete&&image.naturalWidth>0)loaded();
+  preloadHandArtwork(id);
+  // An image request failure leaves the card back visible, not alt text.
+}
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cloneLite(v){try{return JSON.parse(JSON.stringify(v))}catch{return null}}
@@ -653,6 +680,7 @@ function startMatchFromLobby(){
 }
 function beginOpeningPresentation(){
   const r=E().commitOpeningSetup?.(openingChoice,openingOutcome,openingFirstSide);if(!r?.ok){coinOverlay.querySelector('.gl-coin-body').innerHTML='<p>'+esc(r?.error||'Could not begin the match.')+'</p>';return}
+  (st()?.playerHand||[]).forEach(preloadHandArtwork); // Start all opening-hand artwork requests before their draw animation.
   startMatchTimer();coinOverlay.classList.remove('open');openingPresentationActive=true;lastTurnBannerKey='';
   (r.handEvents||[]).forEach(e=>{if(e?.id)seenPresentationEvents.add(e.id);const side=e.side==='AI'?'AI':'PLAYER';glHiddenCommittedDrawSlots[side].set(Number(e.hand_index),String(e.id||side+'-'+e.hand_index))});
   (r.manaEvents||[]).forEach(e=>glOpeningHiddenShardUids.add((e.side==='AI'?'AI':'PLAYER')+'|'+String(e.uid)));
@@ -765,6 +793,7 @@ function buildPresentationPlan(s){
   // Hand card rendered, but hide only incoming committed draw slots in-place.
   (plan.draws||[]).forEach(e=>{
     const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
+    if(side==='PLAYER')preloadHandArtwork(e.card_id);
     if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,String(e.id||side+'-'+idx));
   });
   previousVisualState=cur;if(!presentationPrimed)presentationPrimed=true;return plan;
@@ -2052,7 +2081,7 @@ function renderHand(s){
       if(m.canTribute){addAction(actions,'TRIBUTE','tribute',()=>intent('beginTributeFromHand',[idx]));actionCount++}
     }
     if(actionCount)card.classList.add('gl-has-action');
-    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.src=art(id);im.alt=v?.name||'Card';im.draggable=false;card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
+    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.alt=v?.name||'Card';im.draggable=false;bindPlayerHandArtwork(card,im,id);card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
   });
   pendingDraws.forEach((r,i)=>{
     const idx=(s.playerHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');
@@ -2428,7 +2457,7 @@ function markReservedDrawEventHandled(reservation){
 }
 function queueBattlefieldReservedDraw(reservation,commit){
   if(!reservation||typeof commit!=='function')return false;
-  const side=reservation.side==='AI'?'AI':'PLAYER',list=glPendingDrawReservations[side];list.push(reservation);invalidateHandRender(side);renderNow();
+  const side=reservation.side==='AI'?'AI':'PLAYER',list=glPendingDrawReservations[side];if(side==='PLAYER')preloadHandArtwork(reservation.card_id);list.push(reservation);invalidateHandRender(side);renderNow();
   const run=()=>new Promise(resolve=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const from=zoneEl(side,'Main Deck'),hand=side==='PLAYER'?playerHandTrack:oppHandTrack,to=hand?.querySelector('.gl-draw-reservation-slot[data-draw-reservation-id="'+CSS.escape(String(reservation.id||''))+'"]');
     const finish=()=>{try{commit()}finally{markReservedDrawEventHandled(reservation);const at=list.findIndex(x=>String(x.id)===String(reservation.id));if(at>=0)list.splice(at,1);invalidateHandRender(side);renderNow();resolve()}};
