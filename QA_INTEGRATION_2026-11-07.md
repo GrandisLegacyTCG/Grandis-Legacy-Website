@@ -1,0 +1,24 @@
+# Grandis Legacy RC31 + Deck Builder v1.61 — Integration QA
+
+**Date:** 2026-11-07 | **Status:** Static integration verification complete; browser/live testing incomplete.
+
+## Source baselines
+- VS AI Season 0 **v1.0 RC31**, NOT RC30/29. RC31's Surrender → Match Result and explicit Back to Lobby behavior are preserved.
+- Deck Builder **v1.61**, NOT v1.60. v1.61 mobile Card Library/Main Deck chevron PNG behavior and script version parameters are preserved.
+- Original `grandislegacytcg.github.io` website/PvP were not merged and were not modified.
+
+## Results
+- **PASS**: repo-root `index.html`, `CNAME`, `.nojekyll` and two DB style entries present.
+- **PASS**: exact SHA-256 match for 406 untouched VS AI runtime/asset files against RC31.
+- **PASS**: exact SHA-256 match for 345 untouched Deck Builder runtime/asset files against v1.61.
+- **PASS**: 99 static references in three top-level HTML entry points resolve to bundled files.
+- **PASS**: all 40 distributed `.js` files accepted by Node.js syntax check.
+- **PASS**: 28 CSS `url()` reference paths checked. Two unresolved paths are inherited *unchanged* from original RC31 in `assets/review-db158/css/app.css` (`../assets/ui/Grandis-Background.webp`, `../assets/ui/chevron-down.png`). Because the assets are missing in the original RC31 too, no speculative fix is included; live review-card rendering is NOT VERIFIED.
+- **PASS**: native RC31 favicon `engine/assets/favicon.png` and DB v1.61 `assets/favicon.png` are byte-identical, SHA-256 `ba3c77d7c9172a375ad23fb449ad44a1ff4d7dad53a56770f71e352cbc7cb03d`.
+- **PASS**: navigation link/hidden-PvP assertions on root, Style 1, Style 2; special checks for RC31 Match Result functions and DB v1.61 chevron markup.
+- **PASS**: HTTP GET for all 18 tested local pages/images/styles/scripts returned 200.
+- **BLOCKED**: six attempted interactive Chromium navigations at 1440×900 and 390×844, all `ERR_BLOCKED_BY_ADMINISTRATOR` (environment restriction). This does *not* mean the site itself failed.
+- **NOT VERIFIED**: live GitHub Pages/custom domain deployment, visual navigation and style across devices, full Human-vs-AI match and card draw-art loading, and actual Deck Builder v1.61 exported JSON import into VS AI RC31.
+
+## Scope and follow-up
+This release integrates the new standalone versions and the previously approved navigation, favicon, and hidden-PvP behavior only. No game engine, card data, AI logic, artwork, or v1.61 collapse behavior was changed. The previously proposed Opening Hand artwork preloading/card-back loading placeholder remains **PLANNED, NOT INCLUDED**; implementing it safely in VS AI itself requires a targeted UI change and browser validation separate from this merge.

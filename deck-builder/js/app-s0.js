@@ -890,7 +890,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.4-MainDeck-LegacyDeck-PlayerRulebook-v2.9',rulebook:'v2.9',season:'S0',builder_version:'1.60',style,
+  source_authority:'R3.4-MainDeck-LegacyDeck-PlayerRulebook-v2.9',rulebook:'v2.9',season:'S0',builder_version:'1.61',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

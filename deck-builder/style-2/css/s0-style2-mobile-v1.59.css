@@ -31,8 +31,7 @@
     background:#20222b!important;color:#f4d47c!important;font-size:21px!important;line-height:1!important;
     -webkit-tap-highlight-color:transparent;
   }
-  .s2-mobile-collapse-toggle>span{display:block;transition:transform .15s ease;transform-origin:center;transform:translateY(-1px)}
-  .s2-mobile-collapsed .s2-mobile-collapse-toggle>span{transform:rotate(180deg) translateY(1px)}
+  .main-view .s2-mobile-collapse-chevron{display:block;width:18px;height:18px;object-fit:contain;pointer-events:none}
   .main-view .library-panel.s2-mobile-collapsed .library-controls,
   .main-view .library-panel.s2-mobile-collapsed #cardLibrary,
   .main-view .main-deck-panel.s2-mobile-collapsed .deck-summary,

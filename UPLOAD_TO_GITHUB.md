@@ -1,17 +1,10 @@
-# Upload to GitHub — Direct Pages Layout
+# Upload to GitHub — Direct Pages
 
-**This ZIP is not meant to be uploaded as a single `.zip` file to GitHub. Extract it first.** It is already the website, with `index.html` in the root; no Python build or GitHub Actions are needed.
+1. **Back up** the current live `Grandis-Legacy-Website` repository and export any important saved decks.
+2. Extract this ZIP. GitHub repository root must contain `index.html`, `CNAME`, `.nojekyll`, `deck-builder/` (no extra wrapping directory).
+3. Use GitHub Desktop to copy **contents** of extracted ZIP into the cloned repository, replacing old deployed files. Be careful: old files not present in this release may need removal; do not delete unrelated repository resources without checking.
+4. Review changes → Commit → Push. With Pages set to `Deploy from a branch` → `main` → `/(root)`, this can go live automatically.
+5. Confirm `Settings → Pages` custom domain `grandislegacytcg.web.id`; don't change DNS if already working.
+6. Check `/` (VS AI RC31), `/deck-builder/` (DB v1.61 Style 1), `/deck-builder/style-2/` (Style 2); navigation, favicon, PvP hidden, exported/imported deck, live gameplay and card artwork.
 
-1. In GitHub, identify the repository that currently publishes `grandislegacytcg.web.id`. **Do not change the old `grandislegacytcg.github.io` repository.**
-2. Back up/clone the domain's existing repository. For 750+ website files, **GitHub Desktop or git** is easier than the GitHub browser uploader.
-3. Extract this ZIP. Copy the **contents** of the extracted folder (including `.nojekyll` and `CNAME`) directly into the cloned repository root, alongside the existing `.git` directory (never delete `.git`). Do not leave a wrapper folder like `Grandis_Legacy_Direct_Pages_Ready_.../` around the website files.
-4. With a backup already made, remove stale website files from the previous deployment where appropriate so old file routes aren't left behind. Do not delete non-website files blindly; review changes in GitHub Desktop before committing.
-5. In the repository's **Settings → Pages**, select **Deploy from a branch**; choose the publishing branch (normally `main`) and **`/ (root)`**. Verify the **Custom domain** is `grandislegacytcg.web.id`.
-6. Commit and push the changes to that publishing branch. This may replace the live homepage, so do so only when ready.
-7. After GitHub Pages completes publishing, check:
-   - `https://grandislegacytcg.web.id/` (VS AI RC30)
-   - `https://grandislegacytcg.web.id/deck-builder/` (Deck Builder Style 1)
-   - `https://grandislegacytcg.web.id/deck-builder/style-2/` (Deck Builder Style 2)
-   - Navigation buttons, logo, hidden PvP links, favicon, saved decks, export/import, and actual gameplay.
-
-**Important:** Do NOT select GitHub Pages “GitHub Actions” source for this ZIP. It contains a **direct-to-root static website** and no deployment workflow.
+**Important:** This ZIP is a static web repository, not a ZIP to upload directly to GitHub Pages. Extract and upload its contents to the root. It does not modify the old `grandislegacytcg.github.io` repository. GitHub deployment is not performed by generating this ZIP.

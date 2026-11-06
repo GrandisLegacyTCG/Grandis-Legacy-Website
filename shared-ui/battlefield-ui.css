@@ -515,7 +515,7 @@
   display:block;width:min(150px,42vw);height:auto;aspect-ratio:1;object-fit:contain;border-radius:50%;will-change:transform,filter;
 }
 
-/* Game Result copied from current VS AI: winner, reason, round, Back to Lobby, 60s cleanup. */
+/* Game Result: winner, reason, round and explicit Back to Lobby; keep result accessible after CLOSE. */
 .gl-result-overlay{position:fixed;inset:0;z-index:28500;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(1,6,10,.91);color:#eef5fb}
 .gl-result-overlay.open{display:flex}
 .gl-result-card{width:min(610px,92vw);border:1px solid #735f25;border-radius:16px;background:linear-gradient(180deg,#111f2c,#071019 78%);box-shadow:0 26px 96px rgba(0,0,0,.82);overflow:hidden}
@@ -665,8 +665,8 @@
   z-index:18050!important;
 }
 
-/* Game Result can be dismissed to inspect the frozen final battlefield. Back to
-   Lobby and the existing one-minute auto-return behavior are unchanged. */
+/* Game Result can be dismissed and reopened from Match Result in the Surrender slot.
+   Explicit Back to Lobby is retained; no automatic redirect can strand the reopen action. */
 .gl-result-buttons{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .gl-result-close{
   height:34px;padding:0 15px;border:1px solid #45627e;border-radius:7px;
@@ -1468,3 +1468,12 @@ body.gl-center-stoneblood .gl-center-choice-actions{margin-top:20px!important}
 .gl-hero-action-tip.open{display:flex;flex-direction:column;gap:4px}
 .gl-hero-action-tip strong{color:#f1d37b;font-size:13px;letter-spacing:.02em}
 .gl-hero-action-tip span{display:block}
+
+/* UI-001: same sidebar control slot; finished state is visually distinct from Surrender. */
+.bottom-actions #matchActionButton.match-result-action{
+  border-color:#94782b;background:#192318;color:#f4d35e;cursor:pointer;
+}
+.bottom-actions #matchActionButton.match-result-action:hover,
+.bottom-actions #matchActionButton.match-result-action:focus-visible{
+  border-color:#d6b84c;background:#26301d;
+}

@@ -1,4 +1,4 @@
-/* Navigation-only overlay; VS AI RC30 original gameplay/UI remains untouched. */
+/* Navigation-only overlay; VS AI RC31 original gameplay/UI remains untouched. */
 .gl-lobby-head .gl-lobby-home{flex:none;display:inline-flex;align-items:center;text-decoration:none;line-height:0}
 .gl-lobby-head .gl-lobby-home:focus-visible,.gl-lobby-app-link:focus-visible{outline:2px solid #f4d87e;outline-offset:3px}
 .gl-lobby-head .gl-lobby-app-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-left:auto}

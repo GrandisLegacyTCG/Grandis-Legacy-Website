@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Grandis Legacy — VS AI Season 0</title>
-<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="icon" type="image/png" sizes="120x120" href="engine/assets/favicon.png">
 <style>
 @font-face{font-family:Noto;src:url('assets/fonts/NotoSans-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
 :root{
@@ -355,7 +355,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       <button class="battle-log-btn" id="battleLogBtn" type="button">Battle Log</button>
       <div class="preview-overlay"><img id="hoverPreviewCard" class="preview-card" alt="Card preview"></div>
     </section>
-    <div class="bottom-actions"><span class="match-timer" id="matchTimer" aria-label="Match time">00:00</span><button>Sound On</button><button class="danger">Surrender</button></div>
+    <div class="bottom-actions"><span class="match-timer" id="matchTimer" aria-label="Match time">00:00</span><button>Sound On</button><button type="button" id="matchActionButton" class="danger">Surrender</button></div>
     <section class="battlelog-panel" id="battleLogPanel" aria-hidden="true"><div class="history-head"><h3>Battle Log</h3><button class="history-close" id="battleLogClose" type="button">Close</button></div></section>
     <section class="history-panel" id="historyPanel" aria-hidden="true"><div class="history-head"><h3>Full Card History</h3><button class="history-close" id="historyClose" type="button">Close</button></div><div class="history-grid"></div></section>
   </aside>
