@@ -6,7 +6,7 @@
   var GL_APP_MODE=String((typeof window!=='undefined'&&window.GL_APP_MODE)||'LOCAL_AI').toUpperCase();
   var IS_PVP_APP=GL_APP_MODE==='PVP';
   var IS_TUTORIAL_APP=GL_APP_MODE==='TUTORIAL';
-  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 v1.0 RC18 · Base v6.91.9 · OSA DEV45 · Runtime Data S0 DEV44 · Shared Gameplay Bundle v3.5');
+  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 v1.0 RC33 · Base v6.91.9 · OSA DEV45 · Runtime Data S0 DEV44 · Shared Gameplay Bundle v3.5');
   var PHASES=['Draw','Deploy','Battle','Reform','End'];
   var LANE_ORDER=['LEFT','CENTER','RIGHT'];
   var EXP_MAX_TOTAL=700;
@@ -600,7 +600,10 @@
     var frames=[{transform:'translate(0px,0px) scale(1)',opacity:ghostAlpha}], lastRect=item.from;
     item.steps.forEach(function(step,idx){ var c=visualRectCenter(step.rect); if(!c) return; lastRect=step.rect; var isLast=idx===item.steps.length-1; frames.push({transform:'translate('+(c.x-origin.x)+'px,'+(c.y-origin.y)+'px) scale('+(isLast?(item.hold_key?.88:.78):.92)+')',opacity:isLast?(item.hold_key?ghostAlpha:.10):ghostAlpha,offset:(idx+1)/item.steps.length}); });
     var total=Math.max(220,Number(item.duration||520));
+    var finished=false,completionWatchdog=null;
     function done(){
+      if(finished)return;finished=true;
+      if(completionWatchdog){clearTimeout(completionWatchdog);completionWatchdog=null;}
       if(item.hold_key){
         img.classList.add('gl-held-card');
         GL_HELD_CARD_VISUALS[item.hold_key]={img:img,src:item.src,rect:lastRect};
@@ -611,7 +614,7 @@
     }
     function startVisualAnimation(){
       if(item.play_sound!==false) playCardMotionSound();
-      if(typeof img.animate==='function'){ try{ var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'}); a.onfinish=done; a.oncancel=done; return; }catch(e){} }
+      if(typeof img.animate==='function'){ try{ var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'}); a.onfinish=done; a.oncancel=done; completionWatchdog=setTimeout(done,total+1250); return; }catch(e){} }
       var last=frames[frames.length-1]; img.style.transition='transform '+total+'ms cubic-bezier(.2,.75,.2,1), opacity '+total+'ms ease';
       img.style.transform=last.transform; img.style.opacity=String(last.opacity); setTimeout(done,total+40);
     }
@@ -638,8 +641,9 @@
       if(item.play_sound!==false) playCardMotionSound();
       prepared.forEach(function(entry){
         var img=entry.img,frames=entry.frames,doneCalled=false;
-        function done(){if(doneCalled)return;doneCalled=true;oneDone(img);}
-        if(typeof img.animate==='function'){try{var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});a.onfinish=done;a.oncancel=done;return;}catch(e){}}
+        var completionWatchdog=null;
+        function done(){if(doneCalled)return;doneCalled=true;if(completionWatchdog)clearTimeout(completionWatchdog);oneDone(img);}
+        if(typeof img.animate==='function'){try{var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});a.onfinish=done;a.oncancel=done;completionWatchdog=setTimeout(done,total+1250);return;}catch(e){}}
         img.style.transition='transform '+total+'ms cubic-bezier(.2,.75,.2,1), opacity '+total+'ms ease';img.style.transform=frames[1].transform;img.style.opacity='.12';setTimeout(done,total+40);
       });
     });});
@@ -1867,6 +1871,9 @@
     }, extra||{});
     evt.result_lines=normalizeLines(evt.result_lines && evt.result_lines.length ? evt.result_lines : evt.summary);
     lockEventTargetSnapshot(state,evt);
+    // Presentation-only commit order, shared across both sides (not gameplay timing).
+    state.playedEventSequence=Number(state.playedEventSequence||0)+1;
+    evt.played_event_order=state.playedEventSequence;
     state.opponentPlayedEvents=state.opponentPlayedEvents||[];
     state.opponentPlayedEvents.unshift(evt);
     state.lastOpponentAction=evt;
@@ -1887,6 +1894,8 @@
     },extra||{});
     evt.result_lines=normalizeLines(evt.result_lines&&evt.result_lines.length?evt.result_lines:evt.summary);
     lockEventTargetSnapshot(state,evt);
+    state.playedEventSequence=Number(state.playedEventSequence||0)+1;
+    evt.played_event_order=state.playedEventSequence;
     state.playerPlayedEvents=state.playerPlayedEvents||[];
     state.playerPlayedEvents.unshift(evt);
     state.lastPlayerAction=evt;
@@ -2014,6 +2023,8 @@
     state.pvpActionEventsBySide=state.pvpActionEventsBySide||{PLAYER:[],AI:[]};
     state.pvpActionEventsBySide.PLAYER=state.pvpActionEventsBySide.PLAYER||[];
     state.pvpActionEventsBySide.AI=state.pvpActionEventsBySide.AI||[];
+    state.pvpPlayedEventSequence=Number(state.pvpPlayedEventSequence||0)+1;
+    evt.played_event_order=state.pvpPlayedEventSequence;
     state.pvpActionEventsBySide[side].unshift(evt);
     if(state.pvpActionEventsBySide[side].length>120) state.pvpActionEventsBySide[side].length=120;
     return evt;
@@ -8750,7 +8761,9 @@ function getActivatedHeroAbilities(state, side, lane){
     var er=evt.effect_row,effectHtml=er?'<div class="played-audit-block"><strong>Effect Row</strong><ul><li>Source: '+esc(er.source_name)+' — '+esc(er.source_class)+' '+esc(er.source_rank)+'</li><li>Row Used: '+esc(er.row_used)+' — '+esc(er.match_type)+'</li><li>'+esc(er.base_label)+': '+esc(er.base_value)+'</li>'+(er.row_text?'<li>Row effect: '+esc(er.row_text)+'</li>':'')+'</ul></div>':'';
     var mods=evt.damage_modifiers||[],modHtml=mods.length?'<div class="played-audit-block"><strong>Damage Modifiers</strong><div class="played-modifier-list">'+mods.map(function(m){var name=m.source_name||m.reason||'Modifier',amount=Number(m.amount||0);return '<article class="played-modifier-item">'+(m.source_card_id?'<img src="'+esc(thumbFor(m.source_card_id))+'" alt="'+esc(name)+'">':'')+'<p><b>'+esc(name)+':</b> '+esc((amount>=0?'+':'')+amount)+' damage'+(m.reason?' — '+esc(m.reason):'')+'</p></article>';}).join('')+'</div></div>':'';
     var ds=evt.damage_summary,damageHtml=ds?'<div class="played-audit-block"><strong>Damage Resolution</strong><ul><li>Primary base damage: '+esc(ds.base_damage)+'</li><li>Primary damage after modifiers: '+esc(ds.damage_after_modifiers)+'</li>'+((Number(ds.response_block||0)+Number(ds.passive_reduction||0)+Number(ds.active_reduction||0))?'<li>Primary defense / prevention: '+esc(Number(ds.response_block||0)+Number(ds.passive_reduction||0)+Number(ds.active_reduction||0))+'</li>':'')+(Number(ds.follow_up_incoming_damage||0)>0?'<li>Separate follow-up incoming damage: '+esc(ds.follow_up_incoming_damage)+'</li>':'')+(Number(ds.follow_up_damage||0)>0?'<li>Separate follow-up applied damage: '+esc(ds.follow_up_damage)+'</li>':'')+'<li>Calculated final damage: '+esc(ds.calculated_final_damage)+'</li><li>Actual HP damage: '+esc(ds.actual_hp_damage)+'</li>'+(Number(ds.overkill||0)>0?'<li>Overkill: '+esc(ds.overkill)+'</li>':'')+'<li>Target HP: '+esc(ds.target_hp_before)+' → '+esc(ds.target_hp_after)+'</li></ul></div>':'';
-    return '<div class="played-detail-layout">'+img+'<section class="played-detail-copy"><h3>'+esc(evt.title||evt.label||'Played Action')+'</h3><div><strong>Action</strong><p>'+esc(action.replace(/^Action:\s*/i,''))+'</p></div>'+(target?'<div><strong>Target</strong><p>'+esc(target)+'</p></div>':'')+effectHtml+modHtml+damageHtml+chainHtml+(responses.length?'<div><strong>Response Detail</strong><ul>'+responses.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>':'')+'<div><strong>Result</strong>'+(results.length?'<ul>'+results.map(function(x){return '<li>'+esc(x.replace(/^Result:\s*/i,''))+'</li>';}).join('')+'</ul>':'<p>Resolved by Runtime.</p>')+'</div>'+(reasons.length?'<div><strong>Reason</strong><ul>'+reasons.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>':'')+'</section></div>';
+    var status=String(evt.resolution_state||'').toUpperCase();
+    var statusHtml=status?'<div class="played-detail-outcome"><strong>Resolution</strong><p>'+esc(status)+'</p></div>':'';
+    return '<div class="played-detail-layout">'+img+'<section class="played-detail-copy"><h3>'+esc(evt.title||evt.label||'Played Action')+'</h3>'+statusHtml+'<div><strong>Action</strong><p>'+esc(action.replace(/^Action:\s*/i,''))+'</p></div>'+(target?'<div><strong>Target</strong><p>'+esc(target)+'</p></div>':'')+effectHtml+modHtml+damageHtml+chainHtml+(responses.length?'<div><strong>Response Detail</strong><ul>'+responses.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>':'')+'<div><strong>Result</strong>'+(results.length?'<ul>'+results.map(function(x){return '<li>'+esc(x.replace(/^Result:\s*/i,''))+'</li>';}).join('')+'</ul>':'<p>Resolved by Runtime.</p>')+'</div>'+(reasons.length?'<div><strong>Reason</strong><ul>'+reasons.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>':'')+'</section></div>';
   }
   function v94EventsForSide(state,side){
     if(state&&state.pvpHumanVsHuman&&state.pvpActionEventsBySide)return((state.pvpActionEventsBySide[side])||[]).filter(function(e){return e&&e.card_id;});
@@ -8759,6 +8772,12 @@ function getActivatedHeroAbilities(state, side, lane){
   function v204PlayedActor(side,upper){var label=side==='PLAYER'?'YOU':(window.GL_PVP_OPPONENT_NAME||'OPPONENT');return upper?String(label).toUpperCase():(side==='PLAYER'?'You':label);}
   function v520IsChainResponseEvent(evt){var label=String(evt&&evt.label||'').toUpperCase(),line=String(evt&&evt.action_line||'');return /^(DEF|REACTION|RESPONSE|COUNTER|NEGATE|CANCEL)$/.test(label)||/\b(as (?:a )?(?:Defense|Reaction|Response)|responded with|countered with|used .* to (?:cancel|negate|block|dodge|prevent))\b/i.test(line);}
   function v520EventTime(evt){return Number(evt&&evt.timestamp||0);}
+  // Presentation-only sequence wins over timestamp for same-turn Response chains.
+  function v520ComparePlayedOrder(a,b){
+    var sa=Number(a&&a.played_event_order||0),sb=Number(b&&b.played_event_order||0);
+    if(sa>0&&sb>0&&sa!==sb)return sa-sb;
+    return v520EventTime(a)-v520EventTime(b);
+  }
   function v520CanAttachResponse(group,item){
     var a=group&&group.event,b=item&&item.event;
     if(!a||!b||!v520IsChainResponseEvent(b))return false;
@@ -8785,16 +8804,16 @@ function getActivatedHeroAbilities(state, side, lane){
   }
   function v96CombinedPlayedEvents(state){
     var raw=v94EventsForSide(state,'PLAYER').map(function(e){return{side:'PLAYER',event:e};}).concat(v94EventsForSide(state,'AI').map(function(e){return{side:'AI',event:e};}));
-    raw.sort(function(a,b){var d=v520EventTime(a.event)-v520EventTime(b.event);if(d)return d;var ar=v520IsChainResponseEvent(a.event),br=v520IsChainResponseEvent(b.event);if(ar!==br)return ar?1:-1;return String(a.event.id||'').localeCompare(String(b.event.id||''));});
-    var groups=[];raw.forEach(function(item){if(v520IsChainResponseEvent(item.event)){for(var i=groups.length-1;i>=0;i--){if(v520CanAttachResponse(groups[i],item)){groups[i].chainEvents.push(item);groups[i].latestTimestamp=Math.max(groups[i].latestTimestamp,v520EventTime(item.event));return;}}}groups.push({side:item.side,event:item.event,chainEvents:[],latestTimestamp:v520EventTime(item.event)});});
-    return groups.sort(function(a,b){var d=b.latestTimestamp-a.latestTimestamp;if(d)return d;return String(b.event.id||'').localeCompare(String(a.event.id||''));});
+    raw.sort(function(a,b){var d=v520ComparePlayedOrder(a.event,b.event);if(d)return d;var ar=v520IsChainResponseEvent(a.event),br=v520IsChainResponseEvent(b.event);if(ar!==br)return ar?1:-1;return String(a.event.id||'').localeCompare(String(b.event.id||''));});
+    var groups=[];raw.forEach(function(item){if(v520IsChainResponseEvent(item.event)){for(var i=groups.length-1;i>=0;i--){if(v520CanAttachResponse(groups[i],item)){groups[i].chainEvents.push(item);groups[i].latestTimestamp=Math.max(groups[i].latestTimestamp,v520EventTime(item.event));groups[i].latestPlayedOrder=Math.max(groups[i].latestPlayedOrder,Number(item.event.played_event_order||0));return;}}}groups.push({side:item.side,event:item.event,chainEvents:[],latestTimestamp:v520EventTime(item.event),latestPlayedOrder:Number(item.event.played_event_order||0)});});
+    return groups.sort(function(a,b){if(a.latestPlayedOrder>0&&b.latestPlayedOrder>0&&a.latestPlayedOrder!==b.latestPlayedOrder)return b.latestPlayedOrder-a.latestPlayedOrder;var d=b.latestTimestamp-a.latestTimestamp;if(d)return d;return String(b.event.id||'').localeCompare(String(a.event.id||''));});
   }
   function v96CardPlayedPanel(state){
-    var events=v96CombinedPlayedEvents(state),recent=events.slice(0,6);var tiles=recent.length?recent.map(function(x){var e=x.event,who=v204PlayedActor(x.side,false),castingAttrs=(e.casting_action_id?' data-casting-action-id="'+esc(e.casting_action_id)+'"':'')+(e.casting_stage?' data-casting-stage="'+esc(e.casting_stage)+'"':'');return '<button class="combined-played-card" type="button" data-combined-event-id="'+esc(e.id)+'" data-combined-event-side="'+esc(x.side)+'"'+castingAttrs+' data-preview="'+esc(e.card_id)+'"><em>'+who+'</em><img src="'+esc(thumbFor(e.card_id))+'" alt="'+esc(who+' played '+(e.title||cardName(card(e.card_id))))+'"></button>';}).join(''):'<div class="played-empty">No played cards</div>';
+    var events=v96CombinedPlayedEvents(state),recent=events.slice(0,6).reverse();var tiles=recent.length?recent.map(function(x){var e=x.event,who=v204PlayedActor(x.side,false),castingAttrs=(e.casting_action_id?' data-casting-action-id="'+esc(e.casting_action_id)+'"':'')+(e.casting_stage?' data-casting-stage="'+esc(e.casting_stage)+'"':'');return '<button class="combined-played-card" type="button" data-combined-event-id="'+esc(e.id)+'" data-combined-event-side="'+esc(x.side)+'"'+castingAttrs+' data-preview="'+esc(e.card_id)+'"><em>'+who+'</em><img src="'+esc(thumbFor(e.card_id))+'" alt="'+esc(who+' played '+(e.title||cardName(card(e.card_id))))+'"></button>';}).join(''):'<div class="played-empty">No played cards</div>';
     return '<section class="control-panel card-played-panel"><header><strong>Card Played</strong><span>Latest actions</span></header><div class="played-grid">'+tiles+'</div><button id="cardPlayedHistoryButton" type="button" class="full-width" '+(events.length?'':'disabled')+'>Full Card History</button></section>';
   }
-  function v96ShowCardPlayedHistory(){var events=v96CombinedPlayedEvents(appState);var html=events.length?'<div class="played-history-grid combined-played-history">'+events.map(function(x){var e=x.event,who=v204PlayedActor(x.side,true);return '<button type="button" data-combined-archive-id="'+esc(e.id)+'" data-combined-archive-side="'+esc(x.side)+'" data-preview="'+esc(e.card_id)+'"><em>'+who+'</em><img src="'+esc(thumbFor(e.card_id))+'" alt="'+esc((e.title||cardName(card(e.card_id))))+'"><span>'+esc(e.label||'ACTION')+'</span></button>';}).join('')+'</div>':'<p>No played cards yet.</p>';showInfoHtml('Card Played — Full History',html);}
-  function v96ShowCardPlayedDetail(side,eventId){var group=v96CombinedPlayedEvents(appState).find(function(x){return x.side===side&&x.event&&x.event.id===eventId;})||v96CombinedPlayedEvents(appState)[0];if(!group)return showInfo('Card Played','No played action yet.');GL_CARD_ZOOM_ID=group.event.card_id||GL_CARD_ZOOM_ID;showInfoHtml('Card Played — '+v204PlayedActor(group.side,false),v94EventDetailHtml(group,group.side));}
+  function v96ShowCardPlayedHistory(){var events=v96CombinedPlayedEvents(appState).reverse();var html=events.length?'<div class="played-history-grid combined-played-history">'+events.map(function(x){var e=x.event,who=v204PlayedActor(x.side,true);return '<button type="button" data-combined-archive-id="'+esc(e.id)+'" data-combined-archive-side="'+esc(x.side)+'" data-preview="'+esc(e.card_id)+'"><em>'+who+'</em><img src="'+esc(thumbFor(e.card_id))+'" alt="'+esc((e.title||cardName(card(e.card_id))))+'"><span>'+esc(e.label||'ACTION')+'</span></button>';}).join('')+'</div>':'<p>No played cards yet.</p>';showInfoHtml('Card Played — Full History',html);}
+  function v96ShowCardPlayedDetail(side,eventId){var group=v96CombinedPlayedEvents(appState).find(function(x){return x.side===side&&x.event&&x.event.id===eventId;});if(!group){var evt=v94EventsForSide(appState,side).find(function(e){return e&&e.id===eventId;});if(evt)group={side:side,event:evt,chainEvents:[]};}if(!group)return showInfo('Card Played','No matching played action.');GL_CARD_ZOOM_ID=group.event.card_id||GL_CARD_ZOOM_ID;showInfoHtml('Card Played — '+v204PlayedActor(group.side,false),v94EventDetailHtml(group,group.side));}
   function v94PlayedPanel(state,side){
     var events=v94EventsForSide(state,side), recent=events.slice(0,4), title=side==='PLAYER'?'Your Played':'Opponent Played';
     var tiles=recent.length?recent.map(function(e){return '<button class="played-card" type="button" data-side-event="'+esc(side)+'" data-side-event-id="'+esc(e.id)+'" data-preview="'+esc(e.card_id)+'"><img src="'+esc(thumbFor(e.card_id))+'" alt="'+esc(e.title||cardName(card(e.card_id)))+'"></button>';}).join(''):'<div class="played-empty">No played cards</div>';
@@ -12081,7 +12100,12 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
   function commitSaintPurifyChoice(){
     if(!appState||!appState.pending||appState.pending.type!=='saint_purify_choice') return false;
     var p=clone(appState.pending), ch=(p.status_choices||[])[Number(p.selected_status_choice||0)], h=sideHeroes(appState,p.target_side)[p.target_lane]; if(!ch||!h){showInfo('Choice Required','Choose a negative status to remove.');return false;}
-    removeChosenNegativeStatusFromHero(appState,h,card(p.source_card_id),ch.status_index); appState.pending=null; closeChoice(); activateNextSaintPurifyChoice(appState); syncCounts(appState); render(); return true;
+    removeChosenNegativeStatusFromHero(appState,h,card(p.source_card_id),ch.status_index); appState.pending=null; closeChoice(); activateNextSaintPurifyChoice(appState);
+    // RC33: the final committed cleanse may be the last mandatory gate
+    // keeping an interrupted AI action paused; never skip queued choices.
+    if(!appState.gameOver && !appState.pending && !appState.responseWindow && resumeAITurnAfterPlayerResponse(appState)) return true;
+    if(!appState.gameOver && !appState.pending && !appState.responseWindow && appState.autoEndTurnPending && appState.turn==='PLAYER' && appState.phase==='End') return continueAutomaticPlayerEndTurn(appState);
+    syncCounts(appState);render();return true;
   }
   function renderSaintPurifyChoice(){
     if(!appState||!appState.pending||appState.pending.type!=='saint_purify_choice'||SUPPRESS_RENDER||!$('choiceOverlay')) return;
@@ -12148,7 +12172,12 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
         defense_kind:abilityBlocked?battleDefenseVisualKind(target):null,
         has_damage:damage>0,play_sound:true});
     }
-    appState.responseWindow=null;if(!isDefeatGatePending(appState.pending))appState.pending=null;closeResponseWindowUI();if(!appState.pending)activateNextSaintPurifyChoice(appState);syncCounts(appState);render();return true;
+    appState.responseWindow=null;if(!isDefeatGatePending(appState.pending))appState.pending=null;closeResponseWindowUI();if(!appState.pending)activateNextSaintPurifyChoice(appState);
+    // RC33: AI Primal Strike Response must hand control back to the same turn
+    // director as a normal Attack. Mandatory Legacy/Stoneblood/Saint choices
+    // retain priority; their final-choice handlers resume once cleared.
+    if(!appState.gameOver && !appState.pending && !appState.responseWindow && resumeAITurnAfterPlayerResponse(appState)) return true;
+    syncCounts(appState);render();return true;
   }
 
 
@@ -12745,16 +12774,16 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
     getSnapshot:glPvpBridgeSnapshot,
     getCardPlayedDetail:function(side,eventId){
       side=side==='AI'?'AI':'PLAYER';
+      // Use the precise clicked event, not its parent card in a Response chain.
+      var evt=v94EventsForSide(appState,side).find(function(e){return e&&e.id===eventId;});
+      if(!evt)return null;
       var groups=v96CombinedPlayedEvents(appState),group=groups.find(function(g){
-        if(g&&g.event&&g.side===side&&g.event.id===eventId)return true;
-        return !!(g&&g.chainEvents&&g.chainEvents.some(function(x){return x&&x.event&&x.event.id===eventId;}));
+        return g&&g.side===side&&g.event&&g.event.id===eventId;
       });
-      if(!group){
-        var evt=v94EventsForSide(appState,side).find(function(e){return e&&e.id===eventId;});
-        if(evt)group={side:side,event:evt,chainEvents:[]};
-      }
-      if(!group)return null;
-      return{title:'Card Played — '+v204PlayedActor(group.side,false),html:v94EventDetailHtml(group,group.side)};
+      // Nested/counter Responses have their own result and artwork. Only the
+      // original event retains its attached chain explanation.
+      if(!group)group={side:side,event:evt,chainEvents:[]};
+      return{title:'Card Played — '+v204PlayedActor(side,false),html:v94EventDetailHtml(group,side)};
     },
     intent:function(name,args){return window.GL_LOCAL_AI_BRIDGE.applyServerIntent(name,args||[]);},
     cardView:function(id){var c=card(id)||{};function abs(src){try{return new URL(src,location.href).href;}catch(e){return src||'';}}return{id:id,name:cardName(c),family:cardFamily(c),subtype:cardSubtype(c),thumb:abs(thumbFor(id)),full:abs(fullFor(id)),isAttack:isAttackCard(c),isResponse:isResponseOnly(c),isUltimate:isUltimateCard(c)};},
@@ -14917,7 +14946,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
     getActivatedLegacyAbilities:function(side,lane){return appState?clone(getActivatedLegacyAbilities(appState,side||'PLAYER',lane)):[];},
     getActivatedClassAbilities:function(side,lane){return appState?clone(getActivatedHeroAbilities(appState,side||'PLAYER',lane)):[];},
     getActivatedRacialAbilities:function(side,lane){return appState?clone(getActivatedRacialAbilities(appState,side||'PLAYER',lane)):[];},
-    getCardPlayedDisplayTargetForEvent:function(eventId){var groups=v96CombinedPlayedEvents(appState||{}),group=groups.find(function(g){return g&&g.event&&(g.event.id===eventId||(g.chainEvents||[]).some(function(x){return x&&x.event&&x.event.id===eventId;}));});return group?clone({side:group.side,event_id:group.event.id,chain_event:group.event.id!==eventId,casting_action_id:group.event.casting_action_id||null,casting_stage:group.event.casting_stage||null}):null;},
+    getCardPlayedDisplayTargetForEvent:function(eventId){var groups=v96CombinedPlayedEvents(appState||{}),group=groups.find(function(g){return g&&g.event&&(g.event.id===eventId||(g.chainEvents||[]).some(function(x){return x&&x.event&&x.event.id===eventId;}));});if(!group)return null;var isChain=group.event.id!==eventId,entry=isChain?(group.chainEvents||[]).find(function(x){return x&&x.event&&x.event.id===eventId;}):{side:group.side,event:group.event};if(!entry)return null;var evt=entry.event;return clone({side:entry.side||group.side,event_id:evt.id,chain_event:isChain,casting_action_id:evt.casting_action_id||null,casting_stage:evt.casting_stage||null});},
     cardName:function(cardId){initCards();return cardName(card(cardId));},
     showPreview:function(cardId){return showPreview(cardId,'tutorial');},
     getAIPhaseGate:function(){return clone({waiting:GL_TUTORIAL_AI_PHASE_GATE.waiting,phase:GL_TUTORIAL_AI_PHASE_GATE.phase,sequence:GL_TUTORIAL_AI_PHASE_GATE.sequence});},

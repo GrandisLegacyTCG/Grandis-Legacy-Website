@@ -1,0 +1,65 @@
+{
+  "release": "Grandis Legacy VS AI Season 0 v1.0 RC33",
+  "date": "2026-11-08",
+  "baseline": "Grandis_Legacy_VS_AI_Season0_v1.0_RC32_2026-11-07.zip",
+  "status": "RELEASE CANDIDATE — NOT FINAL",
+  "runtime_changes": {
+    "Primal Strike AI continuation": "Confirmed RC32 defect; fixed and four response variants PASS",
+    "Saint Purify mandatory choice continuation": "Safe last-choice AI-resume handling; synthetic paused-AI scenario PASS; normal trigger path not independently reproduced",
+    "Card-flight animation completion": "Watchdog/idempotence protects if browser withholds animation finish/cancel; induced WAAPI failure cases PASS; no normal-production hang root cause confirmed"
+  },
+  "scoped_tests": {
+    "primal_pass_chainmail_dragonscale_secondchance_and_saint_purify": "5/5 PASS",
+    "animation_recovery": "3/3 PASS",
+    "AI director continues to next PLAYER turn": "PASS",
+    "hero buttons/hover/Stoneblood rendering fixture": "7/7 PASS",
+    "UI boot/Sound": "PASS",
+    "ten historical engine tests": "4/10 PASS; 6 historical failures IDENTICAL in RC32 same environment",
+    "javascript syntax": "PASS",
+    "assets": "HEAD/TAIL 800×800, 8 icons 300×300 and BGM MP3 were decoded in preceding staging; new SHA topology validates all unchanged uploaded artwork"
+  },
+  "not_verified": [
+    "A complete naturally played Human vs AI match to Win/Loss/Draw",
+    "Native Firefox",
+    "Hosted production URL in target environment",
+    "Real audible playback, loop continuity and device sound",
+    "Natural gameplay Stoneblood/Purify chain in a whole match"
+  ],
+  "file_diff": {
+    "modified_existing": [
+      "assets/ui/Racial-Token-Head.webp",
+      "assets/ui/Racial-Token-Tail.webp",
+      "engine/shared-app/app.bundle.js",
+      "index.html",
+      "shared-app/app-runtime.js",
+      "shared-ui/battlefield-ui.css",
+      "README.md",
+      "docs/RELEASE_STATUS.md",
+      "docs/TAKEOVER_NOTE.md"
+    ],
+    "added": [
+      "assets/ui/hero-actions/Racial Beastman Button.png",
+      "assets/ui/hero-actions/Racial Dragonborn Button.png",
+      "assets/ui/hero-actions/Racial Dwarf Button.png",
+      "assets/ui/hero-actions/Racial Elf Button.png",
+      "assets/ui/hero-actions/Racial Halfling Button.png",
+      "assets/ui/hero-actions/Racial Human Button.png",
+      "assets/ui/hero-actions/Racial Legacy Button.png",
+      "assets/ui/hero-actions/Support Button.png",
+      "docs/qa/rc33/RC32_SAME_ENV_BASELINE_REGRESSION.json",
+      "docs/qa/rc33/RC33_AI_HANDOFF_ANIMATION_REGRESSION_QA.json",
+      "docs/qa/rc33/RC33_UI_ASSET_INTEGRATION_QA.json",
+      "engine/assets/audio/Tavern Quest.mp3",
+      "docs/qa/rc33/RC32_SAME_ENV_BASELINE_REGRESSION.json",
+      "docs/qa/rc33/RC33_AI_HANDOFF_ANIMATION_REGRESSION_QA.json",
+      "docs/qa/rc33/RC33_RELEASE_NOTES.md",
+      "docs/qa/rc33/RC33_QA_SUMMARY.json",
+      "docs/qa/rc33/RC33_UI_ASSET_INTEGRATION_QA.json"
+    ],
+    "removed": []
+  },
+  "engine_source_modified": true,
+  "OSA_modified": false,
+  "deck_builder_modified": false,
+  "pvp_modified": false
+}

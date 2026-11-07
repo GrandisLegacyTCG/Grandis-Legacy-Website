@@ -1687,3 +1687,22 @@ body.gl-center-discard .gl-center-choice-cards{
 @keyframes glResponsePassReminder{0%,100%{box-shadow:0 0 0 0 rgba(255,211,92,.14);filter:brightness(1)}50%{box-shadow:0 0 0 4px rgba(255,211,92,.65),0 0 16px rgba(255,211,92,.65);filter:brightness(1.33)}}
 .phase-action.gl-pass.gl-response-pass-attention{animation:glResponsePassReminder 1.15s ease-in-out infinite;border-color:#ffdc7c!important}
 @media(prefers-reduced-motion:reduce){.phase-action.gl-pass.gl-response-pass-attention{animation:none!important;box-shadow:0 0 0 2px rgba(255,211,92,.65)!important}}
+
+/* Part 5: approved square assets for the Racial / Class / Legacy Hero-side action buttons. */
+.gl-hero-actions .gl-hero-action.gl-hero-action-icon{width:30px!important;min-width:30px!important;max-width:30px!important;height:30px!important;min-height:30px!important;max-height:30px!important;box-sizing:border-box!important;padding:0!important;border:0!important;border-radius:6px!important;background:transparent!important;overflow:visible!important;line-height:1!important;box-shadow:none!important}
+.gl-hero-action-icon .gl-hero-action-image{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;pointer-events:none!important}
+.gl-hero-action-icon:hover .gl-hero-action-image,.gl-hero-action-icon:focus-visible .gl-hero-action-image{filter:brightness(1.24)}
+.gl-hero-action-icon.gl-response-ready:not(:disabled) .gl-hero-action-image{filter:drop-shadow(0 0 6px #ffe47c)}
+.gl-hero-actions .gl-hero-action.gl-hero-action-icon.gl-response-ready:not(:disabled){background:transparent!important;border:0!important;box-shadow:none!important}
+.gl-hero-action-icon:focus-visible{outline:2px solid #f4d35e!important;outline-offset:2px!important}
+
+
+/* RC33: return racial/class/legacy artwork to its original 30×30px size.
+   The previous 36px override has been removed; the base icon rule applies. */
+/* RC33 Part 5: previews are top-level fixed portals, above dimmers/modals.
+   Their pointer-events must stay disabled to preserve actual battlefield inputs. */
+.gl-battlefield-hover-preview.open,
+.gl-sidebar-hover-preview.open,
+.gl-modal-hover-preview.open,
+#hoverCardZoom.is-visible:not(.is-click-zoom){z-index:2147483600!important;pointer-events:none!important;}
+#hoverCardZoom.is-click-zoom{z-index:2147483600!important;}

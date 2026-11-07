@@ -1,0 +1,99 @@
+{
+  "boot": {
+    "engine": true,
+    "ui": true,
+    "sound": true,
+    "lobby": false,
+    "name": "Grandis Legacy \u2014 VS AI Season 0",
+    "panel": true
+  },
+  "hero_action_ui": {
+    "ok": true,
+    "results": [
+      {
+        "name": "S0-ARC-H007",
+        "ok": true,
+        "icons": [
+          "Racial Human Button.png",
+          "Support Button.png",
+          "Racial Legacy Button.png"
+        ],
+        "hover": true,
+        "tooltip": true,
+        "accessibleName": "Racial Ability"
+      },
+      {
+        "name": "S0-ARC-H001",
+        "ok": true,
+        "icons": [
+          "Racial Beastman Button.png",
+          "Support Button.png",
+          "Racial Legacy Button.png"
+        ],
+        "hover": true,
+        "tooltip": true,
+        "accessibleName": "Racial Ability"
+      },
+      {
+        "name": "S0-THF-H004",
+        "ok": true,
+        "icons": [
+          "Racial Dragonborn Button.png",
+          "Support Button.png",
+          "Racial Legacy Button.png"
+        ],
+        "hover": true,
+        "tooltip": true,
+        "accessibleName": "Racial Ability"
+      },
+      {
+        "name": "S0-CLE-H004",
+        "ok": true,
+        "icons": [
+          "Racial Dwarf Button.png",
+          "Support Button.png",
+          "Racial Legacy Button.png"
+        ],
+        "hover": true,
+        "tooltip": true,
+        "accessibleName": "Racial Ability"
+      },
+      {
+        "name": "S0-ARC-H004",
+        "ok": true,
+        "icons": [
+          "Racial Elf Button.png",
+          "Support Button.png",
+          "Racial Legacy Button.png"
+        ],
+        "hover": true,
+        "tooltip": true,
+        "accessibleName": "Racial Ability"
+      },
+      {
+        "name": "S0-CLE-H007",
+        "ok": true,
+        "icons": [
+          "Racial Halfling Button.png",
+          "Support Button.png",
+          "Racial Legacy Button.png"
+        ],
+        "hover": true,
+        "tooltip": true,
+        "accessibleName": "Racial Ability"
+      },
+      {
+        "name": "Passive Stoneblood no button",
+        "ok": true,
+        "count": 0
+      }
+    ]
+  },
+  "sound": {
+    "opened": true,
+    "closed": true,
+    "bgmOff": true,
+    "sfxOn": true
+  },
+  "page_errors": []
+}
