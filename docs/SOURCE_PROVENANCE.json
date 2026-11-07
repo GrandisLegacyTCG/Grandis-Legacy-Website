@@ -1,0 +1,30 @@
+{
+  "vs_ai": {
+    "filename": "Grandis_Legacy_VS_AI_Season0_v1.0_RC32_2026-11-07.zip",
+    "sha256": "362724579a6739ef713e461f3874b199288f0ad6e664267c45df504f82b77af7",
+    "file_count": 692
+  },
+  "deck_builder": {
+    "filename": "Grandis_Legacy_Deck_Builder_v1.62_2026-11-07.zip",
+    "sha256": "41302f430e6e6bfa17e37ca58d6bf663505043e65eb72f7e158969a5560deed3",
+    "file_count": 575
+  },
+  "baseline_version_unchanged": {
+    "vs_ai": "v1.0 RC32",
+    "deck_builder": "v1.62"
+  },
+  "html_cache_keys": {
+    "index.html": 14,
+    "deck-builder/index.html": 33,
+    "deck-builder/style-2/index.html": 36,
+    "deck-builder/style-1/index.html": 0
+  },
+  "changes": [
+    "Fresh extraction from current project ZIPs, no older source tree reused",
+    "Targeted lobby navigation VS AI -> /deck-builder/, PvP hidden",
+    "Deck Builder navigation active in Style 1 and Style 2; logo -> /",
+    "Artwork prefetch and placeholder preserved",
+    "Content-hash cache invalidation for locally linked CSS and JS, without version-number changes",
+    "Docs grouped under docs/; root clean"
+  ]
+}

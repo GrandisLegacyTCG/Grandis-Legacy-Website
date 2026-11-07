@@ -1,17 +1,18 @@
-# Grandis Legacy — GitHub Pages (VS AI RC32 + Deck Builder v1.62)
+# Grandis Legacy — Direct GitHub Pages (VS AI RC32 + Deck Builder v1.62)
 
-Direct static website for **grandislegacytcg.web.id**. Version labels of both source apps stay unchanged.
+Built from the standalone source ZIPs currently attached to this project. Original application version numbers were **not changed**.
 
-- `/` — VS AI Season 0 **v1.0 RC32** (temporary landing page).
-- `/deck-builder/` — Deck Builder **v1.62**, Style 1.
-- `/deck-builder/style-2/` — Deck Builder **v1.62**, Style 2.
-- PvP is **not bundled**; its navigation remains hidden. The main website is not bundled.
-- Logo links point to the domain root, while the deck-builder/VS AI links work on one domain.
-- Existing Deck Builder favicon is identical to the RC32 favicon at `engine/assets/favicon.png`.
-- The previous Hand artwork loading prefetch/placeholder fix is retained on RC32.
+- `/` — VS AI Season 0 RC32 (temporary homepage).
+- `/deck-builder/` — Deck Builder v1.62 Style 1.
+- `/deck-builder/style-2/` — Deck Builder v1.62 Style 2.
+- Grandis Legacy logos link to `/`; VS AI ↔ Deck Builder navigation is enabled.
+- PvP buttons are hidden. PvP backend and Main Website are not included.
+- The VS AI Hand-artwork preload / card-back safeguard is retained.
 
-## Publishing
+## GitHub Pages deployment
 
-Copy the **contents** of this archive directly into the GitHub repository root. On GitHub Pages choose **Deploy from a branch**, `main`, `/(root)` and verify custom domain `grandislegacytcg.web.id`. Don't upload the ZIP as a single file. To avoid stale files from prior versions, sync the tracked repository against this archive rather than only adding files. Backup the live repository before replacing it.
+Extract ZIP and copy its **contents** directly to the root of the Pages repo, not the ZIP itself. Configure **Deploy from a branch** → **main** → **/(root)** and keep custom domain `grandislegacytcg.web.id`. Back up the current repo before replacing files. Synchronize deleted files as well as added/changed files, or orphaned artifacts from the previous upload may remain.
 
-No build step or GitHub Actions required. This archive is a **deployable site snapshot**: historical docs, test fixtures and standalone archives have been excluded; current app runtime/assets are retained. Read `docs/INTEGRATION_REPORT.md` for exact QA scope. GitHub and the existing website were not changed by creating this archive.
+No GitHub Actions/build required. The root contains only `.nojekyll`, `CNAME`, `index.html`, `README.md`; all release/source provenance is under `docs/`.
+
+See `docs/SOURCE_PROVENANCE.json` for the SHA-256 of both source ZIPs and `docs/INTEGRATION_QA.md` for test results and limitations.
