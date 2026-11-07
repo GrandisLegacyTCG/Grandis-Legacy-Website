@@ -1,21 +1,17 @@
-# Grandis Legacy — GitHub Pages (one direct repository)
+# Grandis Legacy — GitHub Pages (VS AI RC32 + Deck Builder v1.62)
 
-**Integrated 7 November 2026:** VS AI Season 0 **v1.0 RC31** and Deck Builder **v1.61**. **No version increase.**
+Direct static website for **grandislegacytcg.web.id**. Version labels of both source apps stay unchanged.
 
-**UI fix in this package:** VS AI player Hand now preloads Opening Hand and later Draw artwork, displays the original Main Deck card back while an image is pending, and fades in the card front after decoding. This is a narrow UI fix; game rules, AI, Draw logic, and Deck Builder are unchanged.
+- `/` — VS AI Season 0 **v1.0 RC32** (temporary landing page).
+- `/deck-builder/` — Deck Builder **v1.62**, Style 1.
+- `/deck-builder/style-2/` — Deck Builder **v1.62**, Style 2.
+- PvP is **not bundled**; its navigation remains hidden. The main website is not bundled.
+- Logo links point to the domain root, while the deck-builder/VS AI links work on one domain.
+- Existing Deck Builder favicon is identical to the RC32 favicon at `engine/assets/favicon.png`.
+- The previous Hand artwork loading prefetch/placeholder fix is retained on RC32.
 
-**GitHub Pages:** Deploy from branch `main` → `/(root)`; custom domain `grandislegacytcg.web.id`. The `index.html`, `CNAME`, and `.nojekyll` files live directly in repository root. No Actions/build scripts needed.
+## Publishing
 
-| Path | Application |
-|---|---|
-| `/` | VS AI RC31 (temporary homepage) |
-| `/deck-builder/` | Deck Builder v1.61 — Style 1 |
-| `/deck-builder/style-2/` | Deck Builder v1.61 — Style 2 |
+Copy the **contents** of this archive directly into the GitHub repository root. On GitHub Pages choose **Deploy from a branch**, `main`, `/(root)` and verify custom domain `grandislegacytcg.web.id`. Don't upload the ZIP as a single file. To avoid stale files from prior versions, sync the tracked repository against this archive rather than only adding files. Backup the live repository before replacing it.
 
-**Navigation**: VS AI Lobby → Deck Builder; Deck Builder both styles → VS AI. Grandis Legacy logos → `/` (today VS AI, future main site). PvP navigation is preserved hidden and there is no PvP app bundled. The VS AI favicon comes from RC31's `engine/assets/favicon.png`, verified byte-identical to DB v1.61's `assets/favicon.png`.
-
-The entire VS AI runtime remains in the repository root. The complete Deck Builder *runtime* stays isolated in `deck-builder/`. Use the exact standalone version source when upgrading each app. Don't overwrite the other app folder or shared integration files. Consult [`docs/INTEGRATION_NOTES.md`](docs/INTEGRATION_NOTES.md) for repeatable patches and QA. Upload instructions: [`docs/UPLOAD_TO_GITHUB.md`](docs/UPLOAD_TO_GITHUB.md).
-
-VS AI is still an RC, not a final QA-approved release. Browser gameplay/import and live GitHub Pages remain **NOT VERIFIED** until tested. Pushing to an existing live GitHub Pages branch may immediately update the domain. Make a repository backup and export important decks before switching routes.
-
-**Root-clean layout:** Root holds only `index.html`, `CNAME`, `.nojekyll`, and this `README.md`. Integration CSS lives in `assets/css/`; integration/upload/QA notes live in `docs/`. This layout does not add any build step.
+No build step or GitHub Actions required. This archive is a **deployable site snapshot**: historical docs, test fixtures and standalone archives have been excluded; current app runtime/assets are retained. Read `docs/INTEGRATION_REPORT.md` for exact QA scope. GitHub and the existing website were not changed by creating this archive.

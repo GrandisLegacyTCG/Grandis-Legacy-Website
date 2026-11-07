@@ -6541,3 +6541,39 @@ html.gl-ui-tablet.gl-tablet-landscape-desktop body.deck-setup-active .deck-setup
 .gl-modal-underlay-blocked{pointer-events:none!important;user-select:none!important}
 .gl-invalid-import-message{white-space:pre-wrap;overflow-wrap:anywhere}
 .gl-invalid-import-note{color:#b8c6d8;font-size:12px;margin-top:10px}
+
+
+/* Shard Deck mobile/tablet portrait: explicit REGEN beside +N, no font changes.
+   Compact gold bar is distinct from the blue/slate remaining-deck badge. */
+.v96-app.mobile-restored-layout .zone[data-zone-type="Shard Deck"]{overflow:visible!important;}
+.v96-app.mobile-restored-layout .zone[data-zone-type="Shard Deck"] .zoneCard > .gl-lab-mana-regen{
+  position:absolute!important;top:-5px!important;left:-8px!important;right:auto!important;bottom:auto!important;
+  transform:none!important;box-sizing:border-box!important;
+  width:34px!important;min-width:34px!important;height:27px!important;min-height:27px!important;
+  padding:1px 2px!important;display:flex!important;flex-direction:column!important;gap:1px!important;align-items:center!important;justify-content:center!important;
+  border:1px solid #cda743!important;border-radius:7px!important;
+  background:linear-gradient(180deg,#5c451d,#241b13)!important;color:#ffe6a0!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.70)!important;filter:none!important;pointer-events:none!important;z-index:13!important;
+}
+.v96-app.mobile-restored-layout .zone[data-zone-type="Shard Deck"] .gl-lab-mana-regen .gl-regen-name{
+  font-family:inherit!important;font-size:7px!important;font-weight:800!important;line-height:1!important;
+  letter-spacing:0!important;white-space:nowrap!important;
+}
+.v96-app.mobile-restored-layout .zone[data-zone-type="Shard Deck"] .gl-lab-mana-regen .gl-regen-value{
+  font-family:inherit!important;font-size:10px!important;font-weight:900!important;line-height:1!important;
+  letter-spacing:0!important;white-space:nowrap!important;
+}
+.v96-app.mobile-restored-layout .zone[data-zone-type="Shard Deck"] .zoneCard > .gl-resource-count{
+  position:absolute!important;top:-5px!important;right:-5px!important;left:auto!important;bottom:auto!important;
+  transform:none!important;box-sizing:border-box!important;
+  width:21px!important;min-width:21px!important;height:20px!important;min-height:20px!important;
+  padding:0 1px!important;display:flex!important;align-items:center!important;justify-content:center!important;
+  border:1px solid #637d9e!important;border-radius:6px!important;
+  background:linear-gradient(180deg,#2b405c,#152537)!important;color:#ffffff!important;
+  font-family:inherit!important;font-size:11px!important;font-weight:900!important;line-height:1!important;
+  letter-spacing:0!important;text-shadow:0 1px 2px #000!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.65)!important;z-index:14!important;
+}
+html.gl-tablet-portrait-mobile .v96-app.mobile-restored-layout .zone[data-zone-type="Shard Deck"] .zoneCard>.gl-resource-count{
+  top:-5px!important;right:-5px!important;transform:none!important;
+}

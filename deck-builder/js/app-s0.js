@@ -618,7 +618,7 @@ function skillEffectText(row={},metric=null){
   else if(metric.label==='HEALING DONE')effect=effect.replace(/^(?:Heal|Restore)[^.]*?[+-]?\d+[^.]*\.\s*/i,'').trim();
   return effect||'—';
 }
-function itemClassText(card){
+function itemClassText(card){if(card.printedClassRequirement)return card.printedClassRequirement;
   const classes=Array.isArray(card.requiredBaseClasses)?card.requiredBaseClasses.filter(Boolean):[];
   return classes.length?classes.join(' • '):'All Classes';
 }

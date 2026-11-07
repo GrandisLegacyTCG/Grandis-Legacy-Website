@@ -1,6 +1,6 @@
-/* Grandis Legacy Season 0 — Card Review: official Player Rulebook v2.9 EN (2026-11-01), pp.13–14.
-   The card-artwork RULES footer is transcribed from the Season 0 R3.4 printed artworks.
-   MANA BURN / MANA STEAL wording is intentionally unchanged, per designer instruction.
+/* Grandis Legacy Season 0 — Card Review: keyword/status explanations from
+   official Player Rulebook v3.0 EN (2026-11-07), pages 13–14.
+   Printed card RULES footer descriptions remain sourced from approved artwork.
    MANA COST +1/+2 are printed card-specific labels, not Rulebook keywords.
    Display only; no changes to deck legality, card effects, gameplay or OSA. */
 (function(root){'use strict';
@@ -18,9 +18,9 @@
   'REVIVE':'Return the Legacy Card to the Legacy Deck. The Hero regains HP as stated on the Revive Card.',
   'INVINCIBLE':'The Hero cannot take damage from an opponent or receive new Status from an opponent. Existing Status remains active.',
   'ALL OPPONENTS':'Affects all opposing active Heroes, ignoring normal Area of Attack.',
-  'REFLECT':'When this Hero is attacked, deal damage to the attacker as stated on the card.',
+  'REFLECT':'When this Hero is hit by an Attack, deal damage to the attacker as stated on the card.',
   'MANA BURN':"Remove the stated number of Mana cards from your opponent's Mana Pool.",
-  'MANA STEAL':"Remove the stated number of Mana cards from your opponent's Mana Pool, then take the same number of Mana cards from your Mana Deck into your Mana Pool.",
+  'MANA STEAL':"Remove up to X Mana Shards from your opponent's Mana Pool. Then take as many as possible, up to the number removed, from your Mana Deck into your Mana Pool.",
   'MANA COST +1':'The required Mana is 1 higher than the printed Mana Cost.',
   'MANA COST +2':'The required Mana is 2 higher than the printed Mana Cost.'
  });
@@ -48,10 +48,10 @@
   'S0-EVT-008':'You can only have 1 of this card in your deck.'
  });
  const KEYS=Object.keys(EXPLANATIONS);
- // Player Rulebook v2.9 EN, p.14: verbatim status descriptions; no engine logic changes.
+ // Player Rulebook v3.0 EN, p.14: verbatim status descriptions; no engine logic changes.
  const STATUSES=Object.freeze({
   'Bleed':'This Hero cannot receive Healing. Bleed does not deal damage.',
-  'Burn':'This Hero takes 10 additional damage from Attacks that deal damage.',
+  'Burn':'Whenever a played Card or activated Ability deals damage to this Hero, increase that damage by 10.',
   'Freeze':'This Hero cannot DODGE or swap positions.',
   'Poison':"This Hero takes 10 damage during its owner's End Phase.",
   'Sleep':'This Hero cannot use Skill or Event Cards, except Skills with DODGE. It wakes up when hit by another Attack.',
@@ -208,6 +208,14 @@
    panel.querySelector('p').textContent=rule;
   }
  }
+ function renderSharedSkillEffect(card){
+  if(card?.family!=='Skill'||!card.sharedEffectText)return null;
+  const box=node('div','review-generic-row review-shared-skill-effect');
+  box.append(node('span','', 'SKILL EFFECT'));
+  const effect=node('p','',card.sharedEffectText);
+  inlineKeywords(effect);box.append(effect);
+  return box;
+ }
  function enhance(card,rootNode){
   if(!card||!rootNode||card.family==='Hero'||card.family==='LegacyModeDefinition')return;
   const rows=Array.isArray(card.rows)&&card.rows.length?card.rows:[{effect_text:card.text||''}];
@@ -230,6 +238,10 @@
    // A shared, card-level panel immediately before the first Class/Rank + Effect card.
    rootNode.prepend(conditionPanel);
   }
+  // Printed once above the Rank rows: Grand Finale's INVINCIBLE and Draw 3
+  // are a shared card effect, not additional text on either numeric row.
+  const commonEffect=renderSharedSkillEffect(card);
+  if(commonEffect)rootNode.insertBefore(commonEffect,conditionPanel?conditionPanel.nextSibling:rootNode.firstChild);
   for(const keyword of tags(card.text||''))allKeywords.add(keyword);
   // Printed effect, condition, and card text can each introduce a Status.
   // Explain each unique Status once, directly beneath keyword descriptions.

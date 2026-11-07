@@ -155,7 +155,14 @@ function standardReviewHtml(card){
       return `<div class="review-effect-row no-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-info full-span"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`;
     }).join('');
     const rules=isUltimate&&card.ultimate?.owner?`<div class="review-ultimate-rules"><span>ULTIMATE RULES</span><p>${esc(/\bcan use this card\b/i.test(String(card.ultimate.owner))?card.ultimate.owner:`Only ${card.ultimate.owner} can use this card or Tribute it for EXP.`)}</p></div>`:'';
-    $('reviewRows').innerHTML=effectRows+rules;
+    // Shared printed effect is not part of the individual Bard/Maestro
+    // numeric damage rows. Keep it visible separately in this card's Review.
+    // Source: designer-approved local printed front (without trailing row values).
+    const commonEffect=card.id==='S0-CLE-031'
+      ?String(card.text||'').replace(/\s+60\s*\|\s*90\s*$/,'').trim():'';
+    const commonBlock=commonEffect
+      ?`<div class="review-generic-row review-large-effect gl-s0-review-common-effect"><span>SHARED EFFECT / CONDITION</span><p>${esc(commonEffect)}</p></div>`:'';
+    $('reviewRows').innerHTML=commonBlock+effectRows+rules;
   }else if(card.family==='Item'){
     const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');
     $('reviewRows').innerHTML=`<div class="review-effect-row item-effect-row no-metric"><div><span>CLASS</span><strong>${esc(itemClassText(card))}</strong></div><div><span>RANK</span><strong>All Ranks</strong></div><div class="review-effect-info full-span"><span>ITEM EFFECT</span><p>${esc(effect||'—')}</p></div></div>`;

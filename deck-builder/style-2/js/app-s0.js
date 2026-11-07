@@ -336,7 +336,7 @@ function effectMetric(card,row={}){
   return {label,value};
 }
 function skillEffectText(row={},metric=null){let effect=String(row.effect_text||row.text||'').trim();if(!metric)return effect||String(row.damage_text||'—').trim()||'—';if(/^\s*[+-]?\d+\s*$/.test(effect)&&/^(?:PHYSICAL|MAGICAL) DAMAGE$/.test(metric.label))return `Deal ${metric.value} ${metric.label==='PHYSICAL DAMAGE'?'Physical':'Magical'} damage.`;if(/DAMAGE$/.test(metric.label)&&metric.label!=='DAMAGE REDUCTION')effect=effect.replace(/^(?:Deal|Inflict)\s+[+-]?\d+[^.]*?damage\.\s*/i,'').trim();else if(metric.label==='DAMAGE REDUCTION')effect=effect.replace(/^Block\s+[+-]?\d+[^.]*?damage[^.]*\.\s*/i,'').trim();else if(metric.label==='HEALING DONE')effect=effect.replace(/^(?:Heal|Restore)[^.]*?[+-]?\d+[^.]*\.\s*/i,'').trim();return effect||'—'}
-function itemClassText(card){const classes=Array.isArray(card.requiredBaseClasses)?card.requiredBaseClasses.filter(Boolean):[];return classes.length?classes.join(' • '):'All Classes'}
+function itemClassText(card){if(card.printedClassRequirement)return card.printedClassRequirement;const classes=Array.isArray(card.requiredBaseClasses)?card.requiredBaseClasses.filter(Boolean):[];return classes.length?classes.join(' • '):'All Classes'}
 function heroReviewHtml(card){
   const rows=card.rows||[];
   const racialRow=rows.find(row=>/^Racial Trait/i.test(row.label||''));

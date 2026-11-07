@@ -115,6 +115,9 @@ body:has(.gl-lab-authority) .hover-card-zoom.is-hand-hover img{width:100%!import
 .gl-lab-positions .hero-card-physical-stack.is-ready .hero-exp-slot{width:7px!important;min-width:7px!important;height:100%!important;min-height:0!important;}
 .gl-lab-positions .hero-card-physical-stack.is-exhausted .hero-exp-slot{width:100%!important;min-width:0!important;height:7px!important;min-height:7px!important;flex:0 0 7px!important;}
 .gl-lab-positions .hero-exp-slot::before{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:7px!important;height:var(--gl-exp-stack-height,100%)!important;transform:translate(-50%,-50%)!important;transform-origin:center center!important;background-color:transparent!important;background-image:url('../assets/exp/Stack 100-200EXP.png')!important;background-repeat:no-repeat!important;background-size:200% 100%!important;background-position:left center!important;}
+/* The supplied EXP edge has deliberate extra art under the Hero. Keep its
+   upper edge flush and trim only the visible lower edge in Ready orientation. */
+.gl-lab-positions .hero-card-physical-stack.is-ready .hero-exp-slot::before{top:calc(50% - var(--gl-exp-ready-bottom-trim-half,2px))!important;height:calc(var(--gl-exp-stack-height,100%) - var(--gl-exp-ready-bottom-trim,4px))!important;}
 .gl-lab-positions .hero-exp-slot[data-exp-value="200"]::before{background-position:right center!important;}
 .gl-lab-positions .hero-card-physical-stack.is-exhausted .hero-exp-slot::before{height:var(--gl-exp-exhausted-stack-width,100px)!important;transform:translate(-50%,-50%) rotate(-90deg)!important;}
 .gl-lab-positions .hero-exp-slot.is-empty{visibility:hidden!important;}.gl-lab-positions .hero-exp-slot.is-empty::before{background-image:none!important;}
@@ -439,4 +442,51 @@ html .v96-app .hand-area--opponent .opponent-hand-slot::after{
   border:0!important;
   outline:0!important;
   box-shadow:none!important;
+}
+
+
+/* Compact Shard Deck indicators for the narrow resource rail.
+   REGEN is shown explicitly beside the live +N. Deck count uses a separate
+   blue/slate badge. No new fonts; values and labels use the application's font. */
+.gl-lab-zone[data-zone-type="Shard Deck"] .zoneCard > .gl-lab-mana-regen{
+  position:absolute!important;top:-5px!important;left:-9px!important;right:auto!important;bottom:auto!important;
+  transform:none!important;box-sizing:border-box!important;
+  width:35px!important;min-width:35px!important;height:28px!important;min-height:28px!important;
+  padding:1px 2px!important;display:flex!important;flex-direction:column!important;gap:1px!important;align-items:center!important;justify-content:center!important;
+  border:1px solid #cda743!important;border-radius:7px!important;
+  background:linear-gradient(180deg,#5c451d,#241b13)!important;color:#ffe6a0!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.70)!important;filter:none!important;
+  pointer-events:none!important;z-index:13!important;
+}
+.gl-lab-zone[data-zone-type="Shard Deck"] .gl-lab-mana-regen .gl-regen-name{
+  font-family:inherit!important;font-size:9px!important;font-weight:800!important;
+  line-height:1!important;letter-spacing:0!important;white-space:nowrap!important;
+}
+.gl-lab-zone[data-zone-type="Shard Deck"] .gl-lab-mana-regen .gl-regen-value{
+  font-family:inherit!important;font-size:12px!important;font-weight:900!important;
+  line-height:1!important;letter-spacing:0!important;white-space:nowrap!important;
+}
+.gl-lab-zone[data-zone-type="Shard Deck"] .zoneCard > .gl-resource-count{
+  position:absolute!important;top:-5px!important;right:-5px!important;left:auto!important;bottom:auto!important;
+  transform:none!important;box-sizing:border-box!important;
+  width:22px!important;min-width:22px!important;height:21px!important;min-height:21px!important;
+  padding:0 1px!important;display:flex!important;align-items:center!important;justify-content:center!important;
+  border:1px solid #637d9e!important;border-radius:6px!important;
+  background:linear-gradient(180deg,#2b405c,#152537)!important;color:#ffffff!important;
+  font-family:inherit!important;font-size:11px!important;font-weight:900!important;
+  line-height:1!important;letter-spacing:0!important;text-shadow:0 1px 2px #000!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.65)!important;z-index:14!important;
+}
+html.gl-ui-tablet.gl-tablet-landscape-desktop .gl-lab-zone[data-zone-type="Shard Deck"] .zoneCard > .gl-resource-count{
+  top:-5px!important;right:-5px!important;transform:none!important;
+}
+html.gl-ui-tablet.gl-tablet-landscape-desktop .gl-lab-zone[data-zone-type="Shard Deck"]{overflow:visible!important;}
+.gl-lab-zone[data-zone-type="Shard Deck"] > .gl-lab-zone-label{display:none!important;}
+
+
+/* Desktop/tablet-landscape deck counters: increase the existing 11px count by
+   2px, matching the recent +2px Regen typography adjustment. This selects only
+   battlefield Deck count badges, not Discard/Status/Attachments or mobile zones. */
+.gl-lab-zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) .zoneCard > .gl-resource-count{
+  font-size:13px!important;
 }

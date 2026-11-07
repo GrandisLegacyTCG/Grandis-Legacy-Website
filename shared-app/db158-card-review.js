@@ -25,6 +25,16 @@
       var replace=rows.find(function(r){return /LEGACY_REPLACEMENT/i.test(r.label);});
       rows=ab?[{label:'Legacy Ability',text:ab.text,effect_text:ab.effect_text}]:rows;
     }
+    // Designer-approved local front (pending synchronization into a later OSA):
+    // Card Review must reflect the latest supplied print, not the older OSA
+    // consumer's cached Item effect. This does not modify gameplay legality.
+    var reviewedText=c.card_text||c.printed?.text||'';
+    var reviewedClasses=((c.requirement||{}).legal_base_classes||[]);
+    if(c.card_id==='S0-ITM-011'){
+      reviewedText="This turn, attach this card to the Hero that used it. When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns.";
+      reviewedClasses=['Archer','Thief','Warrior'];
+      rows=[{row_id:'1',label:'Item Effect',damage_text:'',effect_text:reviewedText,text:reviewedText}];
+    }
     var roman=rankRoman(ident.rank||c.class_rank||c.rank_numeric);
     var rank=({I:1,II:2,III:3})[roman]||1;
     var cost=c.cost_display||((c.cost||{}).mana!=null?String(c.cost.mana)+' Mana':'No Mana cost');
@@ -34,9 +44,11 @@
     return {id:c.card_id,name:c.name,family:c.family==='Legacy'?'LegacyModeDefinition':c.family,
       classification:c.classification||c.action_category||'',classGroup:ident.class||c.display_class||c.class_family||baseClass||'',
       rank:rank,rankNumeric:rank,race:c.race||ident.race||'',hp:c.hp,
-      image:'card-art/'+c.card_id+'.webp',cost:cost,text:c.card_text||c.printed?.text||'',rows:rows,
-      ultimate:{isUltimate:!!c.is_ultimate,owner:ult.owner||''},
-      requiredBaseClasses:((c.requirement||{}).legal_base_classes||[]),
+      image:'card-art/'+c.card_id+'.webp',cost:cost,text:reviewedText,rows:rows,
+      ultimate:{isUltimate:!!c.is_ultimate,owner:c.card_id==='S0-CLE-031'
+        ?'Only Melody can use this card or tribute it with a White Mana Shard for EXP.'
+        :(ult.owner||'')},
+      requiredBaseClasses:reviewedClasses,
       rules:c.family==='Legacy'?((replace||{}).text||''):(c.printed?.rules||''),sourceCardId:c.card_id};
   }
   function documentHtml(c,progressionIds){

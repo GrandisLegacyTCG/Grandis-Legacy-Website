@@ -71,10 +71,32 @@
 .gl-hero-action{pointer-events:auto!important;max-width:132px!important;min-height:16px!important;height:auto!important;padding:2px 6px!important;border:1px solid rgba(184,153,50,.78)!important;border-radius:5px!important;background:#081522!important;color:#f3cf58!important;font-size:7px!important;line-height:1.1!important;font-weight:900!important;white-space:normal!important;text-align:right!important;cursor:pointer!important}
 .trait{display:none!important}
 
-/* Tribute EXP stack stays physically attached to the Hero package during Ready/Exhaust rotation. */
+/* UI-EXP-001 (RC31 staging): use designer-supplied 100/200 EXP edge artwork.
+   EXP is physically behind the Hero; each amount must remain readable immediately
+   beside the Hero. Keep the existing four-slot rail, Ready/Exhausted rotation,
+   card accounting, and other presentation/interaction semantics unchanged. */
+.gl-hero-physical-stack>.hero-card{z-index:60!important}
 .gl-hero-physical-stack>.gl-exp-stack{position:absolute!important;left:100%!important;top:50%!important;transform:translateY(-50%)!important;margin:0!important;padding:0!important;gap:0!important;overflow:visible!important;pointer-events:none!important;z-index:20!important;display:grid!important;grid-template-columns:repeat(4,7px)!important;grid-template-rows:1fr!important;width:28px!important;min-width:28px!important;max-width:28px!important;height:var(--gl-exp-stack-height,var(--hero-h))!important}
 .gl-exp-slot{position:relative!important;display:block!important;width:7px!important;min-width:7px!important;height:100%!important;margin:0!important;padding:0!important;border:0!important;overflow:visible!important;background:none!important}
-.gl-exp-slot:before{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:7px!important;height:var(--gl-exp-stack-height,var(--hero-h))!important;transform:translate(-50%,-50%)!important;transform-origin:center center!important;background-color:transparent!important;background-image:url("../engine/assets/exp/Stack 100-200EXP.png")!important;background-repeat:no-repeat!important;background-size:200% 100%!important;background-position:left center!important}
+/* Designer EXP art: 144x1400 per type; each card has extra art hidden
+   BEHIND its Hero. Display the same fixed 7px EXP tab at every Hero size.
+   The 7px rail step is unchanged; only the Ready artwork's measured height
+   and horizontal anchoring are adjusted. Hero always remains above EXP. */
+.gl-exp-slot:nth-child(1){z-index:4!important}
+.gl-exp-slot:nth-child(2){z-index:3!important}
+.gl-exp-slot:nth-child(3){z-index:2!important}
+.gl-exp-slot:nth-child(4){z-index:1!important}
+.gl-exp-slot:before{content:""!important;position:absolute!important;left:0!important;top:50%!important;width:calc(var(--gl-exp-stack-height,var(--hero-h)) * 0.1028571429)!important;height:var(--gl-exp-stack-height,var(--hero-h))!important;transform:translate(-67%,-50%)!important;transform-origin:center center!important;background-color:transparent!important;background-image:url("../engine/assets/exp/Stack 100-200EXP.png")!important;background-repeat:no-repeat!important;background-size:200% 100%!important;background-position:left center!important}
+/* In both Ready and Exhausted the EXP art is 1px SHORTER than the
+   VISIBLE Hero art at BOTH ends and exposes the same 7px strip. The exhausted
+   physical package is already rotated -90deg as a unit; separate, old EXP
+   artwork dimensions caused a visibly oversized protrusion. */
+.gl-hero-physical-stack:is(.is-ready,.is-exhausted) .gl-exp-slot:before{
+  top:50%!important;
+  height:calc(var(--gl-exp-ready-art-height,var(--hero-h)) - 2px)!important;
+  width:calc((var(--gl-exp-ready-art-height,var(--hero-h)) - 2px) * 0.1028571429)!important;
+  transform:translate(calc(-100% + 7px),-50%)!important;
+}
 .gl-exp-slot[data-exp-value="200"]:before{background-position:right center!important}
 .gl-exp-slot.is-empty{visibility:hidden!important}
 
@@ -590,7 +612,7 @@
 .gl-lobby-rank-control button{height:34px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff!important;font-size:23px!important;font-weight:400!important}
 .gl-lobby-rank-control button:hover{background:#24262e!important}
 .gl-lobby-rank-control strong{height:34px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#f0d27f!important;font-size:10px!important;font-weight:700!important}
-.gl-lobby-foot{display:flex!important;justify-content:flex-end!important;align-items:center!important;margin-top:0!important;padding:14px 0 0!important;border-top:1px solid rgba(229,234,243,.20)!important;background:transparent!important}
+.gl-lobby-foot{display:flex!important;justify-content:flex-end!important;align-items:center!important;margin-top:0!important;padding:14px 0 0!important;border-top:0!important;background:transparent!important}
 .gl-lobby-foot nav{display:none!important}
 .gl-lobby-start{width:auto!important;min-width:260px!important;height:56px!important;padding:0 28px!important;border:1px solid #f4d87e!important;border-radius:12px!important;background:linear-gradient(180deg,#f5dc91 0%,#c49b43 100%)!important;color:#11151c!important;font-size:15px!important;font-weight:950!important;box-shadow:inset 0 1px rgba(255,255,255,.42)!important}
 
@@ -747,25 +769,18 @@
 .gl-sidebar-hover-preview{position:fixed!important;right:auto!important;z-index:26000!important;pointer-events:none!important}
 
 
-/* Active phase: text-width underline + exactly centered diamond. */
+/* Active phase: a clean, text-width gold line. No central diamond or tinted/shadowed backdrop. */
+.phase{box-shadow:none!important}
 .phase-track{position:relative!important;overflow:visible!important}
-.phase-label{position:relative;z-index:3;transition:color .24s ease,text-shadow .24s ease,filter .24s ease}
-.phase-label.active{color:#f0cf58!important;text-shadow:0 0 9px rgba(240,207,88,.30)!important}
-.gl-phase-tint,.gl-phase-underline,.gl-phase-diamond{position:absolute;pointer-events:none;z-index:1}
-.gl-phase-tint{
-  top:2px;bottom:2px;left:0;width:0;border-radius:6px;background:rgba(232,196,79,.07);
-  transition:left .48s cubic-bezier(.2,.75,.2,1),width .48s cubic-bezier(.2,.75,.2,1);
-}
+.phase-label{position:relative;z-index:3;transition:color .24s ease,filter .24s ease}
+.phase-label.active{color:#f0cf58!important;text-shadow:none!important}
+/* Keep existing phase/underline positioning logic intact; only remove decorative layers. */
+.phase-track .gl-phase-tint,.phase-track .gl-phase-diamond{display:none!important}
 .gl-phase-underline{
+  position:absolute;pointer-events:none;z-index:1;
   left:0;top:0;width:0;height:2px;border-radius:999px;background:#e8c44f;
   transition:left .48s cubic-bezier(.2,.75,.2,1),width .48s cubic-bezier(.2,.75,.2,1);
-  box-shadow:0 0 7px rgba(232,196,79,.25);
-}
-.gl-phase-diamond{
-  left:0;top:0;width:7px;height:7px;background:#e8c44f;
-  transform:translateX(-50%) rotate(45deg);
-  transition:left .48s cubic-bezier(.2,.75,.2,1);
-  box-shadow:0 0 7px rgba(232,196,79,.28);
+  box-shadow:none!important;
 }
 .phase-label.gl-phase-enter{animation:glPhaseEnter .52s ease-out}
 @keyframes glPhaseEnter{0%{filter:brightness(1)}45%{filter:brightness(1.55)}100%{filter:brightness(1)}}
@@ -1397,7 +1412,11 @@ body.gl-center-choice-active .gl-modal-hover-preview.open{z-index:2147483000!imp
 .gl-counter-banner{position:fixed;z-index:2147482990;left:50%;top:44%;transform:translate(-50%,-50%) scale(.95);width:max-content;max-width:min(84vw,480px);pointer-events:none;opacity:0;display:flex;flex-direction:column;align-items:center;gap:5px;padding:13px 24px;text-align:center;color:#fff0c3;background:rgba(19,14,17,.97);border:2px solid #c96146;border-radius:9px;box-shadow:0 8px 38px #000a,0 0 18px #ca594466}
 .gl-counter-banner strong{font-size:clamp(15px,2.5vw,25px);letter-spacing:.12em;color:#ffb69e;text-shadow:0 0 10px #ad423f}
 .gl-counter-banner small{font-size:clamp(10px,1.3vw,14px);color:#f1e1d3;line-height:1.4}
-.gl-counter-banner.show{animation:glNegationBanner 1.95s ease-in-out both}
+.gl-counter-banner.show{animation:glNegationBanner var(--gl-notice-duration,2000ms) ease-in-out both}
+/* Dedicated Racial Trait notice styling, reusing the established COUNTERED queue. */
+.gl-counter-banner.is-racial{background:rgba(12,25,29,.97);border-color:#d5af58;box-shadow:0 8px 38px #000a,0 0 18px #d5af5844}
+.gl-counter-banner.is-racial strong{color:#ffe09a;text-shadow:0 0 10px #9b803c}
+.gl-counter-banner.is-racial small{color:#e8edeb}
 @keyframes glNegationBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(.94)}12%,79%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.02)}}
 .gl-played-negated-badge{position:absolute;right:0;bottom:0;background:#611b21;color:#fff;border-radius:4px;padding:3px 4px;font-size:8px;font-weight:900;z-index:3}
 @media(prefers-reduced-motion:reduce){.gl-counter-banner.show{animation:none;opacity:1}}
@@ -1477,3 +1496,194 @@ body.gl-center-stoneblood .gl-center-choice-actions{margin-top:20px!important}
 .bottom-actions #matchActionButton.match-result-action:focus-visible{
   border-color:#d6b84c;background:#26301d;
 }
+
+/* Combined cues: an actively Taunting Hero keeps its orange glow regardless
+   of simultaneous Casting/Ability/Racial overlays. This does not create Taunt
+   state, only displays the authoritative active Attachment record. */
+.hero-lane.gl-self-attachment-active.gl-casting-target::before{
+  background:linear-gradient(120deg,rgba(238,112,47,.04),rgba(164,85,255,.04))!important;
+  box-shadow:inset 0 0 0 2px rgba(255,167,85,.92),inset 0 0 14px rgba(175,106,255,.52),inset 0 0 35px rgba(255,122,58,.38),inset 0 0 58px rgba(129,57,216,.2)!important;
+}
+
+
+/* RC32 staging: bridge the locked compact Shard Deck UI to the actual game
+   renderer (.zone + app-runtime). The separate engine .gl-lab-zone styling
+   alone did not affect the live battlefield. Both sides use the same look. */
+.zone[data-zone-type="Shard Deck"] > .gl-regen-counter{
+  box-sizing:border-box!important;position:absolute!important;
+  top:-5px!important;left:-9px!important;right:auto!important;bottom:auto!important;
+  z-index:35!important;width:35px!important;min-width:35px!important;
+  height:28px!important;min-height:28px!important;
+  padding:1px 2px!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+  gap:1px!important;filter:none!important;
+  border:1px solid #cda743!important;border-radius:7px!important;
+  background:linear-gradient(180deg,#5c451d,#241b13)!important;
+  color:#ffe6a0!important;box-shadow:0 1px 4px rgba(0,0,0,.70)!important;
+  pointer-events:none!important;font-family:inherit!important;
+}
+.zone[data-zone-side="AI"][data-zone-type="Shard Deck"] > .gl-regen-counter{
+  top:-5px!important;left:-9px!important;right:auto!important;bottom:auto!important;
+}
+.zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-name{
+  display:block!important;
+  font-family:inherit!important;font-size:9px!important;font-weight:800!important;line-height:1!important;
+  white-space:nowrap!important;letter-spacing:0!important;
+}
+.zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-value{
+  display:block!important;font-family:inherit!important;font-size:12px!important;
+  font-weight:900!important;line-height:1!important;letter-spacing:0!important;white-space:nowrap!important;
+}
+/* Use the already-approved blue/slate background for the Shard Deck count. */
+.zone[data-zone-type="Shard Deck"] > .count{
+  background:linear-gradient(180deg,#2b405c,#152537)!important;
+  border:1px solid #637d9e!important;border-radius:6px!important;
+  min-width:22px!important;height:21px!important;line-height:19px!important;
+  padding:0 1px!important;box-shadow:0 1px 4px rgba(0,0,0,.65)!important;
+  color:#fff!important;
+}
+/* Live renderer: previously-approved desktop-only +2px counter enlargement.
+   Discard, Shard Pool, Status and mobile counter fonts are not affected. */
+.zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) > .count{
+  font-size:13px!important;
+}
+/* Mobile/touch: preserve the smaller approved text sizes (7px/10px) and
+   compact footprint. Adaptive touch UI rotates/scales a logical 1600px stage. */
+@media(max-width:700px){
+  .zone[data-zone-type="Shard Deck"] > .gl-regen-counter{
+    width:31px!important;min-width:31px!important;height:25px!important;min-height:25px!important;
+  }
+  .zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-name{font-size:7px!important}
+  .zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-value{font-size:10px!important}
+  .zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) > .count{font-size:12px!important}
+}
+html.gl-adaptive-stage .zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-name{font-size:7px!important}
+html.gl-adaptive-stage .zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-value{font-size:10px!important}
+html.gl-adaptive-stage .zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) > .count{font-size:12px!important}
+
+/* RC32 UI counter correction (designer): use the established Main Deck
+   black/white badge for ALL deck counts (Main, Legacy, Mana). Do not change
+   Discard or Mana Pool counters. The original Main counter is the reference. */
+.zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) > .count{
+  min-width:22px!important;
+  height:18px!important;
+  padding:0 5px!important;
+  border:0!important;
+  border-radius:3px!important;
+  background:rgba(3,10,17,.68)!important;
+  color:#fff!important;
+  font-size:13px!important;
+  line-height:18px!important;
+  font-weight:950!important;
+  box-shadow:0 2px 5px rgba(0,0,0,.34)!important;
+}
+/* Mana Regen keeps its approved blue/slate color and only displays "+N".
+   Its text and badge height now match the deck-count badge. By positioning
+   opposite corners, AI gets a 180-degree layout mirror of the Player:
+   Player +N upper-left / deck count upper-right;
+   AI deck count lower-left / +N lower-right.
+   This is not a CSS rotation of the text: numbers remain upright/readable. */
+.zone[data-zone-type="Shard Deck"] > .gl-regen-counter{
+  box-sizing:border-box!important;
+  position:absolute!important;
+  top:-4px!important;left:-4px!important;right:auto!important;bottom:auto!important;
+  z-index:35!important;
+  width:auto!important;min-width:26px!important;
+  height:18px!important;min-height:18px!important;
+  padding:0 5px!important;
+  display:flex!important;flex-direction:row!important;
+  align-items:center!important;justify-content:center!important;
+  gap:0!important;
+  border:1px solid #637d9e!important;
+  border-radius:3px!important;
+  background:linear-gradient(180deg,#2b405c,#152537)!important;
+  color:#fff!important;
+  box-shadow:0 2px 5px rgba(0,0,0,.34)!important;
+  filter:none!important;
+  font-family:inherit!important;
+  font-size:13px!important;
+  font-weight:950!important;
+}
+.zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-name{display:none!important}
+.zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-value{
+  display:block!important;
+  font-family:inherit!important;
+  font-size:inherit!important;
+  font-weight:inherit!important;
+  line-height:1!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+  color:#fff!important;
+}
+.zone[data-zone-side="AI"][data-zone-type="Shard Deck"] > .gl-regen-counter{
+  top:auto!important;left:auto!important;right:-4px!important;bottom:-4px!important;
+}
+@media(max-width:700px){
+  .zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) > .count{font-size:12px!important}
+  .zone[data-zone-type="Shard Deck"] > .gl-regen-counter{font-size:12px!important}
+}
+html.gl-adaptive-stage .zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"]) > .count{font-size:12px!important}
+html.gl-adaptive-stage .zone[data-zone-type="Shard Deck"] > .gl-regen-counter{font-size:12px!important}
+html.gl-adaptive-stage .zone[data-zone-type="Shard Deck"] .gl-regen-counter .gl-regen-value{font-size:inherit!important}
+
+/* Unified DISCARD cost selection: reuse Bard's foreground choice, not the tiny
+   hand button or Legacy/Escape Arrow modal. Engine retains selection legality. */
+body.gl-center-discard #choiceOverlay{display:none!important;visibility:hidden!important;pointer-events:none!important}
+body.gl-center-discard .gl-center-choice-stage{z-index:24500!important}
+body.gl-center-discard .gl-center-choice-cards{
+  flex-wrap:wrap!important;align-content:center!important;justify-content:center!important;
+  width:min(94vw,1220px)!important;max-height:60dvh!important;overflow-y:auto!important;
+  row-gap:clamp(12px,2vh,24px)!important;
+}
+body.gl-center-discard .gl-center-choice-card{
+  width:min(clamp(48px,7vw,108px),calc((94vw - 70px)/8),calc((48dvh - 30px)*5/7))!important;
+  flex:0 1 auto!important;
+}
+/* Keep hover owned by foreground buttons; child IMG should not steal pointer. */
+.gl-center-mode-discard .gl-center-choice-card.is-clickable .gl-center-choice-flip,
+.gl-center-mode-discard .gl-center-choice-card.is-clickable .gl-center-choice-face,
+.gl-center-mode-discard .gl-center-choice-card.is-clickable .gl-center-choice-face img{pointer-events:none!important}
+.gl-center-mode-discard .gl-center-choice-card.is-clickable:hover:not(.is-selected){transform:none!important}
+@media(max-width:820px){body.gl-center-discard .gl-center-choice-card{width:min(64px,calc((94vw - 8px)/6))!important}}
+
+/* RC32 focused UI fix: card histories are longer than the sidebar viewport.
+   Scroll the actual overlay, not the battlefield, and keep Close reachable. */
+.sidebar .history-panel,
+.sidebar .battlelog-panel{
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#48637b #081420;
+}
+.sidebar .history-panel .history-grid{
+  overflow:visible!important;
+  min-height:0!important;
+}
+.sidebar :is(.history-panel,.battlelog-panel)>.history-head{
+  position:sticky;
+  top:-10px;
+  z-index:2;
+  padding:0 0 8px;
+  background:#030a11;
+}
+
+/* RC32 center-selection clipping correction. The selected card rises 20px;
+   short screens previously left only ~1px between its top and the SELECTED
+   badge, making the card appear hidden behind the status/title. Reserve the
+   full lift + outline + breathing room INSIDE the card row for all center
+   choice modes (Bard, Legacy, Response costs, Hand Limit, Mana, etc.). */
+body.gl-center-choice-active .gl-center-choice-cards{
+  padding-top:44px!important;
+  scroll-padding-top:30px;
+}
+/* With a multirow Discard selector, unsafe centering could hide the first row
+   above the scrollport. Preserve centering when it fits; start at top when not. */
+body.gl-center-discard .gl-center-choice-cards{
+  align-content:safe center!important;
+}
+
+/* RC32: Response PASS only; activate after 30 seconds of this response window. */
+@keyframes glResponsePassReminder{0%,100%{box-shadow:0 0 0 0 rgba(255,211,92,.14);filter:brightness(1)}50%{box-shadow:0 0 0 4px rgba(255,211,92,.65),0 0 16px rgba(255,211,92,.65);filter:brightness(1.33)}}
+.phase-action.gl-pass.gl-response-pass-attention{animation:glResponsePassReminder 1.15s ease-in-out infinite;border-color:#ffdc7c!important}
+@media(prefers-reduced-motion:reduce){.phase-action.gl-pass.gl-response-pass-attention{animation:none!important;box-shadow:0 0 0 2px rgba(255,211,92,.65)!important}}
