@@ -1,0 +1,113 @@
+{
+  "ok": true,
+  "baseline": "RC34 sebelum pembetulan urutan Card Played",
+  "updated": "RC34 terintegrasi, urutan Card Played terbaru dahulu",
+  "initial": {
+    "recent": [
+      "S0-MAG-001",
+      "S0-ARC-004",
+      "S0-WAR-004",
+      "S0-ITM-003",
+      "S0-CLE-001",
+      "S0-ARC-003"
+    ],
+    "history": [
+      "S0-MAG-001",
+      "S0-ARC-004",
+      "S0-WAR-004",
+      "S0-ITM-003",
+      "S0-CLE-001",
+      "S0-ARC-003",
+      "S0-WAR-002",
+      "S0-WAR-001"
+    ],
+    "battleLog": [
+      "OLDEST BATTLE LOG",
+      "MIDDLE BATTLE LOG",
+      "MOST RECENT BATTLE LOG"
+    ],
+    "visible": true,
+    "grid": {
+      "w": 216,
+      "h": 196
+    },
+    "events": [
+      4,
+      4
+    ]
+  },
+  "appended": {
+    "recent": [
+      "S0-WAR-010",
+      "S0-MAG-001",
+      "S0-ARC-004",
+      "S0-WAR-004",
+      "S0-ITM-003",
+      "S0-CLE-001"
+    ],
+    "history": [
+      "S0-WAR-010",
+      "S0-MAG-001",
+      "S0-ARC-004",
+      "S0-WAR-004",
+      "S0-ITM-003",
+      "S0-CLE-001",
+      "S0-ARC-003",
+      "S0-WAR-002",
+      "S0-WAR-001"
+    ],
+    "battleLog": [
+      "OLDEST BATTLE LOG",
+      "MIDDLE BATTLE LOG",
+      "MOST RECENT BATTLE LOG"
+    ],
+    "visible": true,
+    "grid": {
+      "w": 216,
+      "h": 196
+    },
+    "events": [
+      5,
+      4
+    ]
+  },
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "latest": "S0-WAR-010",
+      "grid": {
+        "w": 216,
+        "h": 196
+      },
+      "visible": true
+    },
+    {
+      "width": 1024,
+      "height": 700,
+      "latest": "S0-WAR-010",
+      "grid": {
+        "w": 157,
+        "h": 195
+      },
+      "visible": true
+    },
+    {
+      "width": 900,
+      "height": 650,
+      "latest": "S0-WAR-010",
+      "grid": {
+        "w": 135,
+        "h": 195
+      },
+      "visible": true
+    }
+  ],
+  "detail": {
+    "historyOpen": true,
+    "detailOpen": true,
+    "firstHistoryId": "card-art/S0-WAR-010.webp"
+  },
+  "exceptions": [],
+  "browser_fixture": "Chromium Page.setDocumentContent (inline production HTML CSS JavaScript); asset images not loaded"
+}

@@ -2428,7 +2428,7 @@ function renderDeckActions(){document.querySelectorAll('.gl-deck-actions').forEa
 function currentPhaseStamp(s){return [s?.turn||'',Number(s?.round||1),s?.phase||''].join('|')}
 function latestResolvedActionThisPhase(s){
   const stamp=currentPhaseStamp(s);
-  return allEvents(s).find(e=>[e.turn||'',Number(e.round||1),e.phase||''].join('|')===stamp&&e.card_id)||null;
+  return allEvents(s).reverse().find(e=>[e.turn||'',Number(e.round||1),e.phase||''].join('|')===stamp&&e.card_id)||null;
 }
 function renderSidebar(s,chain){
   turnBox.innerHTML=`<h3 class="gold">${s.turn==='PLAYER'?'Your Turn':'AI Turn'}</h3><div class="tiny">Round ${Number(s.round||1)} · ${s.turn==='PLAYER'?'Player':'AI'}<br>Phase: ${esc(phaseName(s.phase))}<br>Mana ${Number(s.mana||0)} / 12 · Regen +${Number(s.manaRegen||0)}<br>AI Mana ${Number(s.aiMana||0)} / 12 · Regen +${Number(s.aiManaRegen||0)}</div>`;
@@ -2477,7 +2477,10 @@ function renderHistory(s,chain){
     if(keepSix){for(let i=host.children.length;i<6;i++){const ph=document.createElement('div');ph.className='played-card gl-played-placeholder';host.appendChild(ph)}}
     return true;
   };
-  const changed=draw(playedGrid,resolvedHistory.slice(-6),true)|draw(historyGrid,resolvedHistory,false);if(changed)requestAnimationFrame(fitPlayedCards);
+  // Card Played runs newest-first: the latest resolved card always occupies the top-left slot.
+  // The Battle Log intentionally keeps its separate oldest-to-newest, newest-at-bottom layout.
+  const newestFirst=resolvedHistory.slice().reverse();
+  const changed=draw(playedGrid,newestFirst.slice(0,6),true)|draw(historyGrid,newestFirst,false);if(changed)requestAnimationFrame(fitPlayedCards);
 }
 
 function renderLog(s){
@@ -2506,12 +2509,13 @@ function renderAllowedModal(s){
   const p=s.pending,allowed=['card_search_choice','legacy_defeat_choice','legacy_card_choice','crystal_ball_reorder'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
     if(!p&&inspectState){renderInspectModal();return}
-    // The generic modal does not own the hover preview during Bard/Maestro's
-    // center-card selection. Do not erase that preview on every 120ms render.
-    // A real center-choice transition/exit still clears it in the center UI.
-    const centerPreviewOwnedByBard=p?.type==='s0_bard_draw_choice'&&
+    // The generic modal is polled every 120 ms but DOES NOT own the preview
+    // for any active center-choice card (including End Phase Hand Limit).
+    // Closing the center choice, a pointerleave or a genuine session change
+    // still clears the preview through the center-choice lifecycle.
+    const centerPreviewOwnedByCenterChoice=!!centerChoiceModeFor(s)&&
       classChoiceHoverOwner?.isConnected&&centerChoiceStage.contains(classChoiceHoverOwner);
-    if(!centerPreviewOwnedByBard)hideModalHoverPreview();
+    if(!centerPreviewOwnedByCenterChoice)hideModalHoverPreview();
     if(p)inspectState=null;
     choiceOverlay.classList.remove('open','gl-choice-main-deck-preview');activeModalType='';modalRenderKey='';return;
   }

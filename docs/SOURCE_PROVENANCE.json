@@ -1,78 +1,33 @@
 {
   "prepared_date": "2026-11-08",
-  "repository": "https://github.com/GrandisLegacyTCG/Grandis-Legacy-Website",
-  "baseline_branch": "main",
-  "baseline_commit": "f6f1d8971e6458b96b46f2083f0481e02d2230db",
-  "repository_read_only": true,
-  "github_mutations_performed": false,
-  "deployment_performed": false,
-  "baseline_package": {
-    "filename": "Grandis_Legacy_VS_AI_RC32_Deck_Builder_v1.62_GitHub_2026-11-07.zip",
-    "sha256": "80910203c4232787c1502c6f84b0b12b2e5eaaeb06ab741a5e1bfbde892329c1",
-    "file_count": 764
+  "baseline": {
+    "repository": "GrandisLegacyTCG/Grandis-Legacy-Website",
+    "branch": "main",
+    "commit": "5fd2bc590147e287d81db6c5abb8e4eb09fe3bf2",
+    "label": "GL S0 : VS AI RC33 + DB v1.62"
   },
-  "vs_ai": {
-    "filename": "Grandis_Legacy_VS_AI_Season0_v1.0_RC33_2026-11-08.zip",
-    "sha256": "b2541910e5ec4c6c4965ac79b80a0f7b4ae1bc8f3da5b5582cb9f053ea648f1e",
-    "file_count": 707,
-    "version": "v1.0 RC33",
-    "deployable_file_count": 417
+  "sources": {
+    "vs_ai_rc34": {
+      "file": "Grandis_Legacy_VS_AI_Season0_v1.0_RC34_2026-11-08.zip",
+      "sha256": "c41ee1a2f414de969a4bac230505250d1514505e8e3c8800d2ed77345e4e0cef"
+    },
+    "baseline_full_repo": {
+      "file": "Grandis_Legacy_RC33_DB_v1.62_FULL_REPO_2026-11-08.zip",
+      "sha256": "455ce192ca864d60f83bf456b0b0231268890d27d624e3244f739250b8fc1c31"
+    }
   },
-  "deck_builder": {
-    "filename": "Grandis_Legacy_Deck_Builder_v1.62_2026-11-07.zip",
-    "sha256": "41302f430e6e6bfa17e37ca58d6bf663505043e65eb72f7e158969a5560deed3",
-    "version": "v1.62",
-    "integrated_file_count": 347,
-    "source": "Existing integrated baseline, byte-for-byte retained"
+  "target": {
+    "vs_ai": "Season 0 v1.0 RC34",
+    "deck_builder": "v1.62",
+    "domain": "grandislegacytcg.web.id"
   },
-  "html_cache_keys": {
-    "index.html": 14,
-    "deck-builder/index.html": 33,
-    "deck-builder/style-2/index.html": 36,
-    "deck-builder/style-1/index.html": 0
-  },
-  "updated_image_cache_keys": {
-    "assets/ui/Racial-Token-Head.webp": "b1d265365339",
-    "assets/ui/Racial-Token-Tail.webp": "867e6c6d1d33"
-  },
-  "changes": [
-    "VS AI deployable files sourced from the attached RC33 release",
-    "RC33 engine bundle and battlefield CSS copied byte-for-byte",
-    "Existing lobby navigation and player Hand artwork loading safeguard reapplied to RC33 runtime",
-    "Root HTML CSS/JS content-hash glsrc parameters regenerated",
-    "Both changed racial-token images receive content-hash glsrc parameters at all four runtime references",
-    "All 347 Deck Builder files and both site integration CSS files retained byte-for-byte",
-    "Historical audit CSV retains repository LF line endings; source text is identical",
-    "Versioned RC33 source README and RC33 QA documents retained as supplied; their historical QA claims are separate from current integration validation"
+  "constraints": [
+    "manual GitHub upload only",
+    "no push/commit/PR/deployment by assistant"
   ],
-  "historical_source_metadata": {
-    "vs_ai": {
-      "filename": "Grandis_Legacy_VS_AI_Season0_v1.0_RC32_2026-11-07.zip",
-      "sha256": "362724579a6739ef713e461f3874b199288f0ad6e664267c45df504f82b77af7",
-      "file_count": 692
-    },
-    "deck_builder": {
-      "filename": "Grandis_Legacy_Deck_Builder_v1.62_2026-11-07.zip",
-      "sha256": "41302f430e6e6bfa17e37ca58d6bf663505043e65eb72f7e158969a5560deed3",
-      "file_count": 575
-    },
-    "baseline_version_unchanged": {
-      "vs_ai": "v1.0 RC32",
-      "deck_builder": "v1.62"
-    },
-    "html_cache_keys": {
-      "index.html": 14,
-      "deck-builder/index.html": 33,
-      "deck-builder/style-2/index.html": 36,
-      "deck-builder/style-1/index.html": 0
-    },
-    "changes": [
-      "Fresh extraction from current project ZIPs, no older source tree reused",
-      "Targeted lobby navigation VS AI -> /deck-builder/, PvP hidden",
-      "Deck Builder navigation active in Style 1 and Style 2; logo -> /",
-      "Artwork prefetch and placeholder preserved",
-      "Content-hash cache invalidation for locally linked CSS and JS, without version-number changes",
-      "Docs grouped under docs/; root clean"
-    ]
+  "validation": {
+    "rc34_engine_regression": "20/20 PASS",
+    "deck_builder_files_identical": 347,
+    "cache_refs_verified": 15
   }
 }
