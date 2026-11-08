@@ -1,0 +1,189 @@
+{
+  "version": "RC34.4 difficulty mode logic QA",
+  "passed": 15,
+  "total": 16,
+  "checks": [
+    {
+      "title": "default Beginner and AI Starter 1",
+      "ok": false,
+      "error": "AssertionError [ERR_ASSERTION]: 's0_starter_02_blue_red' == 's0_starter_01_red_white'\n    at /mnt/data/rc35_work/repo/docs/qa/rc34/RC34_DIFFICULTY_AI_TESTS.cjs:23:123\n    at check (/mnt/data/rc35_work/repo/docs/qa/rc34/RC34_DIFFICULTY_AI_TESTS.cjs:20:39)\n    at Object.<anonymous> (/mnt/data/rc35_work/repo/docs/qa/rc34/RC34_DIFFICULTY_AI_TESTS.cjs:23:1)\n    at Module._compile (node:internal/modules/cjs/loader:1730:14)\n    at Object..js (node:internal/modules/cjs/loader:1895:10)\n    at Module.load (node:internal/modules/cjs/loader:1465:32)\n    at Function._load (node:internal/modules/cjs/loader:1282:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)"
+    },
+    {
+      "title": "Beginner restricts Player/AI Starter 4-5",
+      "ok": true,
+      "data": {
+        "blocked": true
+      }
+    },
+    {
+      "title": "Intermediate unlocks all five and randomly chooses AI 4-5",
+      "ok": true,
+      "data": {
+        "randomCandidates": [
+          "s0_starter_05_white_green",
+          "s0_starter_04_green_yellow"
+        ]
+      }
+    },
+    {
+      "title": "Intermediate accepts Starter 4/5 for either side",
+      "ok": true,
+      "data": {
+        "selected": {
+          "PLAYER": "s0_starter_05_white_green",
+          "AI": "s0_starter_05_white_green"
+        }
+      }
+    },
+    {
+      "title": "Beginner reselect randomly 1-3 and resets unsupported Player starter",
+      "ok": true,
+      "data": {
+        "choices": [
+          "s0_starter_02_blue_red",
+          "s0_starter_03_yellow_blue",
+          "s0_starter_01_red_white"
+        ],
+        "player": "s0_starter_01_red_white"
+      }
+    },
+    {
+      "title": "current five cards 50/12/12 validated",
+      "ok": true,
+      "data": {
+        "s0_starter_01_red_white": {
+          "main": 50,
+          "legacy": 12,
+          "mana": 12
+        },
+        "s0_starter_02_blue_red": {
+          "main": 50,
+          "legacy": 12,
+          "mana": 12
+        },
+        "s0_starter_03_yellow_blue": {
+          "main": 50,
+          "legacy": 12,
+          "mana": 12
+        },
+        "s0_starter_04_green_yellow": {
+          "main": 50,
+          "legacy": 12,
+          "mana": 12
+        },
+        "s0_starter_05_white_green": {
+          "main": 50,
+          "legacy": 12,
+          "mana": 12
+        }
+      }
+    },
+    {
+      "title": "Intermediate gameplay legal AI strategy works with Starter 4",
+      "ok": true,
+      "data": {
+        "setups": [
+          {
+            "phase": "Deploy",
+            "type": "SKIP"
+          },
+          {
+            "phase": "Battle",
+            "type": "SKIP"
+          },
+          {
+            "phase": "Reform",
+            "type": "REPOSITION"
+          }
+        ],
+        "starter": "s0_starter_04_green_yellow",
+        "stage": "intermediate"
+      }
+    },
+    {
+      "title": "Intermediate recognizes Center strategic target and class passive",
+      "ok": true,
+      "data": {
+        "center": 240
+      }
+    },
+    {
+      "title": "Intermediate never over-EXP at Rank I exp200 / Rank II exp600 on Ultimate",
+      "ok": true,
+      "data": true
+    },
+    {
+      "title": "Beginner baseline unchanged score after toggling back",
+      "ok": true,
+      "data": true
+    },
+    {
+      "title": "Intermediate Arrow Barrage evaluates and spends all Shards to attack",
+      "ok": true,
+      "data": {
+        "estimate": 90,
+        "chosen": "S0-ARC-010",
+        "host": "LEFT",
+        "target": "CENTER",
+        "before": 100,
+        "after": 10,
+        "remainingPool": 0
+      }
+    },
+    {
+      "title": "Intermediate Mage/Arcane Warrior attacks score Physical higher when equal",
+      "ok": true,
+      "data": {
+        "p": 123,
+        "m": 0
+      }
+    },
+    {
+      "title": "Intermediate search and Replenish scoring respects Archer recycle and Maiden notes",
+      "ok": true,
+      "data": [
+        {
+          "id": "S0-ARC-014",
+          "score": 500
+        },
+        {
+          "id": "S0-ARC-010",
+          "score": 420
+        },
+        {
+          "id": "S0-ARC-021",
+          "score": 420
+        }
+      ]
+    },
+    {
+      "title": "Intermediate Replenish executes automatic two-card Discard recycle",
+      "ok": true,
+      "data": {
+        "selected": "S0-ARC-014",
+        "removedFromDiscard": [
+          "S0-ARC-010"
+        ],
+        "remainingDiscard": 2,
+        "deck": 43
+      }
+    },
+    {
+      "title": "Intermediate 80 percent healing gate for Potion",
+      "ok": true,
+      "data": {
+        "card": "S0-ITM-001",
+        "missing20": false,
+        "missing30": true
+      }
+    },
+    {
+      "title": "Intermediate tactical lethal overrides CENTER when left is 10 HP",
+      "ok": true,
+      "data": {
+        "left": 444,
+        "center": 330
+      }
+    }
+  ]
+}

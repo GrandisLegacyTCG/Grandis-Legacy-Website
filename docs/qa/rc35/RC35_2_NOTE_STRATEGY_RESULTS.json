@@ -1,0 +1,198 @@
+{
+  "version": "RC35.2",
+  "scope": "Intermediate Starter5 Notes",
+  "total": 22,
+  "passed": 22,
+  "results": [
+    {
+      "title": "Vae x1 Priest alive retained even when Grand Finale in Hand",
+      "ok": true,
+      "details": {
+        "chosen": []
+      }
+    },
+    {
+      "title": "Vae x2 Priest alive kept, even when combo needs Vae",
+      "ok": true,
+      "details": {
+        "chosen": []
+      }
+    },
+    {
+      "title": "Vae x3 Priest alive may exchange ONLY 1 copy (Maestro 2 slots)",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-CLE-027"
+        ]
+      }
+    },
+    {
+      "title": "Priest defeated: Vae can be discarded if combo exists",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-CLE-027"
+        ]
+      }
+    },
+    {
+      "title": "Zol x1 Archer alive and Mana sufficient: keep despite combo",
+      "ok": true,
+      "details": {
+        "chosen": []
+      }
+    },
+    {
+      "title": "Zol duplicate: one can be discarded, protect remaining copy",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-ARC-026"
+        ]
+      }
+    },
+    {
+      "title": "Zol x1 with 0 Mana + active combo can be discarded",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-ARC-026"
+        ]
+      }
+    },
+    {
+      "title": "Zol x1 with 0 Mana but no combo stays in Hand",
+      "ok": true,
+      "details": {
+        "chosen": []
+      }
+    },
+    {
+      "title": "Archer defeated: Zol can become discard combo material",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-ARC-026"
+        ]
+      }
+    },
+    {
+      "title": "Lun x1 without combo is saved as BLOCK",
+      "ok": true,
+      "details": {
+        "chosen": []
+      }
+    },
+    {
+      "title": "Lun x1 with combo in Hand can go to Discard",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-CLE-026"
+        ]
+      }
+    },
+    {
+      "title": "Lun duplicate can discard one copy, not both",
+      "ok": true,
+      "details": {
+        "chosen": [
+          "S0-CLE-026"
+        ]
+      }
+    },
+    {
+      "title": "Optional Bard exchange does not dump protected Vae on real resolution",
+      "ok": true,
+      "details": {
+        "indices": []
+      }
+    },
+    {
+      "title": "Hand Limit: keep 1-2 Vae when Priest alive, discard third preferentially",
+      "ok": true,
+      "details": {
+        "two": true,
+        "third": true
+      }
+    },
+    {
+      "title": "Tribute: protect the only Vae while Priest alive",
+      "ok": true,
+      "details": {
+        "score": -10000
+      }
+    },
+    {
+      "title": "Intermediate Vae through Priest: printed 20, heal legal at missing 20 even if actual Heal = 40",
+      "ok": true,
+      "details": {
+        "printed": 20,
+        "missingThreshold": 20
+      }
+    },
+    {
+      "title": "Beginner healing threshold remains old 60% with passive included",
+      "ok": true,
+      "details": {
+        "unchanged": true
+      }
+    },
+    {
+      "title": "A Priest in Intermediate can legally use Vae with 20 missing HP",
+      "ok": true,
+      "details": {
+        "legal": 2
+      }
+    },
+    {
+      "title": "Maestro REAL exchange sends Lun to Discard but preserves Vae x2",
+      "ok": true,
+      "details": {
+        "discard": [
+          "S0-CLE-026"
+        ],
+        "vaeKept": 2
+      }
+    },
+    {
+      "title": "Priest REAL Vae use from 20 HP missing heals 20 and enters Discard",
+      "ok": true,
+      "details": {
+        "hp": 100,
+        "discard": [
+          "S0-CLE-027"
+        ]
+      }
+    },
+    {
+      "title": "Intermediate selects Priest Vae at 20 missing HP in Deploy with no competing actions",
+      "ok": true,
+      "details": {
+        "chosen": {
+          "type": "PLAY_CARD",
+          "side": "AI",
+          "card_id": "S0-CLE-027",
+          "hand_index": 0,
+          "source_side": "AI",
+          "source_lane": "LEFT",
+          "source_card_id": "S0-CLE-H002",
+          "target_side": "AI",
+          "target_lane": "RIGHT",
+          "cost": 1
+        }
+      }
+    },
+    {
+      "title": "Beginner Bard discard algorithm code path does not use Intermediate Note gate",
+      "ok": true,
+      "details": {
+        "beginnerScore": 70,
+        "chosen": [
+          "S0-CLE-027"
+        ]
+      }
+    }
+  ]
+}

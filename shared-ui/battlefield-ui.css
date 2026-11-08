@@ -1870,3 +1870,14 @@ html.gl-mobile-landscape-coin .gl-coin-card{
   width:480px!important;max-width:94%!important;
   max-height:95%!important;overflow-y:auto!important;
 }
+
+/* RC34.4: approved text-only mode buttons; original desktop Lobby and mobile canvas retained. */
+.gl-lobby-foot{justify-content:space-between!important;gap:18px!important}
+.gl-lobby-difficulties{display:flex;align-items:center;gap:14px;margin:0;padding:0;border:0;background:transparent;box-shadow:none}
+.gl-lobby-difficulty{font-family:Noto,"Noto Sans",Arial,sans-serif!important;display:grid;place-items:center;min-width:188px;height:56px;padding:0 24px;border:1px solid #2d4354;border-radius:12px;background:linear-gradient(180deg,#172b3b,#102132);color:#f3f5fa;font-size:16px;font-weight:800;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,box-shadow .14s}
+.gl-lobby-difficulty:hover{border-color:#af995f;background:linear-gradient(180deg,#24384b,#14283b)}
+.gl-lobby-difficulty.is-selected{color:#fff1c9;border-color:#f7d377;background:linear-gradient(180deg,#60491e,#2a261f);box-shadow:0 0 9px rgba(255,197,81,.55),inset 0 1px rgba(255,231,167,.28)}
+.gl-lobby-difficulty:focus-visible{outline:2px solid #ffe397;outline-offset:3px}
+html.gl-mobile-landscape-lobby .gl-lobby-foot{justify-content:space-between!important}
+html.gl-mobile-landscape-lobby .gl-lobby-difficulties{gap:12px}
+html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;font-size:16px;padding:0 17px}

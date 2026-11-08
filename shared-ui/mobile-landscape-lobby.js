@@ -51,7 +51,7 @@
       : `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
     root.style.setProperty('--gl-mobile-lobby-transform', transform);
     root.style.setProperty('--gl-mobile-lobby-scale', String(scale));
-    root.dataset.glInternalRevision = 'RC34.2';
+    root.dataset.glInternalRevision = 'RC35';
   }
   function requestPosition() {
     if (scheduled) return;

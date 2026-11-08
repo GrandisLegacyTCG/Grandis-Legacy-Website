@@ -1,0 +1,27 @@
+{
+  "release": "Grandis Legacy VS AI Season 0 v1.0 RC35",
+  "date": "2026-11-08",
+  "promoted_from": "RC34.4",
+  "change_scope": "Release version labels and release docs only; no gameplay/AI/UX behavior changed",
+  "tests": {
+    "javascript_syntax": "PASS (4 app/runtime scripts)",
+    "engine_regression": "20/20 PASS",
+    "difficulty_ai_regression": "16/16 PASS"
+  },
+  "historical_qa": "RC34.4 targeted browser lobby QA 3/3 PASS, not rerun for this version-only promotion",
+  "source_integrity": {
+    "rc34_archive_sha256": "00d2c5b4143daa468bac9fab84893f0a08de0e10c08f7f8666404909b1e5f35f",
+    "version_only_js_diffs_verified": true,
+    "historical_results_restored": [
+      {
+        "name": "REGRESSION_RC34_PATCHED.json",
+        "rerun_content_sha256": "a88205f7bc41dee908083d494f6e0d126fe8d1eeb148e6206b1131c44b794ad4"
+      },
+      {
+        "name": "ai_modes_results.json",
+        "rerun_content_sha256": "f61c2bb88413f55d7ead92a79ee4746af6ef1953cbf528a83a7604e517730ccf"
+      }
+    ]
+  },
+  "limitations": "Natural full match, Android device and native Firefox were not independently verified as part of this promotion."
+}

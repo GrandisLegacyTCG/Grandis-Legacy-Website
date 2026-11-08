@@ -2,7 +2,7 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "White-Green Deck",
-  "format": "Grandis Legacy Season 0 / Rulebook v2.9 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Player Rulebook v3.0 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
@@ -56,11 +56,6 @@
       "quantity": 2
     },
     {
-      "card_id": "S0-ARC-008",
-      "card_name": "Aim Shot",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-ARC-010",
       "card_name": "Arrow Barrage",
       "quantity": 2
@@ -94,11 +89,6 @@
       "card_id": "S0-CLE-010",
       "card_name": "Holy Barrier",
       "quantity": 2
-    },
-    {
-      "card_id": "S0-CLE-015",
-      "card_name": "Resurrection",
-      "quantity": 1
     },
     {
       "card_id": "S0-CLE-011",
@@ -153,7 +143,7 @@
     {
       "card_id": "S0-ITM-002",
       "card_name": "Greater Health Potion",
-      "quantity": 1
+      "quantity": 2
     },
     {
       "card_id": "S0-EVT-008",
@@ -161,13 +151,18 @@
       "quantity": 1
     },
     {
-      "card_id": "S0-ITM-005",
-      "card_name": "Mana Potion",
+      "card_id": "S0-ITM-001",
+      "card_name": "Health Potion",
       "quantity": 1
     },
     {
-      "card_id": "S0-ITM-001",
-      "card_name": "Health Potion",
+      "card_id": "S0-CLE-029",
+      "card_name": "",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-027",
+      "card_name": "",
       "quantity": 1
     }
   ],
@@ -177,13 +172,13 @@
       "quantity": 10
     },
     {
-      "class_name": "Archer",
       "kind": "CLASS",
+      "class_name": "Archer",
       "quantity": 1
     },
     {
-      "class_name": "Cleric",
       "kind": "CLASS",
+      "class_name": "Cleric",
       "quantity": 1
     }
   ],
@@ -195,125 +190,84 @@
     {
       "slot": "LEFT",
       "progression": "S0-CLE-H001",
-      "legacy": "S0-CLE-L001",
-      "package_id": "S0-STARTER-05-PACKAGE-1",
-      "package_name": "Elara Heavens + Sun God Church"
+      "legacy": "S0-CLE-L001"
     },
     {
       "slot": "CENTER",
       "progression": "S0-CLE-H007",
-      "legacy": "S0-CLE-L002",
-      "package_id": "S0-STARTER-05-PACKAGE-2",
-      "package_name": "Melody Silverstring + Wand of First Light"
+      "legacy": "S0-CLE-L002"
     },
     {
       "slot": "RIGHT",
       "progression": "S0-ARC-H001",
-      "legacy": "S0-ARC-L001",
-      "package_id": "S0-STARTER-05-PACKAGE-3",
-      "package_name": "Korvak Ironfang + Golden Arrows"
+      "legacy": "S0-ARC-L001"
     }
   ],
   "legacy_deck_expanded": [
     {
       "card_id": "S0-CLE-H001",
-      "card_name": "Elara Heavens",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-1",
-      "package_name": "Elara Heavens + Sun God Church"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-CLE-H002",
-      "card_name": "Elara Heavens",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-1",
-      "package_name": "Elara Heavens + Sun God Church"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-CLE-H003",
-      "card_name": "Elara Heavens",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-1",
-      "package_name": "Elara Heavens + Sun God Church"
-    },
-    {
-      "card_id": "S0-CLE-L001",
-      "card_name": "Sun God Church",
-      "card_type": "Legacy",
-      "package_id": "S0-STARTER-05-PACKAGE-1",
-      "package_name": "Elara Heavens + Sun God Church"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-CLE-H007",
-      "card_name": "Melody Silverstring",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-2",
-      "package_name": "Melody Silverstring + Wand of First Light"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-CLE-H008",
-      "card_name": "Melody Silverstring",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-2",
-      "package_name": "Melody Silverstring + Wand of First Light"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-CLE-H009",
-      "card_name": "Melody Silverstring",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-2",
-      "package_name": "Melody Silverstring + Wand of First Light"
-    },
-    {
-      "card_id": "S0-CLE-L002",
-      "card_name": "Wand of First Light",
-      "card_type": "Legacy",
-      "package_id": "S0-STARTER-05-PACKAGE-2",
-      "package_name": "Melody Silverstring + Wand of First Light"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-ARC-H001",
-      "card_name": "Korvak Ironfang",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-3",
-      "package_name": "Korvak Ironfang + Golden Arrows"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-ARC-H002",
-      "card_name": "Korvak Ironfang",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-3",
-      "package_name": "Korvak Ironfang + Golden Arrows"
+      "card_type": "Hero"
     },
     {
       "card_id": "S0-ARC-H003",
-      "card_name": "Korvak Ironfang",
-      "card_type": "Hero",
-      "package_id": "S0-STARTER-05-PACKAGE-3",
-      "package_name": "Korvak Ironfang + Golden Arrows"
+      "card_type": "Hero"
+    },
+    {
+      "card_id": "S0-CLE-L001",
+      "card_type": "Legacy"
+    },
+    {
+      "card_id": "S0-CLE-L002",
+      "card_type": "Legacy"
     },
     {
       "card_id": "S0-ARC-L001",
-      "card_name": "Golden Arrows",
-      "card_type": "Legacy",
-      "package_id": "S0-STARTER-05-PACKAGE-3",
-      "package_name": "Korvak Ironfang + Golden Arrows"
+      "card_type": "Legacy"
     }
   ],
   "default_formation": {
-    "CENTER": "S0-CLE-H007",
     "LEFT": "S0-CLE-H001",
+    "CENTER": "S0-CLE-H007",
     "RIGHT": "S0-ARC-H001"
   },
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "OSA Season 0 DEV45 / current Starter Deck Authority DEV34 / Deck Builder v1.58",
+  "source_database_version": "RC34 / uploaded Deck Builder v1.61 export / checked against Season 0 current card IDs",
   "source_file": "engine/starter_deck_examples/s0_starter_05_white_green_GL_DECK_1_0.json",
-  "source_authority": "Generated/Season0-Current/season0-current-starters.dev34.json",
-  "source_export_sha256": "6a0227359ef21a2ca637b3b1c03f798dbfbc7021cfc315d2018db4df1e750f49",
-  "source_approval_basis": "Deck Builder v1.58 script header states Approved Season 0 starter decks 1-5; user directed using latest Deck Builder starters as reference",
+  "source_authority": "User-provided Starter 5 updated 2026-11-08",
+  "source_export_sha256": "6b5a65f72d868798d51c645268f2892939256fdda1cc778a230e788a9c166ade",
+  "source_approval_basis": "Uploaded by designer during VS AI Development P1",
   "active_starter_id": "s0_starter_05_white_green",
   "active_starter_slot": 5,
-  "generated_only": true
+  "generated_only": true,
+  "source_deck_builder": "v1.61"
 }
