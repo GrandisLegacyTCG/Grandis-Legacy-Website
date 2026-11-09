@@ -1937,3 +1937,44 @@ html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;
 .hand.bottom .hand-card.gl-has-action:is(:hover,.is-hovered){z-index:290!important}
 .hand.bottom .hand-card.gl-has-action>.card-actions{z-index:300!important;overflow:visible!important}
 .hand.bottom .hand-card.gl-has-action>.card-actions>button.play{position:relative!important;z-index:301!important;pointer-events:auto!important}
+
+/* RC36 Internal Patch 5 — PLAY/EXP collision, fix the actual stacking context.
+   The Hero EXP label paints at z=226 in the battlefield. The earlier patch
+   raised only the card/button INSIDE .bottom-hud (z=60), so it could never
+   paint above EXP. Promote the HUD's stacking context while legal Hand actions
+   are present; keep Response's existing z=980 and modal layers unchanged. */
+.battlefield .bottom-hud:has(.hand.bottom .hand-card.gl-has-action){
+  z-index:320;
+}
+
+/* RC36 Internal Patch 6 — Lobby warning is an overlay ONLY.
+   Patch 5 positioned the warning absolutely, but made the deck grid an
+   independent overflow-y:auto scrollport whenever it appeared, so the
+   scrollbar still showed and the bottom controls were displaced/clipped.
+   Use one identical 3-row grid whether the warning is shown or not; the
+   warning never participates in Grid layout, moves Heroes, or steals clicks. */
+.gl-lobby-panel{
+  position:relative!important;
+  grid-template-rows:auto minmax(0,1fr) auto!important;
+}
+.gl-lobby-panel>.gl-lobby-head{grid-row:1!important;}
+.gl-lobby-panel>.gl-lobby-decks{
+  grid-row:2!important;min-height:0!important;
+  overflow:visible!important;
+}
+.gl-lobby-panel>.gl-lobby-foot{
+  grid-row:3!important;position:relative!important;z-index:2!important;
+}
+.gl-lobby-panel>.gl-lobby-error{
+  position:absolute!important;
+  top:86px!important;left:50px!important;right:50px!important;
+  width:auto!important;margin:0!important;z-index:200!important;
+  pointer-events:none!important;
+}
+html.gl-mobile-landscape-lobby .gl-lobby-panel{
+  grid-template-rows:56px minmax(0,1fr) 54px!important;
+}
+html.gl-mobile-landscape-lobby .gl-lobby-panel>.gl-lobby-error{
+  top:70px!important;left:23px!important;right:23px!important;
+}
+

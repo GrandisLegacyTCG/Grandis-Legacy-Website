@@ -1809,11 +1809,24 @@ function renderHero(side,lane,h,s){
   else if(engineSelectable&&p?.type==='tribute_target')heroSingleAction=()=>runTributeLikeHeroAction(p,side,lane);
   else if(engineSelectable)heroSingleAction=()=>intent('chooseHeroFromBoard',[side,lane]);
   hc.onclick=heroSingleAction?e=>{e.preventDefault();e.stopPropagation();if(e.detail>1){clearTimeout(hc._glSingleClickTimer);hc._glSingleClickTimer=null;return}clearTimeout(hc._glSingleClickTimer);hc._glSingleClickTimer=setTimeout(()=>{hc._glSingleClickTimer=null;heroSingleAction()},210)}:null;
-  // Tribute-like targeting uses one presentation path whether the player clicks the
-  // Hero card itself or empty space in the legal Hero panel. This prevents EXP from
-  // committing without the Hand -> Hero motion on normal Tribute or Relentless Leveling.
+  // RC36 Patch 6: response-source selection belongs to the whole legal Hero
+  // lane, not only the physically rotated Hero card. When a Crusader/Paladin
+  // is Exhausted, the narrow rotated art and EXP/status overlays can leave
+  // much of its highlighted lane unclickable (notably on a self-targeted
+  // Attack). The engine response option remains the source of truth.
+  // Single-target Defense still uses its existing protected-Hero stage;
+  // team-wide Defense still resolves for ALL allies after source selection.
   const tributePanelAction=(engineSelectable&&p?.type==='tribute_target')||directTributeHeroReady(p,side,lane);
-  laneEl.onclick=tributePanelAction?e=>{if(e.target.closest('.hero-card,.attachment-card,.gl-legacy-under-hero,button'))return;e.preventDefault();e.stopPropagation();runTributeLikeHeroAction(p,side,lane)}:null;
+  const responsePanelAction=responseSelectable?()=>selectResponseRouteHero(side,lane):null;
+  const tributeClickAction=tributePanelAction?()=>runTributeLikeHeroAction(p,side,lane):null;
+  const panelClickAction=responsePanelAction||tributeClickAction;
+  laneEl.onclick=panelClickAction?e=>{
+    // Hero art has its own (single-click / double-click) handler; named
+    // buttons retain their action and tooltips. All other lane space,
+    // including EXP/HP/status decorative overlays, chooses the legal source.
+    if(e.target.closest('.hero-card,.attachment-card,.gl-legacy-under-hero,.gl-hero-actions,button,a,[role="button"]'))return;
+    e.preventDefault();e.stopPropagation();panelClickAction();
+  }:null;
   hc.ondblclick=e=>{e.preventDefault();e.stopPropagation();clearTimeout(hc._glSingleClickTimer);hc._glSingleClickTimer=null;openCardReview(id)};
   img.draggable=false;
   const delayExhaust=heroCombatHeld(side,lane,s),exhaustedVisual=!!(h?.exhausted&&!delayExhaust);
