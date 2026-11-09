@@ -1,0 +1,14 @@
+/* Feedback stays visible inside the Hero modal (above the native dialog backdrop). */
+#heroPickerLimitNotice[hidden] { display: none !important; }
+#heroPickerLimitNotice {
+  margin: 3px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #d49e5b;
+  border-radius: 7px;
+  background: #4d2d24;
+  color: #ffedd0;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 700;
+  text-align: center;
+}

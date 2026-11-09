@@ -1881,3 +1881,48 @@ html.gl-mobile-landscape-coin .gl-coin-card{
 html.gl-mobile-landscape-lobby .gl-lobby-foot{justify-content:space-between!important}
 html.gl-mobile-landscape-lobby .gl-lobby-difficulties{gap:12px}
 html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;font-size:16px;padding:0 17px}
+
+/* RC35.6: RC32's compact EXP nameplate style, not a 30x30 square.
+   One horizontal text label: 100 EXP ... 700 EXP. The runtime omits 0 EXP. */
+.hero-lane>.gl-hero-exp-indicator{
+  position:absolute!important;left:6px!important;bottom:6px!important;top:auto!important;
+  width:max-content!important;min-width:49px!important;max-width:calc(100% - 12px)!important;
+  height:18px!important;min-height:18px!important;padding:0 6px!important;
+  z-index:226!important;pointer-events:none!important;display:inline-flex!important;
+  align-items:center!important;justify-content:center!important;
+  border:1px solid #8c7120!important;border-radius:5px!important;
+  background:#171205!important;color:#f4ca52!important;
+  font-family:Noto,"Noto Sans",Arial,sans-serif!important;font-size:9px!important;
+  font-weight:900!important;letter-spacing:0!important;line-height:16px!important;
+  white-space:nowrap!important;box-shadow:0 2px 8px rgba(0,0,0,.58)!important;
+}
+.gl-coin-result.gl-coin-single-result{display:flex!important;align-items:center!important;justify-content:center!important;grid-template-columns:none!important;gap:0!important;}
+.gl-coin-result.gl-coin-single-result>img{width:142px!important;height:142px!important;max-width:42vw!important;max-height:32vh!important;object-fit:contain!important;}
+
+/* RC36 conditional Attack disclosure: two lines only; native Noto Sans.
+   Anchored to the actual battlefield so locked-rotation mobile remains aligned. */
+.gl-conditional-attack{
+ position:absolute;top:17%;left:50%;transform:translate(-50%,-50%);
+ z-index:11858;display:flex;flex-direction:column;align-items:center;gap:3px;
+ max-width:84%;min-width:225px;padding:8px 16px;border-radius:9px;
+ border:1px solid rgba(241,203,89,.8);background:rgba(4,12,22,.94);
+ box-shadow:0 8px 24px rgba(0,0,0,.63),0 0 9px rgba(239,198,68,.15);
+ text-align:center;font-family:Noto,Arial,sans-serif;line-height:1.2;
+ color:#f4e0a0;pointer-events:none;opacity:0;visibility:hidden;
+ transition:opacity .22s ease,visibility .22s ease;
+}
+.gl-conditional-attack.show{opacity:1;visibility:visible}
+.gl-conditional-attack-name{font-size:14px;font-weight:900;color:#ffe27b;white-space:nowrap}
+.gl-conditional-attack-summary{font-size:12px;font-weight:750;color:#f4f7fb;white-space:nowrap}
+
+/* RC36.3: pre-Defense damage disclosure stays readable for the ENTIRE Response. */
+.response-conditional-attack{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  width:100%;box-sizing:border-box;margin:8px 0 5px;padding:8px 6px;
+  border:1px solid rgba(241,203,89,.75);border-radius:8px;
+  background:rgba(7,19,33,.96);color:#f4e0a0;text-align:center;
+  font-family:Noto,"Noto Sans",Arial,sans-serif;line-height:1.25;
+}
+.response-conditional-attack strong{font-size:13px;font-weight:900;color:#ffe27b}
+.response-conditional-attack span{font-size:12px;font-weight:800;color:#fff}
+.response-conditional-attack small{font-size:10px;color:#c6d5e1}

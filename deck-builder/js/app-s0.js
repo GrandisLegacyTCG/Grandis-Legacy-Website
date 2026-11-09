@@ -30,6 +30,11 @@ function copyLimit(card){return card?.ultimate?.isUltimate||card?.maxCopies===1?
 function selectedProgressions(slots=state.slots){return slots.map(slot=>state.progressionById.get(slot.progressionId)).filter(Boolean)}
 function heroFormationComplete(slots=state.slots){return selectedProgressions(slots).length===3}
 function hasSelectedHeroes(slots=state.slots){return selectedProgressions(slots).length>0}
+const MAX_BASE_CLASSES=2;
+const BASE_CLASS_LIMIT_MESSAGE='Only 2 Base Classes can be selected.';
+function exceedsBaseClassLimit(slots=state.slots){
+  return new Set(selectedProgressions(slots).map(progression=>progression.baseClass).filter(Boolean)).size>MAX_BASE_CLASSES;
+}
 function legacyUniqueComplete(slots=state.slots){const ids=slots.map(slot=>slot.legacyId).filter(Boolean);return ids.length===3&&new Set(ids).size===3}
 function legacyCardCount(slots=state.slots){return slots.reduce((sum,slot)=>sum+(slot.progressionId?3:0)+(slot.legacyId?1:0),0)}
 function isDeckDirty(){return countDeck()>0||state.slots.some(slot=>slot.progressionId||slot.legacyId)||$('deckName').value.trim()!=='New Deck'}
@@ -331,6 +336,7 @@ async function placeHeroAtSlot(progressionId,targetIndex){
     proposed[targetIndex]={progressionId,legacyId:''};
     proposed[targetIndex].legacyId=defaultLegacyForProgression(progressionId,proposed);
   }
+  if(exceedsBaseClassLimit(proposed)){toast(BASE_CLASS_LIMIT_MESSAGE);return}
   const removed=lostCompatibilityEntries(proposed);
   if(removed.length){
     const total=removed.reduce((sum,entry)=>sum+entry.quantity,0);
@@ -376,6 +382,7 @@ async function toggleHero(progressionId){
   }else{
     const emptyIndex=state.slots.findIndex(slot=>!slot.progressionId);if(emptyIndex<0)return;
     const proposed=clone(state.slots);proposed[emptyIndex].progressionId=progressionId;proposed[emptyIndex].legacyId=defaultLegacyForProgression(progressionId,proposed);
+    if(exceedsBaseClassLimit(proposed)){toast(BASE_CLASS_LIMIT_MESSAGE);return}
     state.slots=proposed;
   }
   activateAvailablePool();syncPoolGate(previousComplete);renderAll();
@@ -749,6 +756,7 @@ function compactDeckName(name=''){
   return starter?`Starter ${starter[1]}`:value;
 }
 function applyDeck(normalized){
+  if(exceedsBaseClassLimit(normalized.slots))throw new Error(BASE_CLASS_LIMIT_MESSAGE);
   const previousComplete=hasSelectedHeroes();state.deck={...normalized.deck};state.slots=clone(normalized.slots);while(state.slots.length<3)state.slots.push(emptySlot());$('deckName').value=compactDeckName(normalized.name||'New Deck');state.rankView=1;resetAllFilterStates(hasSelectedHeroes());syncPoolGate(previousComplete);setLibraryTab('heroes');renderAll();
 }
 function starterCover(starter,index){
@@ -885,6 +893,7 @@ function s0Validation(){
  const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'starter_safe'});
  const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
  if(ultClasses.size>3){v.errors.push('More than 3 different Ultimate Color Mana Shards are required');v.ok=false;}
+ if(exceedsBaseClassLimit()){v.errors.push(BASE_CLASS_LIMIT_MESSAGE);v.ok=false;}
  return v;
 }
 function s0Export(style){

@@ -6,7 +6,7 @@
   var GL_APP_MODE=String((typeof window!=='undefined'&&window.GL_APP_MODE)||'LOCAL_AI').toUpperCase();
   var IS_PVP_APP=GL_APP_MODE==='PVP';
   var IS_TUTORIAL_APP=GL_APP_MODE==='TUTORIAL';
-  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 v1.0 RC35.3 · Base v6.91.9 · OSA DEV45 · Runtime Data S0 DEV44 · Shared Gameplay Bundle v3.5');
+  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 v1.0 RC36 · Base v6.91.9 · OSA DEV45 · Runtime Data S0 DEV44 · Shared Gameplay Bundle v3.5');
   var PHASES=['Draw','Deploy','Battle','Reform','End'];
   var LANE_ORDER=['LEFT','CENTER','RIGHT'];
   var EXP_MAX_TOTAL=700;
@@ -377,6 +377,8 @@
     if(!evt||(SUPPRESS_RENDER&&!EXTERNAL_HUMAN_UI)||!animationDocumentReady())return false;
     var rect=battleHeroRect(evt.side,evt.lane);if(!rect)return false;
     GL_BATTLE_FEEDBACK_ACTIVE++;
+    // Conditional damage was disclosed at Response OPEN, before any Defense.
+    // Never replay it as a post-Response hit/damage notification.
     playBattleFeedbackAudioNow(evt);
     var duration=720,attackKind=evt.attack_kind||'P',attackSrc=attackKind==='M'?GL_BATTLE_VFX.mAttack:GL_BATTLE_VFX.pAttack;
     if(evt.kind==='status'){
@@ -431,6 +433,55 @@
       if(!battleFeedbackBusy()&&appState&&matchStarted&&!SUPPRESS_RENDER)render();
     },duration+40);
     return true;
+  }
+  // RC36: only attacks whose damage depends on a changing game condition
+  // show this contextual 2-line HUD. "Damage" is the declared calculated
+  // Attack damage BEFORE the opponent can BLOCK/DODGE/NEGATE it (not HP loss).
+  var GL_RC36_ATTACK_OVERLAY_LAST={key:'',at:0},GL_RC36_ATTACK_OVERLAY_TIMER=null;
+  function conditionalAttackInfo(state,rw){
+    if(!rw||!rw.card_id)return null;
+    var action=rw.action||{},c=card(rw.card_id),condition='',id=String(rw.card_id||'');
+    if(id==='S0-ARC-010') condition=Number(action.mana_cards_spent||0)+' Mana Cards Returned';
+    else if(id==='S0-ARC-025') condition=Number(typeof action.draw_count_at_attack!=='undefined'?action.draw_count_at_attack:(state.cardsDrawnThisTurn||{})[rw.source_side]||0)+' Cards Drawn';
+    else if(id==='S0-MAG-025')condition='Mana Regen '+Number(typeof action.mana_regen_at_attack!=='undefined'?action.mana_regen_at_attack:state[rw.source_side==='AI'?'aiManaRegen':'manaRegen']||0);
+    else if(id==='S0-MAG-027')condition='Casting Time '+Number(action.casting_time_at_release||0);
+    else if(id==='S0-ARC-030')condition=Number(action.s0_condition_return_count||(action.s0_discard_condition_picks||[]).length||0)+' Zol Returned';
+    else if(id==='S0-THF-018')condition='Poison '+Number((action.venom_poison_duration_by_lane||{})[rw.target_lane]||0)+' Turns';
+    else if(id==='S0-ARC-018'&&/Range Attack.*[x×]2|Range Attack.*double/i.test(String(action.damage_formula_log||'')))condition='RANGE ×2';
+    if(!condition)return null;
+    var damage=Math.max(0,Number(rw.damage||0));
+    return {name:cardName(c),context:condition,damage:damage,
+      key:String(action.commit_token||[rw.source_side,id,state&&state.round||0,rw.source_lane].join(':'))};
+  }
+  function showConditionalAttackOverlay(info){
+    if(!info||(SUPPRESS_RENDER&&!EXTERNAL_HUMAN_UI)||!animationDocumentReady())return false;
+    var now=Date.now(),key=String(info.key||info.name||'');
+    if(key===GL_RC36_ATTACK_OVERLAY_LAST.key&&now-GL_RC36_ATTACK_OVERLAY_LAST.at<1600)return false;
+    GL_RC36_ATTACK_OVERLAY_LAST={key:key,at:now};
+    var stage=document.querySelector('.app .battlefield');if(!stage)return false;
+    var box=document.getElementById('glRc36ConditionalAttack');
+    if(!box){
+      box=document.createElement('div');box.id='glRc36ConditionalAttack';box.className='gl-conditional-attack';
+      box.setAttribute('role','status');box.setAttribute('aria-live','polite');
+      var line1=document.createElement('div');line1.className='gl-conditional-attack-name';
+      var line2=document.createElement('div');line2.className='gl-conditional-attack-summary';
+      box.appendChild(line1);box.appendChild(line2);stage.appendChild(box);
+    }
+    box.children[0].textContent=String(info.name||'');
+    box.children[1].textContent=String(info.context||'')+' • '+Number(info.damage||0)+' Damage';
+    box.classList.remove('show');void box.offsetWidth;box.classList.add('show');
+    if(GL_RC36_ATTACK_OVERLAY_TIMER)clearTimeout(GL_RC36_ATTACK_OVERLAY_TIMER);
+    GL_RC36_ATTACK_OVERLAY_TIMER=setTimeout(function(){box.classList.remove('show');},2600);
+    return true;
+  }
+  if(typeof window!=='undefined')window.GL_RC36_ATTACK_INFO_QA={
+    fromResponse:function(state,rw){return conditionalAttackInfo(state,rw);},
+    show:function(info){return showConditionalAttackOverlay(info);}
+  };
+  function clearConditionalAttackOverlay(){
+    if(GL_RC36_ATTACK_OVERLAY_TIMER){clearTimeout(GL_RC36_ATTACK_OVERLAY_TIMER);GL_RC36_ATTACK_OVERLAY_TIMER=null;}
+    var box=typeof document!=='undefined'&&document.getElementById('glRc36ConditionalAttack');
+    if(box)box.classList.remove('show');
   }
   function queueBattleFeedback(evt){
     if(!evt||(SUPPRESS_RENDER&&!EXTERNAL_HUMAN_UI))return false;
@@ -2225,6 +2276,12 @@
   function syncManaCountForSide(state,side){if(!state)return 0;var n=manaPoolCardsForSide(state,side).length;state[manaCountKeyForSide(side)]=n;return n;}
   function manaShardAsset(shard){return GL_LAB_MANA_ASSET[(shard&&shard.kind==='CLASS'&&shard.class_name)||'Generic']||GL_LAB_MANA_ASSET.Generic;}
   function manaShardValueForCard(shard,c){if(!shard)return 0;if(shard.kind!=='CLASS')return 1;if(!c||!isSkillCard(c))return 1;return manaClassFromCardCode(c.card_id)===shard.class_name?2:1;}
+  // Narrow designer exception: a matching Color Shard may pay a 1-Mana cost
+  // as exactly 1. All other matching Color payments keep the normal value 2.
+  function manaShardPaymentValueForCost(sh,c,cost){
+    var standard=manaShardValueForCard(sh,c);
+    return Number(cost)===1&&standard===2?1:standard;
+  }
   function manaAvailableValueForCard(state,side,c){return manaPoolCardsForSide(state,side).reduce(function(sum,sh){return sum+manaShardValueForCard(sh,c);},0);}
   function manaClassShardsInPool(state,side){return manaPoolCardsForSide(state,side).filter(function(sh){return sh&&sh.kind==='CLASS';});}
   function hasMatchingClassShard(state,side,c){var cls=manaClassFromCardCode(c&&c.card_id);return !!cls&&manaClassShardsInPool(state,side).some(function(sh){return sh.class_name===cls;});}
@@ -2336,14 +2393,14 @@
 
   function computeManaPayment(state,side,c,cost,selectedClassUids){
     cost=Math.max(0,Number(cost||0));var pool=manaPoolCardsForSide(state,side),selected=(selectedClassUids||[]).map(String),chosen=[],value=0,classValue=0;
-    selected.forEach(function(uid){if(value>=cost)return;var sh=pool.find(function(x){return String(x.uid)===uid&&x.kind==='CLASS';});if(sh&&chosen.indexOf(sh)===-1){var shardValue=manaShardValueForCard(sh,c);chosen.push(sh);value+=shardValue;classValue+=shardValue;}});
+    selected.forEach(function(uid){if(value>=cost)return;var sh=pool.find(function(x){return String(x.uid)===uid&&x.kind==='CLASS';});if(sh&&chosen.indexOf(sh)===-1){var shardValue=manaShardPaymentValueForCost(sh,c,cost);chosen.push(sh);value+=shardValue;classValue+=shardValue;}});
     var generic=pool.filter(function(sh){return sh.kind!=='CLASS';}).slice().reverse();var gi=0;while(value<cost&&gi<generic.length){chosen.push(generic[gi++]);value+=1;}
     var genericUsed=chosen.filter(function(sh){return sh.kind!=='CLASS';}).length;
     return{ok:value>=cost,cost:cost,value:value,class_value:classValue,generic_used:genericUsed,remaining_generic:Math.max(0,cost-classValue),shards:chosen,selected_class_uids:selected};
   }
   function computeExactManaPayment(state,side,c,cost,selectedShardUids){
     cost=Math.max(0,Number(cost||0));var pool=manaPoolCardsForSide(state,side),seen={},selected=(selectedShardUids||[]).map(String),chosen=[],value=0,classValue=0;
-    selected.forEach(function(uid){if(seen[uid])return;seen[uid]=true;var sh=pool.find(function(x){return String(x.uid)===uid;});if(!sh)return;chosen.push(sh);var shardValue=sh.kind==='CLASS'?manaShardValueForCard(sh,c):1;value+=shardValue;if(sh.kind==='CLASS')classValue+=shardValue;});
+    selected.forEach(function(uid){if(seen[uid])return;seen[uid]=true;var sh=pool.find(function(x){return String(x.uid)===uid;});if(!sh)return;chosen.push(sh);var shardValue=sh.kind==='CLASS'?manaShardPaymentValueForCost(sh,c,cost):1;value+=shardValue;if(sh.kind==='CLASS')classValue+=shardValue;});
     var classUids=chosen.filter(function(sh){return sh.kind==='CLASS';}).map(function(sh){return sh.uid;});
     return{ok:value===cost,cost:cost,value:value,class_value:classValue,generic_used:chosen.filter(function(sh){return sh.kind!=='CLASS';}).length,remaining_generic:Math.max(0,cost-classValue),shards:chosen,selected_shard_uids:chosen.map(function(sh){return sh.uid;}),selected_class_uids:classUids};
   }
@@ -2352,7 +2409,7 @@
     var pool=manaPoolCardsForSide(state,side),generic=pool.filter(function(sh){return sh.kind!=='CLASS';}),classes=pool.filter(function(sh){return sh.kind==='CLASS';}),best=null,totalMasks=Math.pow(2,classes.length);
     for(var mask=0;mask<totalMasks;mask++){
       var picked=[],classValue=0;
-      for(var i=0;i<classes.length;i++)if(mask&(1<<i)){picked.push(classes[i]);classValue+=manaShardValueForCard(classes[i],c);}
+      for(var i=0;i<classes.length;i++)if(mask&(1<<i)){picked.push(classes[i]);classValue+=manaShardPaymentValueForCost(classes[i],c,cost);}
       var genericNeed=cost-classValue;if(genericNeed<0||genericNeed>generic.length)continue;
       var candidate={classes:picked,genericNeed:genericNeed,classCount:picked.length,classValue:classValue};
       if(!best||candidate.classCount<best.classCount||(candidate.classCount===best.classCount&&candidate.genericNeed>best.genericNeed))best=candidate;
@@ -2362,7 +2419,7 @@
   }
   function manaSelectionAfterToggle(state,side,c,cost,currentUids,toggleUid){
     var pool=manaPoolCardsForSide(state,side),uid=String(toggleUid||''),selected=(currentUids||[]).map(String).filter(function(x,i,a){return a.indexOf(x)===i&&pool.some(function(sh){return String(sh.uid)===x;});}),before=selected.slice(),at=selected.indexOf(uid),target=Math.max(0,Number(cost||0));
-    function valueOf(sh){return sh&&sh.kind==='CLASS'?manaShardValueForCard(sh,c):1;}
+    function valueOf(sh){return sh&&sh.kind==='CLASS'?manaShardPaymentValueForCost(sh,c,target):1;}
     function subsetForValue(candidates,need,preferColor){
       need=Math.max(0,Number(need||0));if(need===0)return[];
       var best=null,total=Math.pow(2,candidates.length);
@@ -2467,7 +2524,7 @@
     // Class Shards are included automatically only when generic Mana is insufficient.
     var selectedShards=recommendedExactManaShardUids(state,side,c,cost);
     var selectedClasses=pool.filter(function(sh){return sh.kind==='CLASS'&&selectedShards.map(String).indexOf(String(sh.uid))!==-1;}).map(function(sh){return sh.uid;}),selectableClasses=classes;
-    state.pending={type:'mana_shard_payment_choice',decision_side:side,side:side,card_id:action.card_id,cost:Number(cost||0),action:clone(action),use_magical_surge:!!action.use_magical_surge,selected_surge_mana_uid:null,selected_shard_uids:selectedShards,selected_class_uids:selectedClasses,class_choices:selectableClasses.map(function(sh){return{uid:sh.uid,class_name:sh.class_name,value:manaShardValueForCard(sh,c),asset:manaShardAsset(sh)};}),shard_choices:pool.map(function(sh){return{uid:sh.uid,kind:sh.kind,class_name:sh.class_name||'',value:sh.kind==='CLASS'?manaShardValueForCard(sh,c):1,asset:manaShardAsset(sh)};})};
+    state.pending={type:'mana_shard_payment_choice',decision_side:side,side:side,card_id:action.card_id,cost:Number(cost||0),action:clone(action),use_magical_surge:!!action.use_magical_surge,selected_surge_mana_uid:null,selected_shard_uids:selectedShards,selected_class_uids:selectedClasses,class_choices:selectableClasses.map(function(sh){return{uid:sh.uid,class_name:sh.class_name,value:manaShardPaymentValueForCost(sh,c,cost),asset:manaShardAsset(sh)};}),shard_choices:pool.map(function(sh){return{uid:sh.uid,kind:sh.kind,class_name:sh.class_name||'',value:sh.kind==='CLASS'?manaShardPaymentValueForCost(sh,c,cost):1,asset:manaShardAsset(sh)};})};
     pushLog(state,'Choose your Mana payment for '+cardName(c)+'. The recommended payment is preselected; the selected Mana may be changed before PAY.');renderManaShardPaymentChoice();if(!SUPPRESS_RENDER)render();return true;
   }
   function setManaConfirmState(button,manaReady,allReady,shortage){
@@ -2482,7 +2539,7 @@
     var classContribution=Math.min(Number(p.cost||0),Number(plan.class_value||0)),remainingMana=Math.max(0,Number(p.cost||0)-Number(plan.value||0)),manaReady=!!plan.ok;
     var surge=manaPaymentSurgeSummary(appState,p),extra=(surge&&surge.selected&&surge.available&&surge.surge_mana_uid)?Number(surge.cost||1):0;
     $('choiceTitle').textContent=cardName(c)+' — Mana Payment';$('choiceConfirm').style.display='';$('choiceConfirm').textContent=manaReady?'PAY':'Need '+Math.max(0,Number(p.cost||0)-Number(plan.value||0))+' More Mana';$('choiceConfirm').disabled=!plan.ok;setManaConfirmState($('choiceConfirm'),manaReady,!!plan.ok,Math.max(0,Number(p.cost||0)-Number(plan.value||0)));if($('choiceClose'))$('choiceClose').hidden=false;
-    var pool=manaPoolCardsForSide(appState,p.side),cards=pool.map(function(sh){var uid=String(sh.uid),sel=selected.indexOf(uid)!==-1||(!!extra&&uid===surge.surge_mana_uid),val=sh.kind==='CLASS'?manaShardValueForCard(sh,c):1;return '<article class="discard-choice mana-shard-choice '+(sel?'selected':'')+'"><button type="button" class="discard-preview" data-mana-class-uid="'+esc(uid)+'"><img src="'+esc(manaShardAsset(sh))+'" alt="'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'"><span><strong>'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'</strong><small>Counts as '+val+' Mana</small></span></button><button type="button" class="discard-select" data-mana-class-uid="'+esc(uid)+'">'+(sel?'Selected':'Use Mana')+'</button></article>';}).join('');
+    var pool=manaPoolCardsForSide(appState,p.side),cards=pool.map(function(sh){var uid=String(sh.uid),sel=selected.indexOf(uid)!==-1||(!!extra&&uid===surge.surge_mana_uid),val=sh.kind==='CLASS'?manaShardPaymentValueForCost(sh,c,p.cost):1;return '<article class="discard-choice mana-shard-choice '+(sel?'selected':'')+'"><button type="button" class="discard-preview" data-mana-class-uid="'+esc(uid)+'"><img src="'+esc(manaShardAsset(sh))+'" alt="'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'"><span><strong>'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'</strong><small>Counts as '+val+' Mana</small></span></button><button type="button" class="discard-select" data-mana-class-uid="'+esc(uid)+'">'+(sel?'Selected':'Use Mana')+'</button></article>';}).join('');
     $('choiceBody').innerHTML='<p class="choice-instruction">The recommended payment is preselected. You may change any Regular Mana Shard or Color Mana Shard before confirming.</p><p class="choice-instruction mana-payment-summary"><strong>Selected Mana: '+(plan.value+extra)+' / '+(Number(p.cost||0)+extra)+(extra?' (+'+extra+' '+esc(surge.name)+')':'')+'.</strong></p><div class="choice-grid card-search-choice-grid mana-shard-choice-grid">'+cards+'</div>';
     $('choiceOverlay').classList.add('open');
   }
@@ -3161,9 +3218,10 @@
     if(state){ var pre=validateCardPreconditions(state,side,cardId,null,null,{preplay:true}); if(!pre.ok) reasons=reasons.concat(pre.reasons); }
     return {can:reasons.length===0, reasons:reasons, cost:cost};
   }
-  function isAIChoiceHeavyCard(c){
-    // Complex choice cards are enabled only for Intermediate, with deterministic AI selection in startCardSearchChoice().
-    if(aiIntermediate()&&(isMagicCompassCard(c)||isDejaVuCard(c)||isReplenishCard(c)||isArrowBarrageCard(c)))return false;
+  function isAIChoiceHeavyCard(c, state){
+    // Determine difficulty from the match itself; the Lobby/global setting can
+    // differ in replay/test state, and must not accidentally hide Replenish.
+    if(aiIntermediate(state||appState)&&(isMagicCompassCard(c)||isDejaVuCard(c)||isReplenishCard(c)||isArrowBarrageCard(c)))return false;
     return isSixthSenseCard(c) || isRelentlessLevelingCard(c) || isMagicCompassCard(c) || isDejaVuCard(c) || isReplenishCard(c) || isArrowBarrageCard(c) || isDualArrowCard(c) || isChargeSwapCard(c) || isSoulBlastShotCard(c);
   }
   function actionKey(a){ return [a&&a.type,a&&a.card_id,a&&a.hand_index,a&&a.source_side,a&&a.source_lane,a&&a.target_side,a&&a.target_lane].join('|'); }
@@ -3274,7 +3332,11 @@
     var candidates=[];
     LANE_ORDER.forEach(function(lane){ getActivatedRacialAbilities(state,'AI',lane).forEach(function(a){ candidates.push({lane:lane,ability:a}); }); });
     var human=candidates.find(function(x){ return String(x.ability.abilityId||'').toLowerCase()==='human_ambition'; });
-    if(human && (aiIntermediate(state)?((state.aiHand||[]).length<=5||!aiHasNormalTributeSkill(state)):(state.aiHand||[]).length<=2)) return {type:'RACIAL_ABILITY',side:'AI',source_lane:human.lane,ability_id:human.ability.abilityId,label:human.ability.label};
+    if(human && (aiIntermediate(state)?
+      (aiStarterIs(state,4)&&aiS4DreadReady(state)?
+        aiS4HumanAmbitionFinisher(state):
+        ((state.aiHand||[]).length<=5||!aiHasNormalTributeSkill(state)||aiS4HumanAmbitionFinisher(state))):
+      (state.aiHand||[]).length<=2)) return {type:'RACIAL_ABILITY',side:'AI',source_lane:human.lane,ability_id:human.ability.abilityId,label:human.ability.label};
     var ancestral=candidates.find(function(x){ return String(x.ability.abilityId||'').toLowerCase()==='ancestral_focus'; });
     if(ancestral && (aiIntermediate(state)?aiIntermediateElfFinishing(state):aiAncestralFocusUnlocksBattleAttack(state))) return {type:'RACIAL_ABILITY',side:'AI',source_lane:ancestral.lane,ability_id:ancestral.ability.abilityId,label:ancestral.ability.label};
     return null;
@@ -3472,6 +3534,12 @@
     var legal=getLegalActions('AI',sim).filter(function(a){
       return a.type==='PLAY_CARD' && isAttackCard(card(a.card_id)) &&
         !isAIChoiceHeavyCard(card(a.card_id)) && a.target_lane===setupAction.target_lane;
+    });
+    // An Intermediate Freeze Bomb must enable an actual Dodge-vulnerable Attack;
+    // Freeze is wasted if the follow-up is already SURE HIT (printed or buffed).
+    if(aiIntermediate(state))legal=legal.filter(function(a){
+      var source=sideHeroes(sim,'AI')[a.source_lane],attack=card(a.card_id);
+      return !(attackCannotBeDodged(attack,source)||s0AttackHasGrantedSureHit(sim,source));
     });
     legal.sort(function(a,b){return aiAttackTacticalScore(sim,b)-aiAttackTacticalScore(sim,a);});
     return legal[0]||null;
@@ -3738,6 +3806,8 @@
     var c=card(action.card_id);if(!c||!isSkillCard(c))return false;
     // The only exception is a credible immediate MATCH win, not any normal kill.
     if(isAttackCard(c)&&aiIntermediateAttackWinsMatch(state,action))return false;
+    if(aiStarterIs(state,4)&&c.card_id==='S0-ARC-025'&&
+      !aiS4DreadDamageClearsTarget(state,action))return true;
     var source=action.source_lane&&(state.aiHeroes||{})[action.source_lane];
     if(source&&isActiveHeroSlot(source)&&isAttackCard(c)){
       var rank=heroRank(source),highest=aiIntermediateHighestPrintedRank(c),exp=Number(source.exp_total||0);
@@ -3854,25 +3924,243 @@
       });
     });
   }
+  // RC36.1 / Starter 4: Draw cards are a finisher resource, not a reason
+  // to overfill Hand merely because Aura/Dreadbolt happens to be in Hand.
+  function aiS4DrawAmount(id){
+    return id==='S0-ARC-005'||id==='S0-EVT-002'?2:(id==='S0-ARC-022'?3:0);
+  }
+  function aiS4LiveAuraCastings(state){
+    if(!state||!aiIntermediate(state)||!aiStarterIs(state,4))return [];
+    return (state.pendingCastings||[]).filter(function(pc){
+      if(!pc||pc.side!=='AI'||pc.card_id!=='S0-ARC-021'||pc.resolve_phase!=='counter_draw')return false;
+      var lane=pc.original_source_lane||pc.source_lane,hero=(state.aiHeroes||{})[lane],target=(state.playerHeroes||{})[pc.locked_target_lane||pc.target_lane];
+      return isActiveHeroSlot(hero)&&!hasStatus(hero,'Sleep')&&!hasStatus(hero,'Stun')&&
+        castingSourceMatchesHero(pc,hero)&&isActiveHeroSlot(target);
+    });
+  }
+  function aiS4AuraWillRelease(state,extraDraws){
+    return aiS4LiveAuraCastings(state).some(function(pc){
+      return Number(pc.counters||0)+Math.max(0,Number(extraDraws||0))>=requiredDrawCountersForCasting(card(pc.card_id));
+    });
+  }
+  function aiS4DreadReady(state){
+    if(!state||!aiIntermediate(state)||!aiStarterIs(state,4)||(state.aiHand||[]).indexOf('S0-ARC-025')<0)return false;
+    return LANE_ORDER.some(function(lane){var hero=(state.aiHeroes||{})[lane],cls=heroClass(hero);
+      return isActiveHeroSlot(hero)&&(cls==='Arbalest'||cls==='Grand Arbalest');
+    });
+  }
+  function aiS4DreadDamageClearsTarget(state,action){
+    if(!state||!action||action.card_id!=='S0-ARC-025'||!action.target_lane)return false;
+    var source=(state.aiHeroes||{})[action.source_lane],victim=(state.playerHeroes||{})[action.target_lane],cls=heroClass(source);
+    if(!isActiveHeroSlot(source)||!isActiveHeroSlot(victim)||(cls!=='Arbalest'&&cls!=='Grand Arbalest'))return false;
+    // Use the actual Season 0 multiplier (10 / 20 per draw), cap (140),
+    // Grand Arbalest's flat bonus and known passive/racial mitigation.
+    var damage=Number(estimateAIDamage(state,Object.assign({},action,{source_side:'AI'}))||0);
+    var profile=aiVisibleDefenderProfile(state,victim,damageTypeForActionSource(card(action.card_id),source),damage);
+    return !profile.immune&&!profile.stoneblood&&Number(profile.effective||0)>=Number(victim.hp||0)+10;
+  }
+  function aiS4DreadCanFinish(state,extraDraws,setupAction){
+    if(!aiS4DreadReady(state))return false;
+    var draws=Math.max(0,Number(extraDraws||0)),sim=setupAction?
+      aiManaSimulationAfterSetup(state,setupAction,'Battle',false):clone(state);
+    sim.phase='Battle';sim.pending=null;sim.responseWindow=null;
+    // Deploy Draw effects can Exhaust their source. A Reload or Market Bargain
+    // paid by the ONLY Arbalest would leave no eligible Dreadbolt attacker in
+    // Battle. Singularity Reload is an explicit no-Exhaust exception.
+    if(setupAction&&setupAction.source_lane){
+      var setupHero=(sim.aiHeroes||{})[setupAction.source_lane];
+      if(setupHero&&sourceShouldExhaust(card(setupAction.card_id),setupHero)){
+        setupHero.exhausted=true;
+        setupHero.exhaust_reason='Planned Draw setup already used this Hero';
+      }
+    }
+    sim.cardsDrawnThisTurn=sim.cardsDrawnThisTurn||{PLAYER:0,AI:0};
+    sim.cardsDrawnThisTurn.AI=Number(sim.cardsDrawnThisTurn.AI||0)+draws;
+    return aiBattleAttackActions(sim).some(function(a){
+      return a.card_id==='S0-ARC-025'&&aiS4DreadDamageClearsTarget(sim,a);
+    });
+  }
+  function aiS4DrawRoom(state,drawCount){
+    // Playing the Deploy card removes one from Hand, then draws N.
+    return Number((state.aiHand||[]).length)-1+Number(drawCount||0)<=8;
+  }
+  function aiS4DrawBurstDecision(state,action){
+    var n=aiS4DrawAmount(action&&action.card_id),deck=(state&&state.aiDeck||[]).length;
+    if(!n)return null;
+    if(!deck)return {kind:'DRAW_EMPTY',score:-1000};
+    var actuallyDrawn=Math.min(n,deck),fitsHand=aiS4DrawRoom(state,actuallyDrawn);
+    // Aura must ALREADY be paid and actively Casting. Aura merely held in
+    // Hand is no longer treated as a finisher setup.
+    if(fitsHand&&aiS4AuraWillRelease(state,actuallyDrawn))return {kind:'AURA_RELEASE',score:320};
+    // Colossal: only rank II/III, only a legal same-turn Attack, only if the
+    // draw effect itself makes at least one living target HP + 10 reachable.
+    if(aiS4DreadReady(state)){
+      // One additional card may be held temporarily: the same-turn Dreadbolt
+      // Attack itself leaves Hand before End Phase's eight-card limit.
+      if(Number((state.aiHand||[]).length)-1+actuallyDrawn<=9 &&
+        !aiS4DreadCanFinish(state,0,null)&&aiS4DreadCanFinish(state,actuallyDrawn,action))
+        return {kind:'DREAD_LETHAL_PLUS_10',score:280};
+      return {kind:'DREAD_SAVE',score:-1000};
+    }
+    if(fitsHand&&aiS4LiveAuraCastings(state).length)return {kind:'AURA_PROGRESS',score:145};
+    return null;
+  }
+  function aiS4RacialDrawProjection(state,draws){
+    var sim=clone(state),n=Math.min(Number(draws||0),(sim.aiDeck||[]).length);
+    if(n<=0)return null;
+    sim.aiDeck=sim.aiDeck.slice(n);
+    sim.aiHand=sim.aiHand||[];
+    for(var i=0;i<n;i++)sim.aiHand.push('RC36-PLANNED-DRAW');
+    sim.cardsDrawnThisTurn=sim.cardsDrawnThisTurn||{PLAYER:0,AI:0};
+    sim.cardsDrawnThisTurn.AI=Number(sim.cardsDrawnThisTurn.AI||0)+n;
+    (sim.pendingCastings||[]).forEach(function(pc){if(pc&&pc.side==='AI'&&pc.card_id==='S0-ARC-021'&&pc.resolve_phase==='counter_draw')pc.counters=Number(pc.counters||0)+n;});
+    return sim;
+  }
+  function aiS4HumanAmbitionFinisher(state){
+    if(!state||!aiStarterIs(state,4)||!aiIntermediate(state)||(state.aiDeck||[]).length<2||(state.aiHand||[]).length>7)return false;
+    var after=aiS4RacialDrawProjection(state,2);if(!after)return false;
+    var projectedHand=(after.aiHand||[]).length;
+    if(projectedHand<=8&&aiS4AuraWillRelease(after,0))return true;
+    // Allow a temporary ninth card only if Dreadbolt itself will be played
+    // this Battle, bringing the Hand back within its eight-card End limit.
+    if(projectedHand<=9&&aiS4DreadReady(after)&&aiS4DreadCanFinish(after,0,null))return true;
+    // Only one normal Deploy card can be played per AI turn: plan at most
+    // one extra draw effect, and require enough deck, Hand room and Mana.
+    return getLegalActions('AI',after).some(function(a){
+      if(a.type!=='PLAY_CARD'||!aiS4DrawAmount(a.card_id))return false;
+      var n=Math.min(aiS4DrawAmount(a.card_id),(after.aiDeck||[]).length);
+      if(!n)return false;
+      if(aiS4DrawRoom(after,n)&&aiS4AuraWillRelease(after,n))return true;
+      return Number((after.aiHand||[]).length)-1+n<=9&&aiS4DreadReady(after)&&
+        !aiS4DreadCanFinish(after,0,null)&&aiS4DreadCanFinish(after,n,a);
+    });
+  }
+  function aiS4AuraCastPlan(state,action){
+    // RC36.3: Aura needs 5 ACTUAL Draws. A class Draw replacement gives only
+    // 2 per AI turn, i.e. without another *usable* Draw card Aura needs 3
+    // turns. Do not spend a Battle action on that speculative plan.
+    if(!state||!action||action.card_id!=='S0-ARC-021'||
+      !aiIntermediate(state)||!aiStarterIs(state,4)||!action.source_lane)return null;
+    var source=(state.aiHeroes||{})[action.source_lane],need=requiredDrawCountersForCasting(card('S0-ARC-021'));
+    if(!isActiveHeroSlot(source)||hasStatus(source,'Sleep')||hasStatus(source,'Stun'))return null;
+    // Mandatory + replacement Draw is a *maximum of 2*, not sufficient by
+    // itself. At least five cards remain to avoid promising a future combo on
+    // an empty deck (the replacement returns just its own original card).
+    if((state.aiDeck||[]).length<need)return null;
+    // Simulate actual Aura payment and next Draw Phase Mana Regen; only known
+    // Draw cards ALREADY IN HAND are considered a reliable combo. Never rely
+    // on topdecking a lucky Draw Skill, or on a currently unused racial token.
+    var sim=aiManaSimulationAfterSetup(state,action,'Deploy',true);
+    sim.turn='AI';sim.pending=null;sim.responseWindow=null;
+    LANE_ORDER.forEach(function(lane){var h=(sim.aiHeroes||{})[lane];if(isActiveHeroSlot(h))h.exhausted=lane===action.source_lane;});
+    var replacement=drawReplacementAbilityForHero(source),base=replacement?2:1;
+    var support=getLegalActions('AI',sim).filter(function(a){
+      return a.type==='PLAY_CARD'&&aiS4DrawAmount(a.card_id)>0&&
+        (state.aiHand||[]).indexOf(a.card_id)!==-1;
+    });
+    if(!support.length)return null;
+    var handAfterCast=Math.max(0,(state.aiHand||[]).length-1),best=null;
+    support.forEach(function(a){
+      var amount=aiS4DrawAmount(a.card_id),afterFirst=handAfterCast+1-1+amount;
+      // Do not commit Aura on a combo that requires overfilling Hand. Class
+      // replacement is net +1 Hand, not +2; Draw effects still gain N cards.
+      if(afterFirst>8)return;
+      var firstTurnDraw=base+amount,secondTurnDraw=2*base+amount;
+      var turns=firstTurnDraw>=need?1:(secondTurnDraw>=need?2:0);
+      if(!turns)return;
+      var plan={turns:turns,card_id:a.card_id,source_lane:a.source_lane,
+        first_turn_draws:firstTurnDraw,second_turn_draws:secondTurnDraw};
+      if(!best||plan.turns<best.turns||(plan.turns===best.turns&&firstTurnDraw>best.first_turn_draws))best=plan;
+    });
+    return best;
+  }
+  // RC36.2: Replenish is a finite-deck recovery tool. Its two return slots
+  // must preserve a *usable* Archer Attack, not two copies of Replenish.
+  // Examine surviving Heroes, not the card's class alone: after Arbalest dies,
+  // its Aura/bolt cards must not outrank playable Marksman/Grand Ranger Attacks.
+  function aiReplenishSkillPlayableBySurvivor(state,c){
+    if(!state||!archerNonUltimateSkillCard(c))return false;
+    return LANE_ORDER.some(function(lane){
+      var h=(state.aiHeroes||{})[lane];if(!isActiveHeroSlot(h))return false;
+      // Replenish returns a future draw. Temporary Exhaust/Sleep/Stun should
+      // not make a surviving compatible Hero look permanently unavailable.
+      var ready=Object.assign({},h,{exhausted:false,statuses:[],stamina_no_proactive_skill_turn:null});
+      return sourceCompatibleForMode(c,ready,{response:false});
+    });
+  }
+  function aiReplenishAttackPlayableBySurvivor(state,c){
+    return !!(c&&isAttackCard(c)&&aiReplenishSkillPlayableBySurvivor(state,c));
+  }
+  function aiReplenishAttackPriority(state,c){
+    if(!aiReplenishAttackPlayableBySurvivor(state,c))return -10000;
+    var id=c.card_id,score=400-Number(cardCost(c)||0)*3;
+    if(id==='S0-ARC-010')score+=500; // Arrow Barrage: reusable Marksman/Grand Ranger finisher.
+    else if(id==='S0-ARC-021')score+=80; // Only if living Arbalest can actually Cast.
+    else if(['S0-ARC-015','S0-ARC-016','S0-ARC-017','S0-ARC-020','S0-ARC-023','S0-ARC-024'].indexOf(id)>=0)score+=100;
+    if(/sure hit|piercing/i.test(String(c.card_text||'')))score+=30;
+    return score;
+  }
+  function aiReplenishDiscardOptions(state){
+    var candidates=(state.aiDiscard||[]).map(function(id,idx){return{card_id:id,discard_index:idx};})
+      .filter(function(row){return archerNonUltimateSkillCard(card(row.card_id));});
+    var attacks=candidates.filter(function(row){return aiReplenishAttackPlayableBySurvivor(state,card(row.card_id));});
+    return{candidates:candidates,attacks:attacks,hasLoop:candidates.some(function(row){return row.card_id==='S0-ARC-014';})};
+  }
+  function aiIntermediateReplenishPicks(state,candidates,required){
+    // At least one Attack; at most one returned Replenish. Prefer the loop
+    // when present, then a second Attack. A two-Replenish-only Discard is
+    // rejected at the Deploy gate so the printed two-card effect is not wasted.
+    var sorted=candidates.slice().sort(function(a,b){return aiReplenishAttackPriority(state,card(b.card_id))-aiReplenishAttackPriority(state,card(a.card_id));});
+    var attacks=sorted.filter(function(row){return aiReplenishAttackPlayableBySurvivor(state,card(row.card_id));});
+    if(!attacks.length)return null;
+    var result=[attacks[0]],used={};used[attacks[0].discard_index]=true;
+    var loop=candidates.find(function(row){return row.card_id==='S0-ARC-014'&&!used[row.discard_index]&&aiReplenishSkillPlayableBySurvivor(state,card(row.card_id));});
+    if(loop&&result.length<required){result.push(loop);used[loop.discard_index]=true;}
+    attacks.forEach(function(row){if(result.length<required&&!used[row.discard_index]){result.push(row);used[row.discard_index]=true;}});
+    candidates.slice().sort(function(a,b){
+      var ac=card(a.card_id),bc=card(b.card_id);
+      var ap=ac&&ac.card_id==='S0-ARC-014'?-10000:(ac&&isSkillCard(ac)?10:0);
+      var bp=bc&&bc.card_id==='S0-ARC-014'?-10000:(bc&&isSkillCard(bc)?10:0);
+      return bp-ap;
+    }).forEach(function(row){if(result.length<required&&!used[row.discard_index]&&row.card_id!=='S0-ARC-014'&&
+      aiReplenishSkillPlayableBySurvivor(state,card(row.card_id))){
+      result.push(row);used[row.discard_index]=true;
+    }});
+    return result.length>=required?result:null;
+  }
   function aiIntermediateDeployGate(state,action){
     var c=card(action.card_id);if(!c)return null;
     var id=c.card_id,hand=(state.aiHand||[]),count=hand.length;
     if(['S0-ARC-005','S0-ARC-022','S0-CLE-029','S0-EVT-002'].indexOf(id)>=0){
-      var hasFinisher=aiStarterIs(state,4)&&hand.some(function(x){return x==='S0-ARC-021'||x==='S0-ARC-025';});
+      var burst=aiStarterIs(state,4)?aiS4DrawBurstDecision(state,action):null;
+      if(burst&&burst.kind==='AURA_RELEASE')return burst.score-Number(action.cost||0);
+      if(burst&&burst.kind==='DREAD_LETHAL_PLUS_10')return burst.score-Number(action.cost||0);
+      // Reserve a Dreadbolt-specific draw for a proven HP+10 finishing window.
+      if(burst&&(burst.kind==='DREAD_SAVE'||burst.kind==='DRAW_EMPTY'))return -1000;
+      // RC36.3: once a short Aura combo is already Casting, commit its KNOWN
+      // Draw enabler on the following Deploy. Otherwise a Hand >5 gate can
+      // delay a 2-turn plan into a 3-turn release despite having Reload.
+      // aiS4DrawBurstDecision has already checked live Aura and Hand capacity.
+      if(burst&&burst.kind==='AURA_PROGRESS')return 270-Number(action.cost||0);
       var hasRoom=count<=5||!aiHasNormalTributeSkill(state);
-      if(!hasRoom&&!hasFinisher)return -1000;
-      if(hasFinisher&&count>=9)return -1000;
-      return (hasFinisher?160:110)-Number(action.cost||0);
+      if(!hasRoom)return -1000;
+      return 110-Number(action.cost||0);
     }
     if(['S0-ITM-018','S0-EVT-010'].indexOf(id)>=0){
       return aiIntermediateCanSearchFinisher(state,c,action)?210-Number(action.cost||0):-1000;
     }
     if(id==='S0-ARC-014'){
-      var recyclable=(state.aiDiscard||[]).filter(function(x){var a=card(x);return a&&isSkillCard(a)&&cardBaseSkillClass(a)==='Archer'&&!isUltimateCard(a);});
-      if(recyclable.length<2)return -1000;
-      var containsLoop=recyclable.indexOf('S0-ARC-014')!==-1;
-      var hasFinisher=recyclable.some(function(x){return ['S0-ARC-010','S0-ARC-021','S0-ARC-025'].indexOf(x)>=0;});
-      return 60+(containsLoop?80:0)+(hasFinisher?30:0)-Number(action.cost||0);
+      var recycle=aiReplenishDiscardOptions(state);
+      // Do NOT use Replenish if the two printed returns cannot include a
+      // living Archer-line Attack. Two Replenishes alone are not a loop.
+      if(recycle.candidates.length<2||!recycle.attacks.length||
+        !aiIntermediateReplenishPicks(state,recycle.candidates,2))return -1000;
+      var deckLeft=(state.aiDeck||[]).length;
+      // Late-deck Attack starvation must outrank ordinary optional setups.
+      var urgency=deckLeft<=5?380:(deckLeft<=10?210:0);
+      var bestAttack=recycle.attacks.slice().sort(function(a,b){return aiReplenishAttackPriority(state,card(b.card_id))-aiReplenishAttackPriority(state,card(a.card_id));})[0];
+      var hasFinisher=bestAttack&&bestAttack.card_id==='S0-ARC-010';
+      return 60+(recycle.hasLoop?80:0)+(hasFinisher?45:0)+urgency-Number(action.cost||0);
     }
     if(id==='S0-ITM-008'){
       // Phoenix Feather is valuable only if the revived hero survives or has a healing follow-up.
@@ -3943,10 +4231,10 @@
   function aiIntermediateSearchCandidateScore(state,sourceCard,candidate,opts){
     var id=candidate&&candidate.card_id,c=card(id);if(!c)return -100;
     if(sourceCard.card_id==='S0-ARC-014'){
-      if(id==='S0-ARC-014')return 500;
       if(aiStarterIs(state,5)&&id==='S0-ARC-026')return -150; // Keep Zol in Discard for Maestro.
-      if(['S0-ARC-010','S0-ARC-021','S0-ARC-025'].indexOf(id)>=0)return 420;
-      return isAttackCard(c)?200:25;
+      if(aiReplenishAttackPlayableBySurvivor(state,c))return aiReplenishAttackPriority(state,c);
+      if(id==='S0-ARC-014')return 1200; // Score value alone never selects more than 1: the two-slot picker enforces that.
+      return 0; // Unusable Attack (e.g. dead Arbalest) is never a finisher.
     }
     var missing=Math.min.apply(null,LANE_ORDER.map(function(l){var h=(state.playerHeroes||{})[l];return isActiveHeroSlot(h)?Number(h.hp||9999):9999;}));
     var base=isAttackCard(c)?140:20;
@@ -4155,6 +4443,16 @@
       else base+=105;
       var owner=source;
       if(owner&&Number(owner.hp||0)>0&&Number(owner.hp||0)<=Number(owner.maxHp||100)*0.30&&/INVINCIBLE/i.test(String(c.card_text||'')))base+=230;
+    }
+    if(aiStarterIs(state,4)&&c.card_id==='S0-ARC-021'){
+      // A speculative 3-turn Aura is worse than a known, immediately usable
+      // Arrow Barrage. Require a REAL 1- or 2-turn Draw combo in Hand.
+      var auraPlan=aiS4AuraCastPlan(state,action);
+      if(!auraPlan)return -10000;
+      if(auraPlan.turns===2&&aiBattleAttackActions(state).some(function(a){
+        return a.card_id==='S0-ARC-010'&&Number(estimateAIDamage(state,a)||0)>0;
+      }))return -10000;
+      base+=auraPlan.turns===1?140:15;
     }
     if(isChargedShotCard(c) && target && source){
       // RC35.1 Intermediate: Soul Charged Shot is kept primarily for a true
@@ -4753,8 +5051,15 @@
     if(!state.pending&&!state.gameOver)resolveS0ProvokeAtOpponentEnd(state,side);
     if(state.pending){ syncCounts(state); return; }
     if(state.gameOver){ state.autoEndTurnPending=false;state.autoEndResumeScheduled=false;delete state.endPhaseCleanupProgress;syncCounts(state); return; }
+    // RC36 designer ruling: a Sleep that was present during this owner's End
+    // Phase pauses Casting progression even if its last counter expires now.
+    var sleepingAtEnd={};
+    LANE_ORDER.forEach(function(lane){
+      var h=sideHeroes(state,side)[lane];
+      if(h&&hasStatus(h,'Sleep'))sleepingAtEnd[lane]=true;
+    });
     tickStatusDurationsForSide(state, side);
-    increaseEndPhaseCastingProgress(state,side);
+    increaseEndPhaseCastingProgress(state,side,sleepingAtEnd);
     expireEndPhaseAttachmentsForSide(state, side);
     checkGameEnd(state);
     delete state.endPhaseCleanupProgress;
@@ -4933,7 +5238,7 @@
   function isSpectralGrapplingHookCard(c){ return c && c.card_id==='S0-ITM-012'; }
   function spectralGrapplingHookResponderValid(hero){ return heroMatchesLineageGate(hero,itemLineageGate(card('S0-ITM-012'))); }
   function chainMailResponderValid(hero){ return heroMatchesLineageGate(hero,itemLineageGate(card('S0-ITM-016'))); }
-  function s0ProtectionItemFullBlock(rc,incoming){
+  function s0ProtectionItemCanBlock(rc,incoming){
     if(!rc||!incoming||incoming.cannot_block)return false;
     var type=String(incoming.damage_type||'');
     return (isChainMailCard(rc)&&type==='Physical')||(isRingProtectionCard(rc)&&type==='Magical');
@@ -5378,6 +5683,7 @@
     if(c&&c.card_id==='S0-ARC-030'){var n=Number(action.s0_condition_return_count||(action.s0_discard_condition_picks||[]).length||0);if(n>0)dmg=printedClassDamage(c,sourceHero)*n+(dmg-printedClassDamage(c,sourceHero));}
     if(c.card_id==='S0-ARC-025'){
       var drawn=Number(state && state.cardsDrawnThisTurn && state.cardsDrawnThisTurn[action.source_side||'PLAYER'] || 0);
+      action.draw_count_at_attack=drawn; // Freeze the multiplier used for this attack.
       var baseDread=printedClassDamage(c,sourceHero),flatDread=scalingFlatBonus(c,sourceHero,targetHero);
       var maxFromS0=String(c.card_text||'').match(/Max\s+(\d+)\s+damage/i);
       var cap=maxFromS0?Number(maxFromS0[1]):140;
@@ -5386,6 +5692,7 @@
     }
     if(c.card_id==='S0-MAG-025'){
       var ownSide=action.source_side||'PLAYER',ownRegen=Number(state&&state[ownSide==='PLAYER'?'manaRegen':'aiManaRegen']||0);
+      action.mana_regen_at_attack=ownRegen; // Freeze the multiplier used for this attack.
       var baseVoid=printedClassDamage(c,sourceHero),flatVoid=scalingFlatBonus(c,sourceHero,targetHero);
       dmg=baseVoid*ownRegen+flatVoid;
       action.damage_formula_log='Mana Void: S0 printed '+baseVoid+' × OWN Mana Regen '+ownRegen+' plus flat modifiers '+flatVoid+'.';
@@ -5479,7 +5786,7 @@
     // restores the incoming Response Window without spending Mana or mandatory additional costs.
     state.responseWindow=null;closeResponseWindowUI();
     var pool=manaPoolCardsForSide(state,side),selectedShards=recommendedExactManaShardUids(state,side,rc,cost);
-    state.pending={type:'response_payment_choice',decision_side:side,side:side,response_owner:side,response_option:clone(responseOption),incoming_response_window:clone(rw),required_discard_count:spec.discard_from_hand,candidates:candidates,selected_indices:[],mana_cost:cost,mana_class_choices:classes.map(function(sh){return{uid:sh.uid,class_name:sh.class_name,value:manaShardValueForCard(sh,rc),asset:manaShardAsset(sh)};}),selected_mana_class_uids:pool.filter(function(sh){return sh.kind==='CLASS'&&selectedShards.map(String).indexOf(String(sh.uid))!==-1;}).map(function(sh){return sh.uid;}),selected_shard_uids:selectedShards,shard_choices:pool.map(function(sh){return{uid:sh.uid,kind:sh.kind,class_name:sh.class_name||'',value:sh.kind==='CLASS'?manaShardValueForCard(sh,rc):1,asset:manaShardAsset(sh)};}),committed:false,commit_stage:'pre_commit_payment'};
+    state.pending={type:'response_payment_choice',decision_side:side,side:side,response_owner:side,response_option:clone(responseOption),incoming_response_window:clone(rw),required_discard_count:spec.discard_from_hand,candidates:candidates,selected_indices:[],mana_cost:cost,mana_class_choices:classes.map(function(sh){return{uid:sh.uid,class_name:sh.class_name,value:manaShardPaymentValueForCost(sh,rc,cost),asset:manaShardAsset(sh)};}),selected_mana_class_uids:pool.filter(function(sh){return sh.kind==='CLASS'&&selectedShards.map(String).indexOf(String(sh.uid))!==-1;}).map(function(sh){return sh.uid;}),selected_shard_uids:selectedShards,shard_choices:pool.map(function(sh){return{uid:sh.uid,kind:sh.kind,class_name:sh.class_name||'',value:sh.kind==='CLASS'?manaShardPaymentValueForCost(sh,rc,cost):1,asset:manaShardAsset(sh)};}),committed:false,commit_stage:'pre_commit_payment'};
     renderResponsePaymentChoice();return true;
   }
   function renderResponsePaymentChoice(){
@@ -5489,7 +5796,7 @@
     var classContribution=Number(manaPlan.class_value||0),remainingMana=Math.max(0,manaCost-Number(manaPlan.value||0)),shortage=Math.max(0,manaCost-Number(manaPlan.value||0)),manaReady=!!manaPlan.ok,allReady=manaReady&&selected.length===need;
     var sourceName=cardName(rc);$('choiceTitle').textContent=sourceName+' — Pay Response Cost';$('choiceConfirm').style.display='';$('choiceConfirm').textContent=!manaReady?('Need '+shortage+' More Mana'):(need>0?'Pay Cost':('Pay '+remainingMana+' Mana'));$('choiceConfirm').disabled=!allReady;setManaConfirmState($('choiceConfirm'),manaReady,allReady,shortage);
     if($('choiceClose'))$('choiceClose').hidden=false;
-    var responsePool=manaPoolCardsForSide(appState,p.side),manaHtml='<h4 class="choice-section-title">Mana Shards</h4><p class="choice-instruction">Response is not committed yet. Choose an exact Shard payment, then PAY to commit.</p><p class="choice-instruction mana-payment-summary"><strong>Selected Mana: '+manaPlan.value+' / '+manaCost+'.</strong></p><div class="choice-grid card-search-choice-grid mana-shard-choice-grid">'+responsePool.map(function(sh){var uid=String(sh.uid),sel=selectedMana.indexOf(uid)!==-1,val=sh.kind==='CLASS'?manaShardValueForCard(sh,rc):1;return '<article class="discard-choice mana-shard-choice '+(sel?'selected':'')+'"><button type="button" class="discard-preview" data-response-mana-uid="'+esc(uid)+'"><img src="'+esc(manaShardAsset(sh))+'" alt="'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'"><span><strong>'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'</strong><small>'+val+' Mana</small></span></button><button class="discard-select" type="button" data-response-mana-uid="'+esc(uid)+'">'+(sel?'Selected':'Use Mana')+'</button></article>';}).join('')+'</div>';
+    var responsePool=manaPoolCardsForSide(appState,p.side),manaHtml='<h4 class="choice-section-title">Mana Shards</h4><p class="choice-instruction">Response is not committed yet. Choose an exact Shard payment, then PAY to commit.</p><p class="choice-instruction mana-payment-summary"><strong>Selected Mana: '+manaPlan.value+' / '+manaCost+'.</strong></p><div class="choice-grid card-search-choice-grid mana-shard-choice-grid">'+responsePool.map(function(sh){var uid=String(sh.uid),sel=selectedMana.indexOf(uid)!==-1,val=sh.kind==='CLASS'?manaShardPaymentValueForCost(sh,rc,manaCost):1;return '<article class="discard-choice mana-shard-choice '+(sel?'selected':'')+'"><button type="button" class="discard-preview" data-response-mana-uid="'+esc(uid)+'"><img src="'+esc(manaShardAsset(sh))+'" alt="'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'"><span><strong>'+esc(sh.class_name?sh.class_name+' Mana':'Mana')+'</strong><small>'+val+' Mana</small></span></button><button class="discard-select" type="button" data-response-mana-uid="'+esc(uid)+'">'+(sel?'Selected':'Use Mana')+'</button></article>';}).join('')+'</div>';
     var discardHtml=need?'<h4 class="choice-section-title">Additional Card Cost</h4><p class="choice-instruction">Choose exactly '+need+' other card'+(need===1?'':'s')+' from your Hand to discard.</p><div class="choice-grid card-search-choice-grid">'+choices.map(function(x,idx){var sel=selected.indexOf(idx)!==-1;return '<article class="discard-choice '+(sel?'selected':'')+'"><button class="discard-preview" type="button" data-preview="'+esc(x.card_id)+'"><img src="'+esc(thumbFor(x.card_id))+'" alt="'+esc(cardName(card(x.card_id)))+' thumbnail"><span>'+esc(cardName(card(x.card_id)))+'</span></button><button class="discard-select" type="button" data-response-payment-index="'+idx+'">'+(sel?'Selected':'Select')+'</button></article>';}).join('')+'</div>':'<p class="choice-instruction">No additional card discard is required.</p>';
     $('choiceBody').innerHTML=manaHtml+discardHtml;$('choiceOverlay').classList.add('open');
   }
@@ -5580,7 +5887,7 @@
     if(isCoverUpCard(rc)){ return incoming && incoming.attack_type==='Single Target' ? 'cover_up' : null; }
     if(isSmokeScreenCard(rc)) return incoming && incoming.attack_type==='Single Target' && !incoming.casting && !isCastingCard(card(incoming.card_id)) && !isUltimateCard(card(incoming.card_id)) ? 'negate_return' : null;
     if(isSpectralGrapplingHookCard(rc)) return incoming && !incoming.cannot_dodge ? 'dodge' : null;
-    if(isChainMailCard(rc)||isRingProtectionCard(rc))return s0ProtectionItemFullBlock(rc,incoming)?'block':null;
+    if(isChainMailCard(rc)||isRingProtectionCard(rc))return s0ProtectionItemCanBlock(rc,incoming)?'block':null;
     if(isThiefDodgeResponseCard(rc) || isDodgeResponseCard(rc)) return incoming && !incoming.cannot_dodge ? 'dodge' : null;
     if(isBrilliantRadianceCard(rc)) return 'negate_discard';
     if(isSacredBulwarkCard(rc)) return incoming&&incoming.cannot_block?null:'block';
@@ -5607,9 +5914,11 @@
     // PIERCING disables the BLOCK portion of every Response, including Deflect.
     // Deflect remains playable only because its independent REFLECT can trigger.
     if(incoming && incoming.cannot_block) return 0;
-    // Printed S0 Protection Items say BLOCK incoming damage (no numeric cap):
-    // consume exactly the matching incoming damage, not an invented S1 block value.
-    if(s0ProtectionItemFullBlock(rc,incoming))return Math.max(0,Number(incoming.damage||0));
+    // RC36.3 designer-authoritative artwork: Chain Mail BLOCK -40 Physical,
+    // Ring of Protection BLOCK -40 Magical. The digital card text omits the
+    // separate printed number badge, so use its verified print value here.
+    // PIERCING is handled above. Block amount is capped by damage resolution.
+    if(s0ProtectionItemCanBlock(rc,incoming))return 40;
     if(!lunMayBlockForHero(rc,incoming,defenderHero))return 0;
     var override=responseProfileOverride(rc,incoming);
     if(override && override.kind==='block'){ if(override.amount_by_class) return classMappedNumber(override.amount_by_class, defenderHero, rc); return Number(override.amount||0); }
@@ -5957,7 +6266,11 @@
   }
   function incomingCardContext(rw){
     var c=card(rw.card_id); var source=sideHeroes(appState,rw.source_side)[rw.source_lane];
-    return '<article class="response-context-card"><h3>Incoming Card</h3><button class="response-context-tile" type="button" data-preview="'+esc(rw.card_id)+'"><img src="'+esc(thumbFor(rw.card_id))+'" alt="'+esc(cardName(c))+'"><span><strong>'+esc(cardName(c))+'</strong><small>'+esc(cardFamily(c))+' · '+esc(cardSubtype(c)||'Attack')+'</small><small>'+esc(currentDamageType(c))+' · '+esc(rw.damage)+' damage</small></span></button><div class="incoming-summary">'+esc(activeEffectSummary(c,source))+'</div></article>';
+    var conditional=conditionalAttackInfo(appState,rw);
+    // This lives INSIDE the Response modal for as long as the player decides.
+    // The battle HUD can be obscured by the modal or expire after 2.6 seconds.
+    var damageNotice=conditional?'<div class="response-conditional-attack" role="status"><strong>'+esc(conditional.name)+'</strong><span>'+esc(conditional.context)+' • '+Number(conditional.damage||0)+' Damage</span><small>Incoming damage before BLOCK / DODGE / NEGATE</small></div>':'';
+    return '<article class="response-context-card"><h3>Incoming Card</h3><button class="response-context-tile" type="button" data-preview="'+esc(rw.card_id)+'"><img src="'+esc(thumbFor(rw.card_id))+'" alt="'+esc(cardName(c))+'"><span><strong>'+esc(cardName(c))+'</strong><small>'+esc(cardFamily(c))+' · '+esc(cardSubtype(c)||'Attack')+'</small><small>'+esc(currentDamageType(c))+' · '+esc(rw.damage)+' damage</small></span></button>'+damageNotice+'<div class="incoming-summary">'+esc(activeEffectSummary(c,source))+'</div></article>';
   }
   function resolvePostAttackChoices(state, action, post, result, options){
     options=options||{};
@@ -6071,6 +6384,10 @@
     if(payload && payload.return_to_source_hand_after_double_casting) state.responseWindow.return_to_source_hand=true;
     state.pending={type:'response_window', card_id:action.card_id};
     pushLog(state,'Response Window opens for '+cardName(c)+' targeting '+cardName(card(target.card_id))+'.');
+    // Announce condition and pre-Defense attack damage BEFORE the player picks
+    // BLOCK / DODGE / NEGATE, not when the HP result/VFX is applied.
+    var notice=conditionalAttackInfo(state,state.responseWindow);
+    if(notice)showConditionalAttackOverlay(notice);
     if(!pendingAttackDirectionShouldLoop(state)) showPendingAttackDirection(state.responseWindow,false);
   }
   function finalizePlayedCardAfterResponse(state, rw){
@@ -6820,7 +7137,10 @@
     if(resumeAITurnAfterPlayerResponse(appState)) return true;
     syncCounts(appState); render(); return true;
   }
-  function closeResponseWindowUI(){ var overlay=$('responseOverlay'); if(overlay) overlay.classList.remove('open'); }
+  function closeResponseWindowUI(){
+    var overlay=$('responseOverlay');if(overlay)overlay.classList.remove('open');
+    clearConditionalAttackOverlay();
+  }
   // Battlefield UI safety repair: only normalize objectively inconsistent Response state.
   // Never clears a real mandatory choice. This prevents a stale response_window marker from
   // blocking NEXT PHASE after the authoritative Response context has already disappeared.
@@ -7231,6 +7551,12 @@
       var required=Math.max(1,Number(opts.required_count||opts.max_count||1)), picks=candidates.slice(0,required);
       if(aiIntermediate(state)&&sourceCard&&['S0-ITM-018','S0-EVT-010','S0-ARC-014'].indexOf(sourceCard.card_id)!==-1){
         picks=candidates.slice().sort(function(a,b){return aiIntermediateSearchCandidateScore(state,sourceCard,b,opts)-aiIntermediateSearchCandidateScore(state,sourceCard,a,opts);}).slice(0,required);
+        if(sourceCard.card_id==='S0-ARC-014'){
+          // The ordinary sort could take TWO high-priority Replenish cards,
+          // or rank dead Arbalest's Aura ahead of a living Marksman's Attack.
+          var planned=aiIntermediateReplenishPicks(state,candidates,required);
+          if(planned)picks=planned;
+        }
       }
       if(zone==='deck'&&sourceCard&&sourceCard.card_id==='S0-CLE-029'){
         var handCounts={},discardCounts={};(sideHand(state,side)||[]).forEach(function(id){handCounts[id]=(handCounts[id]||0)+1;});(sideDiscard(state,side)||[]).forEach(function(id){discardCounts[id]=(discardCounts[id]||0)+1;});
@@ -8077,13 +8403,18 @@ function getActivatedHeroAbilities(state, side, lane){
   function isRuneforgedBurst(c){ return !!(c && c.card_id==='S0-MAG-027'); }
   function isTimedCastingForS0(c, sourceHero){ return isRuneforgedBurst(c) || hasCastingTimeOneForSource(c,sourceHero); }
   function castingRequiredTime(c){ return isRuneforgedBurst(c)?3:1; }
-  function increaseEndPhaseCastingProgress(state,side){
+  function increaseEndPhaseCastingProgress(state,side,sleepingAtEnd){
     if(!state||!Array.isArray(state.pendingCastings))return 0;
     var changed=0;
     state.pendingCastings.forEach(function(pc){
       if(!pc||pc.side!==side||pc.resolve_phase!=='casting_progress'||pc.forced_release)return;
-      var h=sideHeroes(state,side)[pc.original_source_lane||pc.source_lane];
+      var lane=pc.original_source_lane||pc.source_lane;
+      var h=sideHeroes(state,side)[lane];
       if(!h||Number(h.hp||0)<=0||!castingSourceMatchesHero(pc,h)||hasStatus(h,'Stun'))return;
+      if((sleepingAtEnd&&sleepingAtEnd[lane])||hasStatus(h,'Sleep')){
+        pushLog(state,cardName(card(pc.card_id))+' Casting Time pauses while source Hero is Sleeping.');
+        return;
+      }
       pc.counters=Math.min(Number(pc.required_counters||1),Number(pc.counters||0)+1);
       syncAttachmentCounter(state,side,pc.original_source_lane||pc.source_lane,pc.attachmentSlot,pc.card_id,pc.counters);
       pushLog(state,cardName(card(pc.card_id))+' Casting Time becomes ('+pc.counters+').');changed++;
@@ -8224,7 +8555,16 @@ function getActivatedHeroAbilities(state, side, lane){
     state.pending=null;
     var manaPaymentResult=action._mana_payment_committed?{ok:true,already_committed:true,value:Number(action._mana_payment_committed_value||action._mana_payment_committed_cost||cost||0),cost:Number(action._mana_payment_committed_cost||cost||0),spent:[]}:(isArrowBarrageCard(c)?spendAllManaForCard(state,side,c):(Array.isArray(action.selected_mana_shard_uids)?spendExactManaPayment(state,side,c,cost,action.selected_mana_shard_uids,'Card payment'):spendManaPayment(state,side,c,cost,action.selected_mana_class_uids||[],'Card payment')));
     if(!manaPaymentResult||!manaPaymentResult.ok){showInfo('Cannot Play','Mana payment could not be completed from the current Mana Pool.');restoreStateSnapshot(state,committedSnapshot);render();return false;}
-    if(isArrowBarrageCard(c)){action.mana_spent=Number(manaPaymentResult.value||0);action.mana_cards_spent=(manaPaymentResult.shards||manaPaymentResult.spent||[]).length;cost=action.mana_spent;}
+    if(isArrowBarrageCard(c)){
+      // When Mana was paid at the preceding reactive Response boundary,
+      // manaPaymentResult.spent is intentionally empty. Keep the committed
+      // shard count so dynamic damage and RC36's disclosure stay accurate.
+      if(!action._mana_payment_committed){
+        action.mana_spent=Number(manaPaymentResult.value||0);
+        action.mana_cards_spent=(manaPaymentResult.shards||manaPaymentResult.spent||[]).length;
+      }
+      cost=Number(action.mana_spent||0);
+    }
     if(isGodsBlessingCard(c) && !action._gods_blessing_condition_committed)consumeGodsBlessingHandCondition(state,side,c,action);
     hand=sideHand(state,side);if(hand[action.hand_index]!==cardId){var paidFound=hand.indexOf(cardId);if(paidFound<0){restoreStateSnapshot(state,committedSnapshot);showInfo('Cannot Play','Card left Hand before payment completed.');render();return false;}action.hand_index=paidFound;}
     hand.splice(action.hand_index,1);
@@ -8448,6 +8788,12 @@ function getActivatedHeroAbilities(state, side, lane){
       // Pending Castings stay queued until their predecessors resolve.
       if(state.pending||state.responseWindow||state.gameOver){remain.push(pc);return;}
       if(pc.side!==side){remain.push(pc);return;}
+      var sleeper=sideHeroes(state,pc.side)[pc.original_source_lane||pc.source_lane];
+      if(sleeper&&castingSourceMatchesHero(pc,sleeper)&&hasStatus(sleeper,'Sleep')&&!hasStatus(sleeper,'Stun')){
+        // Do not cancel or release, even if ready/forced. Stun and source
+        // invalidation retain their pre-existing cancellation authority.
+        remain.push(pc);return;
+      }
       if(pc.resolve_phase==='counter_draw'||isDrawCounterCastingCard(card(pc.card_id))){if(state.phase==='Battle'&&Number(pc.counters||0)>=requiredDrawCountersForCasting(card(pc.card_id)))resolveDrawCounterCasting(state,pc);else remain.push(pc);return;}
       if(pc.resolve_phase==='casting_progress' && (state.phase!=='Battle'||(!pc.forced_release&&Number(pc.counters||0)<Number(pc.required_counters||1)))){remain.push(pc);return;}
       var c=card(pc.card_id),originalLane=pc.original_source_lane||pc.source_lane,sourceHero=sideHeroes(state,pc.side)[originalLane];
@@ -8479,7 +8825,7 @@ function getActivatedHeroAbilities(state, side, lane){
         recordCastingExitEvent(state,releaseEventPc,'RESOLVED',noTarget,['Release source: '+cardName(card(heroIdFrom(sourceHero)))+' — '+heroClass(sourceHero)+' Rank '+heroRank(sourceHero)+'.','Final HP damage: 0.']);
         return;
       }
-      var action={card_id:pc.card_id,source_side:pc.side,source_lane:originalLane,source_hero_card_id:heroIdFrom(sourceHero),target_side:pc.target_side,target_lane:lockedLane,locked_target_lane:lockedLane,action_profile:'Casting Attack',casting_release:true};
+      var action={card_id:pc.card_id,source_side:pc.side,source_lane:originalLane,source_hero_card_id:heroIdFrom(sourceHero),target_side:pc.target_side,target_lane:lockedLane,locked_target_lane:lockedLane,action_profile:'Casting Attack',casting_release:true,casting_time_at_release:Number(pc.counters||0),commit_token:pc.commit_token||null};
       var post={damage:committed,persistent:false,attachmentSlot:pc.attachmentSlot,casting_release:true,printed_damage:printed,modifier_breakdown:clone(releaseSnapshot.modifier_breakdown||[]),damage_type:releaseSnapshot.damage_type||damageTypeForActionSource(c,sourceHero),action_profile:'Casting Attack'};
       clearAttachment('casting released');
       var exitEvt=recordCastingExitEvent(state,releaseEventPc,'RESOLVED','Casting Attack released and opened a Defense response window.',['Release source: '+cardName(card(heroIdFrom(sourceHero)))+' — '+heroClass(sourceHero)+' Rank '+heroRank(sourceHero)+'.','Damage after modifiers at release: '+committed+'.','HP damage is PENDING until the opponent Defense Response resolves; check Final HP damage below afterward.']);
@@ -8715,6 +9061,12 @@ function getActivatedHeroAbilities(state, side, lane){
     var remain=[];
     state.pendingCastings.forEach(function(pc){
       if(pc.side!==side || !isDrawCounterCastingCard(card(pc.card_id))){ remain.push(pc); return; }
+      var drawCaster=sideHeroes(state,pc.side)[pc.original_source_lane||pc.source_lane];
+      if(drawCaster&&hasStatus(drawCaster,'Sleep')){
+        // DRAW is still legal from other sources; only this Sleeping caster's
+        // counter progress is suspended. Its paid Casting stays attached.
+        remain.push(pc);return;
+      }
       pc.counters=Math.min(6,Number(pc.counters||0)+1);
       syncAttachmentCounter(state, pc.side, pc.source_lane, pc.attachmentSlot, pc.card_id, pc.counters);
       pushLog(state, cardName(card(pc.card_id))+' gains counter ('+pc.counters+') from draw.');
@@ -8736,6 +9088,7 @@ function getActivatedHeroAbilities(state, side, lane){
     if(!sourceHero||isLegacyModeHero(sourceHero)||Number(sourceHero.hp||0)<=0)return cancel('Source Hero was defeated or replaced before release.','CAST cancels: '+cardName(c)+' source was defeated or replaced before counter release.');
     if(!castingSourceMatchesHero(pc,sourceHero))return cancel('Source Hero moved or was replaced before release.','CAST cancels: '+cardName(c)+' source left its original position or was replaced before counter release.');
     if(hasStatus(sourceHero,'Stun'))return cancel('Canceled by Stun.','CAST cancels: '+cardName(c)+' source was Stunned before counter release.');
+    if(hasStatus(sourceHero,'Sleep'))return false; // RC36: paid counter Casting waits; no cancellation.
     var releaseProbe={card_id:pc.card_id,source_side:pc.side,source_lane:lane,target_side:pc.target_side,target_lane:lockedLane,casting_release:true,draw_counter_casting_release:true};
     var releaseSnapshot=castingSnapshotForAction(state,releaseProbe,sourceHero,target),printed=Number(releaseSnapshot.printed_damage),committed=Number(releaseSnapshot.committed_damage);
     if(!Number.isFinite(printed)||printed<=0||!Number.isFinite(committed)||committed<=0)return cancel('Missing valid release damage from the current source Hero.','CAST fails closed: '+cardName(c)+' has no valid release damage for the current source Hero.');
@@ -10259,7 +10612,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     if(!modal)return;
     var winnerTitle=first==='PLAYER'?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP';
     var winnerText=first==='PLAYER'?'You will take the first turn.':'Local AI will take the first turn.';
-    modal.innerHTML='<section class="gl-opening-coin-card result"><h2>Opening Coin Flip Result</h2><div class="gl-opening-coin-winner '+(first==='PLAYER'?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+winnerTitle+'</strong><p>'+winnerText+'</p></div><div class="gl-opening-coin-result"><div><span>Your choice</span>'+localCoinFace(choice)+'</div><div><span>Coin result</span>'+localCoinFace(outcome)+'</div></div><button class="gl-opening-start-button" type="button" data-local-start-game>Start Game</button></section>';
+    modal.innerHTML='<section class="gl-opening-coin-card result"><h2>Opening Coin Flip Result</h2><div class="gl-opening-coin-winner '+(first==='PLAYER'?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+winnerTitle+'</strong><p>'+winnerText+'</p></div><div class="gl-opening-coin-result gl-coin-single-result">'+localCoinFace(outcome)+'</div><button class="gl-opening-start-button" type="button" data-local-start-game>Start Game</button></section>';
     prepareRenderedImages(modal);
     var startButton=modal.querySelector('[data-local-start-game]');if(startButton)startButton.onclick=function(){confirmLocalStartGame(startButton);};
   }
@@ -13566,6 +13919,162 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
   };
 
   function installPvpAnimationAssistStyle(){if(!document||document.getElementById('glPvpAnimationAssistStyle'))return;var s=document.createElement('style');s.id='glPvpAnimationAssistStyle';s.textContent='@keyframes glPvpRepositionFlash{0%{box-shadow:0 0 0 rgba(255,216,77,0)}45%{box-shadow:0 0 24px rgba(255,216,77,.9)}100%{box-shadow:0 0 0 rgba(255,216,77,0)}} .gl-pvp-reposition-flash{animation:glPvpRepositionFlash .7s ease}';document.head.appendChild(s);}
+  // RC36 developer-only regression function (no auto-run or change to match flow).
+  window.GL_RC36_CASTING_SLEEP_QA_SELF_TEST=function(){
+    var oldApp=appState,oldMatch=matchStarted,oldSuppress=SUPPRESS_RENDER;
+    var checks=[];SUPPRESS_RENDER=true;matchStarted=true;
+    function check(name,ok,detail){checks.push({name:name,ok:!!ok,detail:detail||null});}
+    function setup(cardId,counters,required,mode){
+      var s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='End';s.round=10;
+      var h=s.playerHeroes.CENTER;h.card_id=(mode==='counter_draw'?'S0-ARC-H008':'S0-MAG-H002');
+      h.hp=120;h.maxHp=120;h.statuses=[];h.exhausted=true;h.casting=true;
+      h.attachments=[cardId,null];
+      s.pendingCastings=[{card_id:cardId,side:'PLAYER',source_lane:'CENTER',original_source_lane:'CENTER',
+        source_hero_card_id:h.card_id,source_progression_id:heroProgressionId(h),target_side:'AI',
+        target_lane:'CENTER',locked_target_lane:'CENTER',attachmentSlot:0,resolve_phase:mode||'casting_progress',
+        counters:Number(counters||0),required_counters:Number(required||3),forced_release:false}];
+      return{s:s,h:h,pc:s.pendingCastings[0]};
+    }
+    try{
+      var x=setup('S0-MAG-027',0,3);addStatus(x.h,'Sleep',2,'RC36 test Sleep');
+      resolveEndPhaseCleanupForSide(x.s,'PLAYER');
+      check('Sleep duration 2: first End gives no Casting progress',x.pc.counters===0&&hasStatus(x.h,'Sleep'),{counter:x.pc.counters,status:x.h.statuses});
+      x.s.round++;resolveEndPhaseCleanupForSide(x.s,'PLAYER');
+      check('Sleep duration 1: expiry End still gives no Casting progress',x.pc.counters===0&&!hasStatus(x.h,'Sleep'),{counter:x.pc.counters,status:x.h.statuses});
+      x.s.round++;resolveEndPhaseCleanupForSide(x.s,'PLAYER');
+      check('Casting resumes on next awake owner End',x.pc.counters===1,{counter:x.pc.counters});
+      x=setup('S0-MAG-027',3,3);addStatus(x.h,'Sleep',1,'RC36 ready test');
+      x.s.phase='Battle';resolvePendingCastingsFor(x.s,'PLAYER');
+      check('Ready Casting stays pending during Sleep',x.s.pendingCastings.length===1&&!x.s.responseWindow,{pending:x.s.pendingCastings.length});
+      x=setup('S0-MAG-027',1,3);x.pc.forced_release=true;addStatus(x.h,'Sleep',1,'RC36 forced test');
+      x.s.phase='Battle';resolvePendingCastingsFor(x.s,'PLAYER');
+      check('Forced Runeforged release pauses in Sleep',x.s.pendingCastings.length===1&&!x.s.responseWindow);
+      x=setup('S0-ARC-021',1,5,'counter_draw');addStatus(x.h,'Sleep',1,'RC36 counter draw test');
+      incrementDrawCounterCastings(x.s,'PLAYER','S0-MAG-001');
+      check('Draw-counter Casting cannot advance while asleep',x.pc.counters===1);
+      removeStatus(x.h,'Sleep');incrementDrawCounterCastings(x.s,'PLAYER','S0-MAG-001');
+      check('Draw-counter Casting advances after waking',x.pc.counters===2);
+      x=setup('S0-ARC-021',5,5,'counter_draw');addStatus(x.h,'Sleep',1,'RC36 counter full test');
+      x.s.phase='Battle';resolvePendingCastingsFor(x.s,'PLAYER');
+      check('Fully charged draw-counter Casting cannot release during Sleep',x.s.pendingCastings.length===1&&!x.s.responseWindow);
+      x=setup('S0-MAG-027',3,3);addStatus(x.h,'Stun',1,'RC36 Stun control');
+      x.s.phase='Battle';resolvePendingCastingsFor(x.s,'PLAYER');
+      check('Stun still cancels ready Casting',x.s.pendingCastings.length===0&&!x.s.responseWindow);
+      x=setup('S0-MAG-027',0,3);addStatus(x.h,'Freeze',1,'RC36 Freeze control');
+      x.s.phase='End';resolveEndPhaseCleanupForSide(x.s,'PLAYER');
+      check('Freeze still permits Casting progress',x.pc.counters===1);
+      return{ok:checks.every(function(q){return q.ok;}),passed:checks.filter(function(q){return q.ok;}).length,total:checks.length,checks:checks};
+    }catch(err){return{ok:false,passed:checks.filter(function(q){return q.ok;}).length,total:checks.length,error:String(err&&err.stack||err),checks:checks};}
+    finally{appState=oldApp;matchStarted=oldMatch;SUPPRESS_RENDER=oldSuppress;}
+  };
+  // RC36.1 deterministic AI Starter-4 finisher decision QA. Never auto-runs.
+  window.GL_RC36_1_S4_DRAW_POLICY_QA_SELF_TEST=function(){
+    var oldApp=appState,oldMatch=matchStarted,oldSuppress=SUPPRESS_RENDER,checks=[];
+    SUPPRESS_RENDER=true;matchStarted=true;
+    function check(name,condition,detail){checks.push({name:name,ok:!!condition,detail:detail||null});}
+    function fresh(){
+      var s=buildInitialMatchState();appState=s;s.preGame=null;s.turn='AI';s.phase='Deploy';s.round=5;
+      s.aiDifficulty='intermediate';s.aiStarterKey='s0_starter_04_green_yellow';s.pending=null;s.responseWindow=null;
+      s.aiDeck=Array(20).fill('S0-WAR-001');s.cardsDrawnThisTurn={PLAYER:0,AI:2};s.aiHand=[];
+      s.racial=0;s.aiRacial=0;
+      var src=s.aiHeroes.CENTER;src.card_id='S0-ARC-H008';src.hp=100;src.maxHp=100;src.exhausted=false;src.statuses=[];src.attachments=[null,null];
+      LANE_ORDER.forEach(function(l){var v=s.playerHeroes[l];v.hp=80;v.maxHp=100;v.statuses=[];v.attachments=[null,null];});
+      manaPoolCardsForSide(s,'AI').splice(0);drawManaCards(s,'AI',12,'RC36 S4 planner QA');syncManaCountForSide(s,'AI');
+      return s;
+    }
+    function hand(s,ids,n){s.aiHand=ids.slice();while(s.aiHand.length<n)s.aiHand.push('S0-WAR-001');}
+    function aura(s,n){s.pendingCastings=[{card_id:'S0-ARC-021',side:'AI',source_lane:'CENTER',original_source_lane:'CENTER',source_hero_card_id:'S0-ARC-H008',source_progression_id:'S0-ARC-H007',target_side:'PLAYER',target_lane:'CENTER',locked_target_lane:'CENTER',resolve_phase:'counter_draw',counters:n,attachmentSlot:0}];}
+    function score(s,id){return aiIntermediateDeployGate(s,{type:'PLAY_CARD',card_id:id,cost:Number(cardCost(card(id))||0)});}
+    try{
+      var s=fresh();hand(s,['S0-ARC-021','S0-EVT-002','S0-ARC-005','S0-ARC-025'],7);
+      check('Aura only in Hand does not unlock Market Bargain at 7 Hand',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
+      check('Aura only in Hand does not unlock Reload at 7 Hand',score(s,'S0-ARC-005')===-1000,score(s,'S0-ARC-005'));
+      s=fresh();hand(s,['S0-EVT-002','S0-ARC-005','S0-WAR-001'],7);aura(s,3);
+      check('Active Aura 3/5 counters boosts draw-2 from 7 Hand',score(s,'S0-EVT-002')>=300,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-EVT-002','S0-ARC-005','S0-WAR-001'],7);aura(s,2);
+      check('Active Aura with only 2/5 does not allow high-Hand combo draw',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002','S0-WAR-001'],7);s.aiHeroes.CENTER.card_id='S0-ARC-H007';
+      check('Dreadbolt in Hand but Rank I cannot bypass hand gate',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002','S0-WAR-001'],7);s.playerHeroes.CENTER.hp=30;s.playerHeroes.LEFT.hp=100;s.playerHeroes.RIGHT.hp=100;
+      check('Rank II 2+2 draws = 40 permits HP 30 + 10',score(s,'S0-EVT-002')>200,score(s,'S0-EVT-002'));
+      s.playerHeroes.CENTER.hp=31;
+      check('Rank II 40 damage cannot clear HP 31 + 10',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-ARC-025','S0-ARC-022','S0-WAR-001'],6);s.aiHeroes.CENTER.card_id='S0-ARC-H009';s.playerHeroes.CENTER.hp=100;
+      check('Grand Arbalest 2+3 draws = 110 permits HP 100 + 10',score(s,'S0-ARC-022')>200,score(s,'S0-ARC-022'));
+      s.playerHeroes.CENTER.hp=101;s.playerHeroes.LEFT.hp=101;s.playerHeroes.RIGHT.hp=101;
+      check('Grand Arbalest 110 damage cannot clear HP 101 + 10',score(s,'S0-ARC-022')===-1000,score(s,'S0-ARC-022'));
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002','S0-WAR-001'],5);s.playerHeroes.CENTER.hp=10;
+      check('Already sufficient Dreadbolt saves extra Draw instead of wasting',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-EVT-002','S0-WAR-001'],6);aura(s,3);s.aiRacial=1;
+      check('Human Ambition gets priority for live 3/5 Aura',aiS4HumanAmbitionFinisher(s)===true);
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002','S0-WAR-001'],6);s.aiHeroes.CENTER.card_id='S0-ARC-H009';s.playerHeroes.CENTER.hp=70;s.aiRacial=1;
+      check('Human Ambition planned draws give +10 lethal with Grand Arbalest',aiS4HumanAmbitionFinisher(s)===true);
+      s.playerHeroes.CENTER.hp=140;s.playerHeroes.LEFT.hp=140;s.playerHeroes.RIGHT.hp=140;
+      check('Human Ambition conserves racial token if no +10 lethal',aiS4HumanAmbitionFinisher(s)===false);
+      s=fresh();s.aiStarterKey='s0_starter_05_white_green';hand(s,['S0-EVT-002','S0-WAR-001'],5);
+      check('Starter 5 ordinary draw <=5 unchanged',score(s,'S0-EVT-002')>0,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002'],5);s.aiDeck=[];s.playerHeroes.CENTER.hp=70;
+      check('Empty Main Deck does not waste draw effect',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002'],8);s.aiHeroes.CENTER.card_id='S0-ARC-H009';s.playerHeroes.CENTER.hp=60;
+      check('Lethal Dreadbolt permits transient 9 Hand (8 after Attack)',score(s,'S0-EVT-002')>200,score(s,'S0-EVT-002'));
+      s=fresh();hand(s,['S0-EVT-002','S0-WAR-001'],5);s.playerHeroes.CENTER.hp=80;
+      check('Starter 4 ordinary draw <=5 remains if no finisher',score(s,'S0-EVT-002')>0,score(s,'S0-EVT-002'));
+      // Integration: a Draw setup also uses a Hero. An exhausted Arbalest
+      // cannot perform the Colossal Attack in Battle, even when damage math
+      // would otherwise meet the HP+10 threshold.
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002'],7);s.playerHeroes.CENTER.hp=30;
+      var bargainOpts=getLegalActions('AI',s).filter(function(a){return a.card_id==='S0-EVT-002';});
+      var ownBargain=bargainOpts.find(function(a){return a.source_lane==='CENTER';});
+      var otherBargain=bargainOpts.find(function(a){return a.source_lane!=='CENTER';});
+      check('Using Arbalest for Market Bargain would Exhaust Dread attacker',!!ownBargain&&aiIntermediateDeployGate(s,ownBargain)===-1000,
+        ownBargain?aiIntermediateDeployGate(s,ownBargain):'no own setup');
+      check('Using another Hero for Market Bargain preserves Arbalest attack',!!otherBargain&&aiIntermediateDeployGate(s,otherBargain)>200,
+        otherBargain?aiIntermediateDeployGate(s,otherBargain):'no other setup');
+      var chosen=chooseAIAction(s,'Deploy');
+      check('Full AI action selector picks a non-Arbalest Market Bargain',!!chosen&&chosen.card_id==='S0-EVT-002'&&chosen.source_lane!=='CENTER',
+        chosen?(chosen.card_id+' / '+chosen.source_lane):null);
+      var deployed=!!chosen&&executeAIAction(s,chosen);if(deployed&&s.responseWindow)resolveResponseWindow(null);
+      var drawAfter=Number(s.cardsDrawnThisTurn&&s.cardsDrawnThisTurn.AI||0);
+      // Passing the Event response can auto-resume the AI director; it may
+      // commit Dreadbolt immediately, opening the next response window.
+      var battleFollow=(s.responseWindow&&s.responseWindow.card_id==='S0-ARC-025')?
+        {card_id:'S0-ARC-025',source_lane:s.responseWindow.source_lane,damage:s.responseWindow.damage}:
+        (!s.pending?(s.phase='Battle',chooseAIAction(s,'Battle')):null);
+      check('Committed Market Bargain actually draws and auto-follows with Dreadbolt',deployed&&drawAfter===4&&
+        !!battleFollow&&battleFollow.card_id==='S0-ARC-025'&&battleFollow.source_lane==='CENTER',
+        {played:deployed,drawn:drawAfter,attack:battleFollow&&battleFollow.card_id,lane:battleFollow&&battleFollow.source_lane,
+          damage:battleFollow&&battleFollow.damage,hand:s.aiHand&&s.aiHand.length,deck:s.aiDeck&&s.aiDeck.length});
+      s=fresh();hand(s,['S0-ARC-025','S0-ARC-005'],6);s.playerHeroes.CENTER.hp=30;
+      var ownReload=getLegalActions('AI',s).find(function(a){return a.card_id==='S0-ARC-005'&&a.source_lane==='CENTER';});
+      check('Reload from only Arbalest is not a legal same-turn Dread combo',!!ownReload&&aiIntermediateDeployGate(s,ownReload)===-1000,
+        ownReload?aiIntermediateDeployGate(s,ownReload):'no Reload');
+      s=fresh();hand(s,['S0-ARC-025','S0-ARC-022'],6);s.playerHeroes.CENTER.hp=40;
+      var ownSingularity=getLegalActions('AI',s).find(function(a){return a.card_id==='S0-ARC-022'&&a.source_lane==='CENTER';});
+      check('Singularity Reload no-Exhaust can enable HP+10 Dread combo',!!ownSingularity&&aiIntermediateDeployGate(s,ownSingularity)>200,
+        ownSingularity?aiIntermediateDeployGate(s,ownSingularity):'no Singularity');
+      // HP+10 must be reached by the real card source and cost, not by merely
+      // having sufficient cards in the Main Deck.
+      s=fresh();hand(s,['S0-ARC-025','S0-EVT-002'],6);s.playerHeroes.CENTER.hp=30;
+      var manaPool=manaPoolCardsForSide(s,'AI');manaPool.splice(2);syncManaCountForSide(s,'AI');
+      var anotherHeroBargain=getLegalActions('AI',s).find(function(a){return a.card_id==='S0-EVT-002'&&a.source_lane!=='CENTER';});
+      check('Draw setup is held when it leaves insufficient Mana for Dreadbolt',!!anotherHeroBargain&&aiIntermediateDeployGate(s,anotherHeroBargain)===-1000,
+        anotherHeroBargain?aiIntermediateDeployGate(s,anotherHeroBargain):'no setup');
+      s=fresh();hand(s,['S0-ARC-025','S0-WAR-001'],4);s.aiRacial=1;s.playerHeroes.CENTER.hp=100;
+      var racialPlan=aiChooseDeployRacialAction(s);
+      check('Dreadbolt held: Human Ambition token is saved even at four Hand',!racialPlan||racialPlan.ability_id!=='human_ambition',
+        racialPlan?racialPlan.ability_id:null);
+      s=fresh();hand(s,['S0-ARC-025','S0-WAR-001'],7);s.aiRacial=1;s.playerHeroes.CENTER.hp=30;
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Human Ambition can make Dreadbolt lethal+10 via temporary ninth Hand',!!racialPlan&&racialPlan.ability_id==='human_ambition',
+        racialPlan?racialPlan.ability_id:null);
+      s=fresh();hand(s,['S0-EVT-002','S0-WAR-001'],6);s.aiRacial=1;aura(s,3);
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Human Ambition is selected by real preaction selector for Aura 3/5',!!racialPlan&&racialPlan.ability_id==='human_ambition',
+        racialPlan?racialPlan.ability_id:null);
+      return {ok:checks.every(function(q){return q.ok;}),passed:checks.filter(function(q){return q.ok;}).length,total:checks.length,checks:checks};
+    }catch(err){return {ok:false,error:String(err&&err.stack||err),passed:checks.filter(function(q){return q.ok;}).length,total:checks.length,checks:checks};}
+    finally{appState=oldApp;matchStarted=oldMatch;SUPPRESS_RENDER=oldSuppress;}
+  };
   function boot(){ initCards(); installPvpAnimationAssistStyle(); installVisualDecodeObserver(); preloadCriticalVisualAssets(); bindVsMatchNavigationGuard(); render(); bind(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
@@ -15739,6 +16248,105 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       return{ok:true,skill_hero_lineage_cases:validations,off_lineage_response_blocked:true,rank_lineage_fallback:true,market_bargain_draw_2:true};
     }catch(err){return{ok:false,reason:String(err&&err.stack||err)};}
     finally{appState=oldState;matchStarted=oldStarted;SUPPRESS_RENDER=oldSuppress;}
+  };
+
+  // RC36.2 deterministic AI Replenish policy QA; runs only when invoked.
+  window.GL_RC36_2_REPLENISH_QA_SELF_TEST=function(){
+    var oldApp=appState,oldMatch=matchStarted,oldSuppress=SUPPRESS_RENDER,checks=[];
+    SUPPRESS_RENDER=true;matchStarted=true;
+    function check(name,condition,detail){checks.push({name:name,ok:!!condition,detail:detail||null});}
+    function fresh(archerId){
+      var s=buildInitialMatchState();appState=s;s.preGame=null;s.turn='AI';s.phase='Deploy';s.round=32;
+      s.aiDifficulty='intermediate';s.aiStarterKey='s0_starter_04_green_yellow';
+      s.pending=null;s.responseWindow=null;s.aiPlan=null;
+      s.aiHand=[];s.aiDeck=Array(3).fill('S0-WAR-001');s.aiDiscard=[];
+      LANE_ORDER.forEach(function(l){var h=s.aiHeroes[l];h.hp=0;h.exhausted=true;});
+      var h=s.aiHeroes.LEFT;h.card_id=archerId||'S0-ARC-H006';h.hp=80;h.maxHp=120;h.exhausted=false;h.statuses=[];h.exp_total=700;
+      var m=manaPoolCardsForSide(s,'AI');m.splice(0,m.length);
+      for(var mi=0;mi<10;mi++)m.push(makeManaShard('GENERIC','','AI','RC36-REP-'+mi));
+      syncManaCountForSide(s,'AI');return s;
+    }
+    function selection(initial,archerId){
+      var s=fresh(archerId);s.aiDiscard=initial.slice();
+      var before={};initial.forEach(function(id){before[id]=(before[id]||0)+1;});
+      startCardSearchChoice(s,{side:'AI',zone:'discard',sourceCard:card('S0-ARC-014'),
+        predicate:archerNonUltimateSkillCard,max_count:2,required_count:2,resolve_to:'replenish_to_deck'});
+      var after={};s.aiDiscard.forEach(function(id){after[id]=(after[id]||0)+1;});
+      var taken={};Object.keys(before).forEach(function(id){var n=before[id]-(after[id]||0);if(n)taken[id]=n;});
+      return {taken:taken,deck:s.aiDeck.slice(),hand:s.aiHand.slice(),discard:s.aiDiscard.slice()};
+    }
+    function gate(s){return aiIntermediateDeployGate(s,{type:'PLAY_CARD',card_id:'S0-ARC-014',cost:3});}
+    try{
+      var a=selection(['S0-ARC-021','S0-ARC-014','S0-ARC-010','S0-ARC-014']);
+      check('2 Replenishes + Arrow Barrage -> return only ONE Replenish and Arrow Barrage',
+        a.taken['S0-ARC-014']===1&&a.taken['S0-ARC-010']===1&&!a.taken['S0-ARC-021'],a.taken);
+      var b=selection(['S0-ARC-021','S0-ARC-010','S0-ARC-014']);
+      check('Grand Ranger never prefers dead Arbalest Aura to Arrow Barrage',
+        b.taken['S0-ARC-014']===1&&b.taken['S0-ARC-010']===1&&!b.taken['S0-ARC-021'],b.taken);
+      var c=selection(['S0-ARC-010','S0-ARC-014','S0-ARC-012']);
+      check('Grand Ranger picks Attack + loop rather than defense',
+        c.taken['S0-ARC-014']===1&&c.taken['S0-ARC-010']===1,c.taken);
+      var d=fresh();d.aiHand=['S0-ARC-014'];d.aiDiscard=['S0-ARC-014','S0-ARC-014'];
+      check('Replenish is SAVED when only two Replenishes exist and no attack',gate(d)===-1000,gate(d));
+      check('AI skips unusable two-Replenish-only setup',chooseAIAction(d,'Deploy').type==='SKIP',chooseAIAction(d,'Deploy'));
+      var e=selection(['S0-ARC-021','S0-ARC-012','S0-ARC-015']);
+      check('Without Replenish in Discard, recover playable Attack first, not dead Arbalest Aura',
+        e.taken['S0-ARC-015']===1&&!e.taken['S0-ARC-021'],e.taken);
+      var f=selection(['S0-ARC-014','S0-ARC-015','S0-ARC-010','S0-ARC-014'],'S0-ARC-H005');
+      check('Marksman Rank II uses Arrow Barrage as its preferred Attack',
+        f.taken['S0-ARC-014']===1&&f.taken['S0-ARC-010']===1,f.taken);
+      var s=fresh();s.aiHand=['S0-ARC-014'];s.aiDiscard=['S0-ARC-014','S0-ARC-010','S0-ARC-021'];
+      var legal=getLegalActions('AI',s).filter(function(x){return x.type==='PLAY_CARD'&&x.card_id==='S0-ARC-014';});
+      check('Intermediate difficulty permits auto-play of Replenish',!isAIChoiceHeavyCard(card('S0-ARC-014'),s)&&legal.length===1,legal);
+      check('Late-deck Replenish is urgent enough to be prioritized',!!legal.length&&gate(s)>=400,gate(s));
+      var choice=chooseAIAction(s,'Deploy');
+      check('AI actually chooses Replenish instead of PASS with 3 cards left',choice.card_id==='S0-ARC-014',choice);
+      if(legal.length){
+        var committed=executeAIAction(s,legal[0]);
+        check('Committed engine Replenish recycles Arrow Barrage and 1 Replenish only',
+          committed===true && s.aiDiscard.indexOf('S0-ARC-014')!==-1 &&
+          s.aiDiscard.indexOf('S0-ARC-010')===-1 &&
+          ((s.aiDeck||[]).concat(s.aiHand||[])).indexOf('S0-ARC-010')!==-1,
+          {committed:committed,deck:s.aiDeck,hand:s.aiHand,discard:s.aiDiscard});
+      }
+      var g=fresh('S0-ARC-H009');g.aiDiscard=['S0-ARC-014','S0-ARC-021','S0-ARC-010'];g.aiHand=['S0-ARC-014'];
+      check('When only Grand Arbalest survives, Aura is valid Attack for Replenish',
+        aiReplenishAttackPlayableBySurvivor(g,card('S0-ARC-021')),g.aiHeroes.LEFT);
+      var h=selection(['S0-ARC-014','S0-ARC-021','S0-ARC-010'],'S0-ARC-H009');
+      check('Grand Arbalest survivor recycles Aura with Replenish instead of unplayable Arrow Barrage',
+        h.taken['S0-ARC-014']===1&&h.taken['S0-ARC-021']===1,h.taken);
+      var i=fresh();i.aiHeroes.RIGHT.card_id='S0-ARC-H009';i.aiHeroes.RIGHT.hp=0;i.aiHeroes.RIGHT.legacy_mode=true;
+      i.aiDiscard=['S0-ARC-014','S0-ARC-021','S0-ARC-010','S0-ARC-024'];
+      check('Defeated Grand Arbalest cannot qualify Aura or Cross Bolt',
+        !aiReplenishAttackPlayableBySurvivor(i,card('S0-ARC-021'))&&
+        !aiReplenishAttackPlayableBySurvivor(i,card('S0-ARC-024'))&&
+        aiReplenishAttackPlayableBySurvivor(i,card('S0-ARC-010')));
+      var j=selection(['S0-ARC-014','S0-ARC-015','S0-ARC-010']);
+      check('Even with multiple playable Attacks, 1 Replenish + 1 Attack',
+        j.taken['S0-ARC-014']===1&&(j.taken['S0-ARC-010']===1||j.taken['S0-ARC-015']===1),j.taken);
+      var k=selection(['S0-ARC-010','S0-ARC-015','S0-ARC-021']);
+      check('Without Replenish, both recycled cards are playable Attacks',
+        k.taken['S0-ARC-010']===1&&k.taken['S0-ARC-015']===1&&!k.taken['S0-ARC-021'],k.taken);
+      var l=selection(['S0-ARC-015','S0-ARC-012','S0-ARC-021']);
+      check('Without Replenish, Attack + compatible defense is allowed',
+        l.taken['S0-ARC-015']===1&&l.taken['S0-ARC-012']===1&&!l.taken['S0-ARC-021'],l.taken);
+      var m=fresh();m.aiHand=['S0-ARC-014'];m.aiDiscard=['S0-ARC-010','S0-ARC-021'];
+      check('AI refuses to recycle Attack + permanently unplayable Aura',gate(m)===-1000,gate(m));
+      var n=fresh();n.aiHand=['S0-ARC-014'];n.aiDiscard=['S0-ARC-014','S0-ARC-021','S0-ARC-024'];
+      check('AI refuses to recycle only dead Arbalest Attacks, even with a Replenish',gate(n)===-1000,gate(n));
+      var o=fresh();o.aiHeroes.LEFT.hp=0;o.aiHeroes.LEFT.legacy_mode=true;
+      o.aiHeroes.CENTER.card_id='S0-THF-H001';o.aiHeroes.CENTER.hp=70;
+      o.aiDiscard=['S0-ARC-014','S0-ARC-010'];o.aiHand=['S0-ARC-014'];
+      check('No living Archer-line attacker -> Replenish is not spent',gate(o)===-1000,gate(o));
+      var p=fresh();p.aiDifficulty='beginner';p.aiHand=['S0-ARC-014'];p.aiDiscard=['S0-ARC-014','S0-ARC-010'];
+      check('Beginner keeps original choice-heavy Replenish behavior',isAIChoiceHeavyCard(card('S0-ARC-014'),p));
+      var q=fresh();q.aiHand=['S0-ARC-014'];q.aiDiscard=['S0-ARC-014','S0-ARC-010'];q.aiDeck=Array(30).fill('S0-WAR-001');
+      check('Full deck gets lower urgency than near-empty deck',gate(q)<gate(freshDeckNearEmpty()),{full:gate(q),short:gate(freshDeckNearEmpty())});
+      function freshDeckNearEmpty(){var v=fresh();v.aiHand=['S0-ARC-014'];v.aiDiscard=['S0-ARC-014','S0-ARC-010'];return v;}
+      return{ok:checks.every(function(t){return t.ok;}),passed:checks.filter(function(t){return t.ok;}).length,
+        total:checks.length,checks:checks};
+    }catch(err){return{ok:false,reason:String(err&&err.stack||err),checks:checks};}
+    finally{appState=oldApp;matchStarted=oldMatch;SUPPRESS_RENDER=oldSuppress;}
   };
 
 })();

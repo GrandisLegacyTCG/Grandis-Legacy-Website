@@ -1,29 +1,17 @@
 {
-  "prepared_date": "2026-11-08",
-  "baseline": {
-    "file": "Grandis_Legacy_RC34_DB_v1.62_FULL_REPO_2026-11-08.zip",
-    "sha256": "264eb31b98ede5a2ce913ed8441be8d5d2ea4844821581e4ce2d681579a07608",
-    "label": "RC34 + DB v1.62 integrated package"
+  "production": {
+    "vs_ai": "RC36",
+    "deck_builder": "v1.63"
   },
   "sources": {
-    "vs_ai_rc35": {
-      "file": "Grandis_Legacy_VS_AI_Season0_v1.0_RC35_2026-11-08.zip",
-      "sha256": "e70475ab122db74e8b81db24827acc344df61227e32ea7bf627f25a59394fd2a"
+    "vs_ai": {
+      "file": "Grandis_Legacy_VS_AI_Season0_v1.0_RC36_2026-11-09.zip",
+      "sha256": "5983da9e9c00ae64dad7e4ec224b06ec62bebc478620cca6a623692df6acc1f7"
+    },
+    "deck_builder": {
+      "file": "Grandis_Legacy_Deck_Builder_v1.63_2026-11-09.zip",
+      "sha256": "0cf3cb6fe83ba2c2991cb32eff43b557f5b40e37af513098237d360f98b48699"
     }
   },
-  "target": {
-    "vs_ai": "Season 0 v1.0 RC35",
-    "deck_builder": "v1.62",
-    "domain": "grandislegacytcg.web.id"
-  },
-  "constraints": [
-    "manual GitHub upload only",
-    "no push/commit/PR/deployment by assistant"
-  ],
-  "validation": {
-    "rc35_engine_regression": "20/20 PASS",
-    "rc35_note_strategy": "22/22 PASS",
-    "historical_difficulty_suite": "15/16; expected RC35.3 default Starter 2 delta",
-    "cache_refs_verified": 15
-  }
+  "deploy_policy": "Runtime files plus minimal operational documentation. Developer QA/history/test artifacts are retained only in standalone sources."
 }

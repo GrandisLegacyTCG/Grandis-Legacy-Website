@@ -1,0 +1,46 @@
+/* Deck Builder v1.63 — Style 2 desktop-only Card Library quick TYPE filters.
+ * Do not affect mobile layouts; retain the existing mobile TYPE dropdown. */
+.s2-desktop-type-filters { display: none !important; }
+@media (min-width: 761px) {
+  .main-view .library-head { gap: 8px !important; }
+  .main-view .library-head h2 { flex: 0 1 auto; white-space: nowrap; }
+  .main-view .s2-desktop-type-filters {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+    margin-left: auto;
+  }
+  .main-view .s2-type-filter {
+    min-width: 0;
+    height: 25px;
+    border: 1px solid #535765;
+    border-radius: 5px;
+    padding: 0 clamp(4px, .5vw, 10px);
+    background: #23252f;
+    color: #edf0f6;
+    font-size: clamp(8px, .67vw, 10px);
+    font-weight: 850;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .main-view .s2-type-filter:hover { border-color: #c9a54b; }
+  .main-view .s2-type-filter.active {
+    background: linear-gradient(#b18c2c, #7f641e);
+    border-color: #c39b3d;
+    color: #fff;
+  }
+  .main-view .s2-type-filter:focus-visible { outline: 2px solid #f5d478; outline-offset: 2px; }
+  .main-view .s2-mobile-heading-actions { flex: 0 0 auto; }
+  /* Desktop category buttons replace TYPE dropdown; it stays intact on mobile. */
+  .main-view .gl-filter-grid-style2 > .gl-type-field { display: none !important; }
+  .main-view .gl-filter-grid-style2 > .reset-filter { grid-column: span 2; }
+}
+@media (min-width: 761px) and (max-width: 1010px) {
+  .main-view .library-head { gap: 5px !important; }
+  .main-view .library-head h2 { font-size: 15px !important; }
+  .main-view .s2-desktop-type-filters { gap: 2px; }
+  .main-view .s2-type-filter { padding: 0 4px; font-size: 8px; }
+}

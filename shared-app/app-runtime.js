@@ -25,6 +25,8 @@ const soundBtn=document.getElementById('glSoundButton');
 const soundControl=document.getElementById('glSoundControl');
 const soundPanel=document.getElementById('glSoundPanel');
 const musicSwitch=document.getElementById('glMusicSwitch');
+const musicVolumeSlider=document.getElementById('glMusicVolume');
+const musicVolumeValue=document.getElementById('glMusicVolumeValue');
 const sfxSwitch=document.getElementById('glSfxSwitch');
 const matchActionBtn=document.getElementById('matchActionButton');
 const payBtn=document.createElement('button');payBtn.className='gl-pay-button';payBtn.type='button';payBtn.textContent='PAY';BF.appendChild(payBtn);
@@ -256,11 +258,19 @@ function promoteTemporaryCardPreview(active){
   if(active&&active.parentElement===document.body)document.body.appendChild(active);
 }
 let battlefieldHoverSource=null;
-function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
+function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.style.removeProperty('width');battlefieldHoverPreview.style.removeProperty('height');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
 function placeBattlefieldHoverPreview(kind,anchor){
   if(!anchor||!battlefieldHoverPreview)return;
-  const cs=getComputedStyle(battlefieldHoverPreview),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=8,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
-  let left=g,top=g;
+  const cs=getComputedStyle(battlefieldHoverPreview),g=8,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
+  let w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,left=g,top=g;
+  // Fixed-position previews are in viewport pixels, even when game canvas is scaled.
+  // A tall opposing Hero preview must never lose its bottom to a short viewport.
+  if(kind==='hero'){
+    const fit=Math.min(1,Math.max(.1,(vh-2*g)/h),Math.max(.1,(vw-2*g)/w));
+    w=Math.max(1,Math.floor(w*fit));h=Math.max(1,Math.floor(h*fit));
+    battlefieldHoverPreview.style.setProperty('width',w+'px','important');
+    battlefieldHoverPreview.style.setProperty('height',h+'px','important');
+  }
   if(kind==='hand'){
     const playerBox=uiRect(document.querySelector('.player-name'));if(!playerBox)return;
     const centerX=playerBox.left+playerBox.width/2;left=centerX-w/2+68;top=playerBox.top-6-h;
@@ -649,10 +659,38 @@ function renderInspectModal(){
 // Part 5: music remains OFF by default; the existing engine SFX switch remains ON by default.
 // Save user choices without coupling BGM to the card / battle / coin sound effect setting.
 const GL_S0_MUSIC_STORAGE_KEY='grandis_legacy_s0_background_music_v1';
-let glMusicEnabled=false;
-try{glMusicEnabled=window.localStorage?.getItem(GL_S0_MUSIC_STORAGE_KEY)==='on'}catch(_){}
+// RC36: the approved ceiling is 45% of the original music-file gain.
+// The on-screen 0-100% slider is relative to this ceiling (50% = .225).
+const GL_S0_MUSIC_BASE_GAIN=.45;
+const GL_S0_MUSIC_VOLUME_KEY='grandis_legacy_s0_background_music_relative_volume_v2';
+const GL_S0_MUSIC_OLD_VOLUME_KEY='grandis_legacy_s0_background_music_volume_v1';
+let glMusicEnabled=false,glMusicVolume=100;
+try{
+  glMusicEnabled=window.localStorage?.getItem(GL_S0_MUSIC_STORAGE_KEY)==='on';
+  const stored=window.localStorage?.getItem(GL_S0_MUSIC_VOLUME_KEY);
+  if(stored!==null&&stored!==undefined&&stored!==''){
+    glMusicVolume=Math.max(0,Math.min(100,Math.round(Number(stored)||0)));
+  }else{
+    // One-time migration: RC35.4/5 stored the percentage of raw file gain.
+    // Preserve lower user-selected levels, capping loud settings at the baseline.
+    const previous=window.localStorage?.getItem(GL_S0_MUSIC_OLD_VOLUME_KEY);
+    if(previous!==null&&previous!==undefined&&previous!==''){
+      const oldGain=Math.max(0,Math.min(100,Number(previous)||0))/100;
+      glMusicVolume=Math.max(0,Math.min(100,Math.round(oldGain/GL_S0_MUSIC_BASE_GAIN*100)));
+    }
+    window.localStorage?.setItem(GL_S0_MUSIC_VOLUME_KEY,String(glMusicVolume));
+  }
+}catch(_){}
 const glBackgroundMusic=(typeof Audio==='function')?new Audio('engine/assets/audio/Tavern Quest.mp3'):null;
-if(glBackgroundMusic){glBackgroundMusic.loop=true;glBackgroundMusic.volume=.36;glBackgroundMusic.preload='none'}
+function glAppliedMusicGain(){return GL_S0_MUSIC_BASE_GAIN*(glMusicVolume/100);}
+if(glBackgroundMusic){glBackgroundMusic.loop=true;glBackgroundMusic.volume=glAppliedMusicGain();glBackgroundMusic.preload='none'}
+function setS0MusicVolume(percent){
+  glMusicVolume=Math.max(0,Math.min(100,Math.round(Number(percent)||0)));
+  if(glBackgroundMusic)glBackgroundMusic.volume=glAppliedMusicGain();
+  if(musicVolumeSlider)musicVolumeSlider.value=String(glMusicVolume);
+  if(musicVolumeValue)musicVolumeValue.textContent=glMusicVolume+'%';
+  try{window.localStorage?.setItem(GL_S0_MUSIC_VOLUME_KEY,String(glMusicVolume))}catch(_){}
+}
 function playS0BackgroundMusic(){
   if(!glMusicEnabled||!glBackgroundMusic||!glBackgroundMusic.paused)return;
   try{const p=glBackgroundMusic.play();if(p&&typeof p.catch==='function')p.catch(()=>{});}catch(_){}
@@ -669,12 +707,15 @@ function syncSoundButton(){
   if(!soundBtn)return;
   soundBtn.textContent='Sound';
   if(musicSwitch)musicSwitch.checked=glMusicEnabled;
+  if(musicVolumeSlider)musicVolumeSlider.value=String(glMusicVolume);
+  if(musicVolumeValue)musicVolumeValue.textContent=glMusicVolume+'%';
   if(sfxSwitch)sfxSwitch.checked=E()?.getSoundEnabled?.()!==false;
 }
 function initSoundSettings(){
   if(!soundBtn||!soundPanel)return;
   soundBtn.onclick=e=>{e.stopPropagation();const open=soundPanel.hidden;soundPanel.hidden=!open;soundBtn.setAttribute('aria-expanded',open?'true':'false')};
   musicSwitch.onchange=()=>setS0MusicEnabled(musicSwitch.checked);
+  if(musicVolumeSlider)musicVolumeSlider.oninput=()=>setS0MusicVolume(musicVolumeSlider.value);
   sfxSwitch.onchange=()=>{E()?.setSoundEnabled?.(sfxSwitch.checked);syncSoundButton()};
   document.addEventListener('pointerdown',e=>{if(!soundControl.contains(e.target))closeSoundSettings()});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!soundPanel.hidden)closeSoundSettings()});
@@ -718,15 +759,29 @@ function coinFaceSrc(face){return String(face||'HEADS').toUpperCase()==='TAILS'?
 function fairCoinOutcome(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return (a[0]&1)?'TAILS':'HEADS'}catch{return Math.random()<.5?'HEADS':'TAILS'}}
 function renderCoinChoice(){const body=coinOverlay.querySelector('.gl-coin-body');body.innerHTML='<p>Choose Heads or Tails. The winner takes the first Draw Phase.</p><div class="gl-coin-actions"><button type="button" data-coin-choice="HEADS"><img src="'+coinFaceSrc('HEADS')+'" alt="Heads"><span>Heads</span></button><button type="button" data-coin-choice="TAILS"><img src="'+coinFaceSrc('TAILS')+'" alt="Tails"><span>Tails</span></button></div>';body.querySelectorAll('[data-coin-choice]').forEach(btn=>btn.onclick=()=>runCoinFlip(btn.dataset.coinChoice));coinOverlay.classList.add('open')}
 function runCoinFlip(choice){openingChoice=choice==='TAILS'?'TAILS':'HEADS';openingOutcome=fairCoinOutcome();openingFirstSide=openingChoice===openingOutcome?'PLAYER':'AI';const body=coinOverlay.querySelector('.gl-coin-body');let face=openingOutcome==='HEADS'?'TAILS':'HEADS';body.innerHTML='<p>Flipping the coin...</p><div class="gl-coin-flip-stage"><img src="'+coinFaceSrc(face)+'" alt="Coin"></div>';const im=body.querySelector('img');let step=0;const totalSteps=8,halfDuration=72;B()?.playOpeningCoinSound?.();const runStep=()=>{if(step>=totalSteps){im.src=coinFaceSrc(openingOutcome);im.alt=openingOutcome==='HEADS'?'Heads':'Tails';im.style.transition='none';im.style.transform='translateY(0) scaleX(1)';const text=body.querySelector('p');if(text)text.textContent=(openingOutcome==='HEADS'?'Heads':'Tails')+'!';setTimeout(renderCoinResult,1000);return}const progress=(step+1)/totalSteps,lift=Math.round(Math.sin(progress*Math.PI)*22);im.style.transition='transform '+halfDuration+'ms cubic-bezier(.45,0,.55,1)';im.style.transform='translateY(-'+lift+'px) scaleX(.04)';setTimeout(()=>{face=face==='HEADS'?'TAILS':'HEADS';im.src=coinFaceSrc(face);im.style.transition='transform '+halfDuration+'ms cubic-bezier(.2,.75,.3,1)';im.style.transform='translateY(-'+lift+'px) scaleX(1)';setTimeout(()=>{step++;runStep()},halfDuration)},halfDuration)};runStep()}
-function renderCoinResult(){const body=coinOverlay.querySelector('.gl-coin-body'),won=openingFirstSide==='PLAYER';body.innerHTML='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong><p>'+(won?'You will take the first turn.':'Local AI will take the first turn.')+'</p></div><div class="gl-coin-result"><div><span>Your choice</span><img src="'+coinFaceSrc(openingChoice)+'" alt="'+(openingChoice==='TAILS'?'Tails':'Heads')+'"></div><div><span>Coin result</span><img src="'+coinFaceSrc(openingOutcome)+'" alt="'+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div></div><button class="gl-coin-start" type="button">Start Game</button>';body.querySelector('.gl-coin-start').onclick=beginOpeningPresentation}
-function resetPresentationState(){seenCounterMessages.clear();seenRacialMessages.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
+function renderCoinResult(){const body=coinOverlay.querySelector('.gl-coin-body'),won=openingFirstSide==='PLAYER';body.innerHTML='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong><p>'+(won?'You will take the first turn.':'Local AI will take the first turn.')+'</p></div><div class="gl-coin-result gl-coin-single-result"><img src="'+coinFaceSrc(openingOutcome)+'" alt="Coin result: '+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div><button class="gl-coin-start" type="button">Start Game</button>';body.querySelector('.gl-coin-start').onclick=beginOpeningPresentation}
+// RC35.5: schedule a single lobby cleanup after the authoritative game-over result.
+// No timer is started during active play, an unfinished Response or coin flip.
+let glCompletedMatchRefreshTimer=null;
+function cancelCompletedMatchRefresh(){
+  if(glCompletedMatchRefreshTimer!==null){clearTimeout(glCompletedMatchRefreshTimer);glCompletedMatchRefreshTimer=null;}
+}
+function scheduleCompletedMatchRefresh(s){
+  if(!s?.gameOver||glCompletedMatchRefreshTimer!==null||lobbyIsOpen)return;
+  glCompletedMatchRefreshTimer=setTimeout(()=>{
+    glCompletedMatchRefreshTimer=null;
+    const final=st();
+    if(final?.gameOver&&!lobbyIsOpen){window.location.reload();}
+  },60000);
+}
+function resetPresentationState(){cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();
 }
 function beginOpeningPresentation(){
   const r=E().commitOpeningSetup?.(openingChoice,openingOutcome,openingFirstSide);if(!r?.ok){coinOverlay.querySelector('.gl-coin-body').innerHTML='<p>'+esc(r?.error||'Could not begin the match.')+'</p>';return}
-  (st()?.playerHand||[]).forEach(preloadHandArtwork); // Warm opening-hand images without changing Draw timing.
+  (st()?.playerHand||[]).forEach(preloadHandArtwork); // Website integration: warm opening-hand art.
   startMatchTimer();coinOverlay.classList.remove('open');openingPresentationActive=true;lastTurnBannerKey='';
   (r.handEvents||[]).forEach(e=>{if(e?.id)seenPresentationEvents.add(e.id);const side=e.side==='AI'?'AI':'PLAYER';glHiddenCommittedDrawSlots[side].set(Number(e.hand_index),String(e.id||side+'-'+e.hand_index))});
   (r.manaEvents||[]).forEach(e=>glOpeningHiddenShardUids.add((e.side==='AI'?'AI':'PLAYER')+'|'+String(e.uid)));
@@ -1726,6 +1781,19 @@ function renderHero(side,lane,h,s){
     hp.style.setProperty('--hp-ratio',String(hpPct/100));
     hp.innerHTML='<span class="gl-hp-text">'+Math.round(hpNow)+'/'+Math.round(hpMax)+'</span><span class="gl-hp-track"><span class="gl-hp-fill"></span></span>';
   }
+  // RC35.6: return to the compact RC32-style rectangular EXP label.
+  // Keep the existing physical EXP stack; hide this total when it is zero or Legacy.
+  let expBadge=laneEl.querySelector(':scope > .gl-hero-exp-indicator');
+  const expTotal=Math.max(0,Math.floor(Number(h?.exp_total||0)));
+  if(legacyMode||expTotal===0){if(expBadge)expBadge.remove();}
+  else{
+    if(!expBadge){expBadge=document.createElement('span');expBadge.className='gl-hero-exp-indicator';laneEl.appendChild(expBadge);}
+    const label=expTotal+' EXP';
+    if(expBadge.textContent!==label)expBadge.textContent=label;
+    expBadge.setAttribute('aria-label',label);
+    const rank=Number(h?.rank||1),goal=rank<=1?300:(rank===2?700:null);
+    expBadge.title=goal===null?label+' (Rank III)':label+' / '+goal+' to next Rank';
+  }
   // Draw This Turn moved into the existing Hero-information ! tooltip in Stage 1.5.10.
   laneEl.querySelector(':scope > .gl-draw-this-turn')?.remove();
   laneEl.classList.remove('gl-selectable','gl-selected','gl-invalid');
@@ -2635,7 +2703,7 @@ function openGameResult(){
 }
 function showGameResult(s){
   if(!s?.gameOver||resultShown)return;
-  resultShown=true;stopMatchTimer();
+  resultShown=true;stopMatchTimer();scheduleCompletedMatchRefresh(s);
   const winner=s.winner==='PLAYER'?'YOU':(s.winner==='AI'?'LOCAL AI':String(s.winner||'UNKNOWN'));
   const reason=String(s.gameEndReason||'Game ended.');
   const phase=phaseName(s.phase)||'Unknown';

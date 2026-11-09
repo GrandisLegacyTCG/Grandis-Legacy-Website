@@ -1,0 +1,73 @@
+/* Deck Builder v1.63 — mobile navigation only (Style 1 + Style 2).
+ * Align hamburger with logo at the right edge and reclaim old navigation row.
+ * Desktop layout intentionally remains unchanged. */
+@media (max-width:760px) {
+  .topbar {
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+    min-height:0!important;
+    height:auto!important;
+    flex:0 0 auto!important;
+    padding:12px 15px!important;
+  }
+  .topbar .brand-block {
+    display:flex!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
+    max-width:calc(100% - 46px)!important;
+    gap:clamp(8px,2vw,14px)!important;
+    order:0!important;
+  }
+  .topbar .brand-home-link {
+    display:block!important;
+    flex:0 0 clamp(88px,30vw,125px)!important;
+    width:clamp(88px,30vw,125px)!important;
+    min-width:0!important;
+  }
+  .topbar .brand-logo {
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:125px!important;
+    height:auto!important;
+    max-height:52px!important;
+    object-fit:contain!important;
+  }
+  .topbar .brand-copy {
+    flex:1 1 auto!important;
+    min-width:0!important;
+    padding-left:clamp(8px,2vw,12px)!important;
+  }
+  .topbar .brand-title-row {
+    display:flex!important;
+    flex-wrap:wrap!important;
+    min-width:0!important;
+    gap:7px!important;
+  }
+  .topbar .brand-copy h1 {
+    font-size:clamp(11px,3.3vw,13px)!important;
+    white-space:nowrap!important;
+  }
+  .topbar .style-switch-link {
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    padding:0 7px!important;
+    font-size:8px!important;
+  }
+  .topbar .global-nav {display:none!important;}
+  .topbar .mobile-app-menu-button {
+    display:flex!important;
+    flex:0 0 36px!important;
+    order:1!important;
+    align-self:center!important;
+    margin:0 0 0 auto!important;
+    width:36px!important;
+    height:36px!important;
+    position:relative!important;
+    z-index:10001!important;
+  }
+}

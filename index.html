@@ -43,7 +43,9 @@ button{font:inherit}
 
 /* Hands: default 85% visible. */
 .hand{position:relative;display:flex;justify-content:center;overflow:hidden;min-height:calc(var(--hand-h) * .85 + 7px);z-index:40}
-.hand.top{align-items:flex-start}.hand.bottom{align-items:flex-end}
+/* RC35.5: opponent Hand backs keep their normal resting geometry, but a hovered
+   card may extend below the compact Hand strip without losing its lower edge. */
+.hand.top{align-items:flex-start;overflow:visible}.hand.bottom{align-items:flex-end}
 .hand-track{height:calc(var(--hand-h) * .85 + 7px);display:flex;justify-content:center;align-items:flex-end;gap:0;overflow:visible;min-width:0;padding:0 10px}
 .hand.top .hand-track{align-items:flex-start}
 .hand.top .hand-track{transform:translateX(var(--opponent-hand-align-shift,0px))}
@@ -225,10 +227,14 @@ button{font:inherit}
 /* Part 5 asset staging: compact sound popover expands upward from the existing sidebar slot. */
 .bottom-actions .gl-sound-control{position:relative;min-width:0;z-index:450}
 .bottom-actions .gl-sound-control>button{display:block;width:100%;height:22px;cursor:pointer}
-.gl-sound-panel{position:absolute;z-index:451;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:158px;display:flex;flex-direction:column;gap:2px;padding:8px;border:1px solid #bd9a45;border-radius:9px;background:rgba(6,17,28,.98);box-shadow:0 8px 24px rgba(0,0,0,.72)}
+.gl-sound-panel{position:absolute;z-index:451;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:205px;display:flex;flex-direction:column;gap:2px;padding:8px;border:1px solid #bd9a45;border-radius:9px;background:rgba(6,17,28,.98);box-shadow:0 8px 24px rgba(0,0,0,.72)}
 .gl-sound-panel[hidden]{display:none!important}
 .gl-sound-row{display:flex;align-items:center;justify-content:space-between;min-height:33px;gap:10px;padding:3px 5px;color:#f3e1a8;font-size:11px;font-weight:800;line-height:1.2;cursor:pointer}
 .gl-sound-row input{position:absolute;width:1px;height:1px;opacity:0}
+.gl-sound-volume{display:grid;grid-template-columns:1fr auto;gap:5px 9px;padding:5px;color:#f3e1a8;font-size:11px;font-weight:800}
+.gl-sound-volume>span{grid-column:1;grid-row:1}
+.gl-sound-volume input[type=range]{grid-column:1;grid-row:2;width:100%;min-width:0;accent-color:#e1ba62;cursor:pointer}
+.gl-sound-volume output{grid-column:2;grid-row:2;min-width:33px;text-align:right;color:#fff1c0;font-size:10px}
 .gl-sound-switch-track{position:relative;display:block;width:32px;height:18px;flex:0 0 32px;border-radius:20px;border:1px solid #566577;background:#25323e;transition:background .14s}
 .gl-sound-switch-track::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#e4e9f1;transition:transform .14s}
 .gl-sound-row input:checked+.gl-sound-switch-track{background:#b1933c;border-color:#e6ce72}
@@ -279,7 +285,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?glsrc=b3cb5fb406ce">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css?glsrc=4be477d67416">
 <link rel="stylesheet" href="assets/css/site-integration.css?glsrc=de3bde891412">
 <link rel="stylesheet" href="assets/css/site-artwork-loading.css?glsrc=35bdc582bc83">
 </head>
@@ -369,7 +375,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       <button class="battle-log-btn" id="battleLogBtn" type="button">Battle Log</button>
       <div class="preview-overlay"><img id="hoverPreviewCard" class="preview-card" alt="Card preview"></div>
     </section>
-    <div class="bottom-actions"><span class="match-timer" id="matchTimer" aria-label="Match time">00:00</span><div class="gl-sound-control" id="glSoundControl"><button type="button" id="glSoundButton" aria-haspopup="true" aria-expanded="false" aria-controls="glSoundPanel">Sound</button><div class="gl-sound-panel" id="glSoundPanel" hidden><label class="gl-sound-row"><span>Music</span><input type="checkbox" id="glMusicSwitch" role="switch" aria-label="Background music"><span class="gl-sound-switch-track" aria-hidden="true"></span></label><label class="gl-sound-row"><span>SFX</span><input type="checkbox" id="glSfxSwitch" role="switch" aria-label="Sound effects" checked><span class="gl-sound-switch-track" aria-hidden="true"></span></label></div></div><button type="button" id="matchActionButton" class="danger">Surrender</button></div>
+    <div class="bottom-actions"><span class="match-timer" id="matchTimer" aria-label="Match time">00:00</span><div class="gl-sound-control" id="glSoundControl"><button type="button" id="glSoundButton" aria-haspopup="true" aria-expanded="false" aria-controls="glSoundPanel">Sound</button><div class="gl-sound-panel" id="glSoundPanel" hidden><label class="gl-sound-row"><span>Music</span><input type="checkbox" id="glMusicSwitch" role="switch" aria-label="Background music"><span class="gl-sound-switch-track" aria-hidden="true"></span></label><label class="gl-sound-volume"><span>Music Volume</span><input type="range" id="glMusicVolume" min="0" max="100" value="100" step="1" aria-label="Music volume"><output id="glMusicVolumeValue" for="glMusicVolume">100%</output></label><label class="gl-sound-row"><span>SFX</span><input type="checkbox" id="glSfxSwitch" role="switch" aria-label="Sound effects" checked><span class="gl-sound-switch-track" aria-hidden="true"></span></label></div></div><button type="button" id="matchActionButton" class="danger">Surrender</button></div>
     <section class="battlelog-panel" id="battleLogPanel" aria-hidden="true"><div class="history-head"><h3>Battle Log</h3><button class="history-close" id="battleLogClose" type="button">Close</button></div></section>
     <section class="history-panel" id="historyPanel" aria-hidden="true"><div class="history-head"><h3>Full Card History</h3><button class="history-close" id="historyClose" type="button">Close</button></div><div class="history-grid"></div></section>
   </aside>
@@ -457,11 +463,11 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="engine/js/runtime-authority.js?glsrc=74700775e8e9"></script>
   <script src="engine/shared-app/active-starters.js?glsrc=f3f119f7e6e8"></script>
   <script src="shared-app/db158-card-review.js?glsrc=344f650cb68f"></script>
-  <script src="engine/shared-app/app.bundle.js?glsrc=13975a331f80"></script>
+  <script src="engine/shared-app/app.bundle.js?glsrc=1d85127e4926"></script>
   <script src="runtime/adapters/authority-adapter.js?glsrc=859992904b9c"></script>
   <script src="runtime/adapters/local-ai-adapter.js?glsrc=0ad1eb6c2b31"></script>
   <script src="runtime/adapters/pvp-adapter.js?glsrc=6e22b33860dc"></script>
-  <script src="shared-app/app-runtime.js?glsrc=0046393da843"></script>
+  <script src="shared-app/app-runtime.js?glsrc=543eaa4b56db"></script>
   <script src="shared-ui/mobile-landscape-lobby.js?glsrc=c21fcc3913ae"></script>
 
 </body>

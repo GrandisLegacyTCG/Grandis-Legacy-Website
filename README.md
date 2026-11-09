@@ -1,14 +1,13 @@
-# Grandis Legacy — Direct GitHub Pages (VS AI RC35 + Deck Builder v1.62)
+# Grandis Legacy — Season 0 Web Deploy
 
-Manual-upload package prepared on 2026-11-08 from the attached VS AI Season 0 v1.0 RC35 release and the existing integrated Deck Builder v1.62. Baseline for UPDATE_ONLY: the previously prepared RC34 + DB v1.62 full repo.
+Production package for **VS AI RC36 + Deck Builder v1.63**.
 
-- `/` — VS AI Season 0 v1.0 RC35.
-- `/deck-builder/` — Deck Builder v1.62 Style 1.
-- `/deck-builder/style-2/` — Deck Builder v1.62 Style 2.
-- VS AI Lobby keeps Home and Deck Builder navigation.
-- RC35 Beginner/Intermediate difficulty controls and Starter 4/5 updates are retained. Beginner defaults to AI Starter 2 per internal RC35.3.
-- PvP remains hidden.
-- Existing player Hand artwork preload/loading safeguard is retained.
-- GitHub upload remains manual; no push, commit, PR, or deployment is performed by this package preparation.
+- `/` — VS AI Season 0 RC36
+- `/deck-builder/` — Deck Builder v1.63 Style 1
+- `/deck-builder/style-2/` — Deck Builder v1.63 Style 2
+- Custom domain: `grandislegacytcg.web.id`
+- GitHub Pages: deploy from `main` / root; no build step required.
 
-See `docs/MANUAL_UPDATE_RC35_ID.md`, `docs/INTEGRATION_QA.md`, and `docs/SOURCE_PROVENANCE.json`.
+This repository is intentionally deployment-focused. Development QA archives, historical checkpoints, test scripts, audit evidence, and old source notes remain in the standalone source packages instead of the production repository.
+
+See `docs/VERSION_HISTORY.md` for the current and previous release only, and `docs/DEPLOY.md` for manual deployment notes.

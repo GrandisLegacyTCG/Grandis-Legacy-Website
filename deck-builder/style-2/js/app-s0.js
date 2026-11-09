@@ -38,6 +38,11 @@ function copyLimit(card){return card?.ultimate?.isUltimate||card?.maxCopies===1?
 function isMobileMainDeck(){return window.innerWidth<=760}
 function selectedProgressions(slots=state.slots){return slots.map(slot=>state.progressionById.get(slot.progressionId)).filter(Boolean)}
 function heroFormationComplete(slots=state.slots){return selectedProgressions(slots).length===3}
+const MAX_BASE_CLASSES=2;
+const BASE_CLASS_LIMIT_MESSAGE='Only 2 Base Classes can be selected.';
+function exceedsBaseClassLimit(slots=state.slots){
+  return new Set(selectedProgressions(slots).map(progression=>progression.baseClass).filter(Boolean)).size>MAX_BASE_CLASSES;
+}
 function legacyUniqueComplete(slots=state.slots){const ids=slots.map(slot=>slot.legacyId).filter(Boolean);return ids.length===3&&new Set(ids).size===3}
 function legacyCardCount(slots=state.slots){return slots.reduce((sum,slot)=>sum+(slot.progressionId?3:0)+(slot.legacyId?1:0),0)}
 function legacyReady(slots=state.slots){return heroFormationComplete(slots)&&legacyUniqueComplete(slots)&&legacyCardCount(slots)===12}
@@ -149,7 +154,7 @@ function renderLegacy(){
   bindReviewButtons(document);updateTabs();
 }
 
-function openHeroPicker(slotIndex){state.heroPickerSlot=slotIndex;$('heroPickerTitle').textContent=`Select ${POSITIONS[slotIndex]} Hero Progression`;renderHeroPicker();$('heroPickerDialog').showModal()}
+function openHeroPicker(slotIndex){state.heroPickerSlot=slotIndex;$('heroPickerLimitNotice').hidden=true;$('heroPickerTitle').textContent=`Select ${POSITIONS[slotIndex]} Hero Progression`;renderHeroPicker();$('heroPickerDialog').showModal()}
 function renderHeroPicker(){
   const used=new Set(state.slots.map((slot,index)=>index===state.heroPickerSlot?'':slot.progressionId).filter(Boolean));
   $('heroPickerGrid').innerHTML=state.progressions.map(progression=>{
@@ -162,6 +167,7 @@ function renderHeroPicker(){
 async function selectProgression(slotIndex,progressionId){
   if(state.slots[slotIndex].progressionId===progressionId){$('heroPickerDialog').close();return}
   const proposed=clone(state.slots);proposed[slotIndex].progressionId=progressionId;proposed[slotIndex].legacyId=defaultLegacyForProgression(progressionId,slotIndex,proposed);
+  if(exceedsBaseClassLimit(proposed)){const notice=$('heroPickerLimitNotice');notice.textContent=BASE_CLASS_LIMIT_MESSAGE;notice.hidden=false;return}
   const removed=lostCompatibilityEntries(proposed);
   if(removed.length){
     const total=removed.reduce((sum,item)=>sum+item.quantity,0),ok=await askConfirm({eyebrow:'CHANGE HERO',title:'Change Hero and remove incompatible cards?',message:`This formation change will remove <b>${total}</b> Main Deck card${total===1?'':'s'} that the new Hero lineages cannot use.`,list:removed.map(item=>({label:item.card?.name||item.card?.id||'Unknown card',value:`×${item.quantity}`})),okLabel:'CHANGE HERO',danger:true});
@@ -185,6 +191,10 @@ function updateFilterStates(){
   const pool=$('cardPoolSelect');pool.value=state.filters.pool;
   for(const opt of pool.options){if(opt.value==='available')opt.disabled=!hasHeroes}
   pool.title=hasHeroes?'Card availability for the selected Heroes':'Select a Hero to enable Available Cards';
+  document.querySelectorAll('[data-s2-family]').forEach(button=>{
+    const active=button.dataset.s2Family===family;
+    button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
+  });
 }
 function updateManaRange(){
   let min=Number($('manaMin').value),max=Number($('manaMax').value);if(min>max){if(document.activeElement===$('manaMin'))max=min;else min=max;$('manaMin').value=String(min);$('manaMax').value=String(max)}
@@ -437,7 +447,7 @@ function normalizeImportedDeck(data){
   let rawSlots=(data.legacy_deck_package_slots||data.side_deck_package_slots||data.legacySlots||[]).slice(0,3).map(slot=>({progressionId:slot.progression||slot.progressionId||'',legacyId:slot.legacy||slot.legacyId||''}));while(rawSlots.length<3)rawSlots.push(emptySlot());
   const formation=data.default_formation||data.formation||{},ordered=[];for(const position of POSITIONS){const heroId=formation[position]||formation[position.toLowerCase()]||'',match=rawSlots.find(slot=>state.progressionById.get(slot.progressionId)?.cardIds[0]===heroId&&!ordered.includes(slot));if(match)ordered.push(match)}rawSlots.forEach(slot=>{if(!ordered.includes(slot))ordered.push(slot)});const slots=ordered.slice(0,3),used=new Set();slots.forEach((slot,index)=>{if(!state.progressionById.has(slot.progressionId)){slots[index]=emptySlot();return}const compatible=compatibleLegacies(slot.progressionId,index,slots);if(!slot.legacyId||used.has(slot.legacyId)||!state.legacyById.has(slot.legacyId))slot.legacyId=data.imported_from_s1?'':(compatible.find(card=>!used.has(card.id))?.id||'');if(slot.legacyId)used.add(slot.legacyId)});return {name:data.deck_name||data.deckName||'Imported Deck',deck,slots};
 }
-function applyDeck(normalized){state.deck={...normalized.deck};state.slots=clone(normalized.slots);$('deckName').value=normalized.name||'New Deck';state.rankView=1;resetAllFilterSets();setTab('legacy');renderLegacy();renderMain()}
+function applyDeck(normalized){if(exceedsBaseClassLimit(normalized.slots))throw new Error(BASE_CLASS_LIMIT_MESSAGE);state.deck={...normalized.deck};state.slots=clone(normalized.slots);$('deckName').value=normalized.name||'New Deck';state.rankView=1;resetAllFilterSets();setTab('legacy');renderLegacy();renderMain()}
 function starterCover(starter,index){const centerHero=starter.default_formation?.CENTER||starter.default_formation?.center;const slots=starter.legacy_deck_package_slots||starter.side_deck_package_slots||[];const middle=slots[1]?.progression;const progressionId=centerHero||middle||slots[0]?.progression;return state.progressionById.get(progressionId)?.coverImage||state.legacyById.get(progressionId)?.image||''}
 function renderStarterDialog(){
   const root=$('starterList');
@@ -472,7 +482,7 @@ function exportObject(){return s0Export('style2');}
 function downloadJson(object){const safe=(object.deck_name||'Grandis_Legacy_Deck').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'')||'Grandis_Legacy_Deck',blob=new Blob([JSON.stringify(object,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=`${safe}.json`;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function exportDeck(){const object=exportObject();if(!object.is_valid||countDeck()!==MAIN_DECK_LEGAL_LIMIT){toast('Export requires a valid deck with exactly 50 cards');return}downloadJson(object);toast('Deck exported')}
 
-function resetFilters(){const family=state.filters.family,fresh=defaultFilterSet(family),key=family||'all';fresh.pool=selectedProgressions().length?'available':'all';state.filters=fresh;state.filterSets[key]=fresh;syncFilterControls();renderLibrary()}
+function resetFilters(){const family=isMobileMainDeck()?state.filters.family:'';const key=family||'all';const fresh=defaultFilterSet(family);fresh.pool=selectedProgressions().length?'available':'all';state.filters=fresh;state.filterSets[key]=fresh;syncFilterControls();renderLibrary()}
 function bindStaticEvents(){
   [['s2LibraryCollapse','.library-panel'],['s2MainDeckCollapse','.main-deck-panel']].forEach(([id,selector])=>{
     const button=$(id),panel=document.querySelector(selector);
@@ -490,6 +500,7 @@ function bindStaticEvents(){
   $('reviewClose').addEventListener('click',()=>$('cardReviewDialog').close());$('cardReviewDialog').addEventListener('click',event=>{if(event.target===$('cardReviewDialog'))$('cardReviewDialog').close()});
   $('loadStarter').addEventListener('click',openStarter);$('clearDeck').addEventListener('click',clearDeck);$('importJson').addEventListener('click',()=>$('jsonFileInput').click());$('jsonFileInput').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)importDeckFile(file)});$('exportJson').addEventListener('click',exportDeck);$('deckName').addEventListener('input',s0Persist);
   $('filterToggle').addEventListener('click',()=>{const panel=$('filterPanel'),open=panel.hidden;panel.hidden=!open;$('filterToggle').setAttribute('aria-expanded',String(open));$('filterToggle').classList.toggle('open',open);const icon=$('filterChevron');if(icon)icon.src=`../assets/ui/chevron-${open?'up':'down'}.png`});
+  document.querySelectorAll('[data-s2-family]').forEach(button=>button.addEventListener('click',()=>switchFilterFamily(button.dataset.s2Family)));
   $('searchInput').addEventListener('input',event=>{state.filters.search=event.target.value;renderLibrary()});$('familyFilter').addEventListener('change',event=>switchFilterFamily(event.target.value));$('classFilter').addEventListener('change',event=>{state.filters.className=event.target.value;renderLibrary()});$('skillTypeFilter').addEventListener('change',event=>{state.filters.skillType=event.target.value;renderLibrary()});
   $('keywordFilter').addEventListener('change',event=>{state.filters.keyword=event.target.value;renderLibrary()});
   $('effectFilter').addEventListener('change',event=>{state.filters.effect=event.target.value;renderLibrary()});
@@ -559,6 +570,7 @@ function s0Validation(){
  const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'starter_safe'});
  const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
  if(ultClasses.size>3){v.errors.push('More than 3 different Ultimate Color Mana Shards are required');v.ok=false;}
+ if(exceedsBaseClassLimit()){v.errors.push(BASE_CLASS_LIMIT_MESSAGE);v.ok=false;}
  return v;
 }
 function s0Export(style){
