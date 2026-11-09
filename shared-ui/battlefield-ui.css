@@ -1926,3 +1926,14 @@ html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;
 .response-conditional-attack strong{font-size:13px;font-weight:900;color:#ffe27b}
 .response-conditional-attack span{font-size:12px;font-weight:800;color:#fff}
 .response-conditional-attack small{font-size:10px;color:#c6d5e1}
+
+
+/* RC36 internal UI polish: PLAY always paints above colliding card artwork.
+   Parent stacking context matters: raising only the button cannot cross a
+   neighboring transformed hand-card. Keep modals/Response over the hand. */
+.hand.bottom .hand-card.gl-has-action{z-index:92!important}
+.hand.bottom .hand-card.gl-has-action.is-selected{z-index:270!important}
+.hand.bottom .hand-card.gl-has-action:focus-within{z-index:280!important}
+.hand.bottom .hand-card.gl-has-action:is(:hover,.is-hovered){z-index:290!important}
+.hand.bottom .hand-card.gl-has-action>.card-actions{z-index:300!important;overflow:visible!important}
+.hand.bottom .hand-card.gl-has-action>.card-actions>button.play{position:relative!important;z-index:301!important;pointer-events:auto!important}

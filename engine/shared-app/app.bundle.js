@@ -5189,23 +5189,31 @@
   function isChargedShotCard(c){ return c && c.card_id==='S0-ARC-018'; }
   function isBeginAnewCard(c){ return c && c.card_id==='S0-EVT-001'; }
   function isScoutingCard(c){ return c && c.card_id==='S0-EVT-003'; }
+  // RC36 internal: Scouting may remove only a known NORMAL Skill Card.
+  // An Ultimate is protected by its ID as well as the runtime ultimate flag;
+  // missing/unknown/non-Skill entries must NEVER pass the discard gate.
+  function isScoutingEligibleExpCardId(id){
+    var c=CARD_BY_ID[id];
+    return !!(c && c.family==='Skill' && !isUltimateCard(c) &&
+      !Object.prototype.hasOwnProperty.call(S0_ULTIMATE_OWNER_NAMES,String(id||'')));
+  }
   function hasLegalScoutingExpTarget(state, side){
     var opp=oppositeSide(side); var ok=false;
-    LANE_ORDER.forEach(function(l){ var h=state&&sideHeroes(state,opp)[l]; if(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && (h.exp_cards||[]).some(function(id){ return !isUltimateCard(card(id)); })) ok=true; });
+    LANE_ORDER.forEach(function(l){ var h=state&&sideHeroes(state,opp)[l]; if(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && (h.exp_cards||[]).some(isScoutingEligibleExpCardId)) ok=true; });
     return ok;
   }
   function legalScoutingTargetLanes(state, side){
     var opp=oppositeSide(side), out=[];
     LANE_ORDER.forEach(function(l){
       var h=state&&sideHeroes(state,opp)[l];
-      if(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && (h.exp_cards||[]).some(function(id){ return !isUltimateCard(card(id)); })) out.push(l);
+      if(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && (h.exp_cards||[]).some(isScoutingEligibleExpCardId)) out.push(l);
     });
     return out;
   }
   function legalScoutingExpChoices(state, side, targetLane){
     var opp=oppositeSide(side), h=state&&sideHeroes(state,opp)[targetLane];
     if(!h || !Array.isArray(h.exp_cards)) return [];
-    return h.exp_cards.map(function(id,idx){ return {card_id:id, exp_index:idx, exp_value:tributeExpValue(card(id)), ultimate:isUltimateCard(card(id))}; }).filter(function(x){ return !x.ultimate; });
+    return h.exp_cards.map(function(id,idx){ return {card_id:id, exp_index:idx, exp_value:tributeExpValue(card(id))}; }).filter(function(x){ return isScoutingEligibleExpCardId(x.card_id); });
   }
   function isLastResortCard(c){ return c && c.card_id==='S0-EVT-005'; }
   function isDazedCard(c){ return c && c.card_id==='S0-EVT-006'; }
@@ -6326,30 +6334,68 @@
     var rc=card(opt.card_id),incoming={damage_type:rw&&rw.damage_type,attack_type:rw&&rw.attack_type,cannot_dodge:rw&&rw.cannot_dodge,cannot_block:rw&&rw.cannot_block,target_lane:rw&&rw.target_lane,affected_lanes:rw&&rw.affected_lanes||null};
     return responseKind(rc,incoming)==='dodge';
   }
+  // RC36 internal: Poison is a future HP liability for Intermediate Defense
+  // planning. Each remaining duration counter represents one owner End Phase
+  // tick of 10 damage; a connected Attack can add more duration even if its
+  // immediate Physical/Magical damage is completely BLOCKed.
+  function aiIntermediatePoisonLethalProjection(state,rw){
+    var target=rw&&rw.target_lane?sideHeroes(state,'AI')[rw.target_lane]:null;
+    var hp=Number(target&&target.hp||0),immediate=Math.max(0,Number(rw&&rw.damage||0));
+    var incomingCard=card(rw&&rw.card_id),source=rw&&rw.source_side&&rw.source_lane?sideHeroes(state,rw.source_side)[rw.source_lane]:null;
+    var existing=Math.max(0,Math.min(6,poisonDurationOn(target))),added=0;
+    // Venom Detonation consumes stored Poison after its Response, so that
+    // duration must not be counted a second time as future Poison damage.
+    if(isVenomDetonationCard(incomingCard))existing=0;
+    var acceptsNewPoison=!!(source&&target&&!statusImmune(target)&&!opponentInvincibleStatusProtection(state,target));
+    if(acceptsNewPoison && incomingCard && Array.isArray(incomingCard.effect) && classBranchAllowsStatus(incomingCard,'Poison',source)){
+      incomingCard.effect.forEach(function(e){
+        if(!e||e.kind!=='inflict_status'||String(e.status||'').toLowerCase()!=='poison')return;
+        added+=Math.max(0,durationForEffect(e,source)+classStatusDurationBonus(source,target,'Poison'));
+      });
+    }
+    // Poison Vial adds 2 counters after a Physical Skill deals HP damage.
+    // This is a pre-Response risk estimate, not a mutation of the status.
+    if(acceptsNewPoison && incomingCard && source && String(rw&&rw.damage_type||'')==='Physical' &&
+      immediate>0 && isPoisonVialEligibleAttack(incomingCard) &&
+      hasActiveAttachmentForHero(state,source,'S0-ITM-011'))added+=2;
+    var totalCounters=Math.min(6,existing+added),projected=immediate+totalCounters*POISON_TICK_DAMAGE;
+    // Lethal Venom / Renegade: a connected hit defeats at 5+ Poison counters,
+    // even at HP well above the sum of the direct hit and future poison ticks.
+    // Match applyResolvedAttackDamage's on-hit check, evaluated BEFORE Defense.
+    var instantDefeat=!!(incomingCard&&incomingCard.card_id==='S0-THF-019'&&source&&
+      heroClass(source)==='Renegade'&&totalCounters>=5);
+    return {hp:hp,immediate:immediate,existing_poison:existing,incoming_poison:added,
+      total_poison:totalCounters,projected_damage:projected,instant_defeat:instantDefeat,
+      lethal:hp>0&&(projected>=hp||instantDefeat)};
+  }
   function chooseAIDefenseResponseOption(state,rw){
     var options=(rw&&rw.options)||[]; if(!options.length) return null;
     var target=rw&&sideHeroes(state,'AI')[rw.target_lane], incomingDamage=Number(rw&&rw.damage||0);
+    var projectedThreat=aiIntermediate(state)?aiIntermediatePoisonLethalProjection(state,rw):null;
+    var projectedLethal=projectedThreat?projectedThreat.lethal:!!(target&&incomingDamage>=Number(target.hp||0));
     if(rw&&rw.card_id==='S0-MAG-008'&&target&&Number(target.hp||0)<=40){options=options.filter(function(opt){return !aiResponseOptionIsDodge(opt,rw);});if(!options.length)return null;}
-    var racialThreat=aiIntermediate(state)?(incomingDamage>=50||!!(target&&incomingDamage>=Number(target.hp||0))):(incomingDamage>=30||!!(target&&Number(target.hp||0)<30));
+    var racialThreat=aiIntermediate(state)?(incomingDamage>=50||projectedLethal):(incomingDamage>=30||!!(target&&Number(target.hp||0)<30));
     var racialOptions=options.filter(function(opt){return opt&&(/^(dragon_scale|second_chance)$/i.test(String(opt.response_kind||'')));});
     if(racialThreat&&racialOptions.length) return racialOptions[0];
     if(!racialThreat) options=options.filter(function(opt){return !opt||!(/^(dragon_scale|second_chance)$/i.test(String(opt.response_kind||'')));});
     if(!options.length)return null;
     if(aiIntermediate(state)) options=options.filter(function(opt){
-      // Intercept is saved if the paid hostile action is not more expensive than Intercept, unless lethal.
-      if(opt&&opt.card_id==='S0-EVT-007'){var threat=!!(target&&incomingDamage>=Number(target.hp||0));
-        return threat || Number(cardCost(card(rw.card_id))||0)>4;}
+      // Ordinary Intermediate Defense is reserved for projected lethal damage.
+      // Keep the separately approved Racial Defense thresholds unchanged.
+      if(!projectedLethal && !/^(dragon_scale|second_chance)$/i.test(String(opt&&opt.response_kind||'')))return false;
+      // Intercept cost conservation still applies when there is no lethal risk.
+      if(opt&&opt.card_id==='S0-EVT-007')return projectedLethal || Number(cardCost(card(rw.card_id))||0)>4;
       return true;
     });
     if(!options.length)return null;
     // Never spend defensive Ultimate just because it is the only response option.
-    options=options.filter(function(opt){var c=card(opt&&opt.card_id);if(!isUltimateCard(c))return true;var opponent=rw&&rw.source_lane?sideHeroes(state,'PLAYER')[rw.source_lane]:null,lethal=!!(target&&incomingDamage>=Number(target.hp||0)),critical=!!(target&&Number(target.hp||0)<=Number(target.maxHp||100)*0.30),killAttacker=!!(opponent&&Number(opponent.hp||0)>0&&incomingDamage>=Number(opponent.hp||0));return lethal||critical||killAttacker;});
+    options=options.filter(function(opt){var c=card(opt&&opt.card_id);if(!isUltimateCard(c))return true;var opponent=rw&&rw.source_lane?sideHeroes(state,'PLAYER')[rw.source_lane]:null,lethal=projectedLethal,critical=!!(target&&Number(target.hp||0)<=Number(target.maxHp||100)*0.30),killAttacker=!!(opponent&&Number(opponent.hp||0)>0&&incomingDamage>=Number(opponent.hp||0));return lethal||critical||killAttacker;});
     if(!options.length)return null;
     function score(opt){
       var rc=card(opt.card_id), incoming={damage:Number(rw.damage||0),damage_type:rw.damage_type,attack_type:rw.attack_type,cannot_dodge:rw.cannot_dodge,cannot_block:rw.cannot_block,target_lane:rw.target_lane,affected_lanes:rw.affected_lanes||null,area:!!rw.area};
       var kind=opt.response_kind==='second_chance'?'dodge':(opt.response_kind==='dragon_scale'?'block':(opt.response_kind==='legacy_reduce'?'block':responseKind(rc,incoming)));
       var value=0;
-      if(kind==='dodge'||kind==='negate_return'||kind==='immunity') value=incomingDamage+80;
+      if(kind==='dodge'||kind==='negate_return'||kind==='negate_discard'||kind==='immunity') value=incomingDamage+80+(projectedThreat?projectedThreat.incoming_poison*POISON_TICK_DAMAGE:0);
       else if(kind==='area_reduce') value=defensiveFormationReduction(state,'AI');
       else if(opt.response_kind==='dragon_scale'||opt.response_kind==='legacy_reduce') value=Number(opt.block||40);
       else if(kind==='block') {
@@ -6358,13 +6404,171 @@
         var scoredUser=(isAlliedSourceDefenseCard(rc)&&opt.source_lane)?sideHeroes(state,'AI')[opt.source_lane]:target;
         value=responseBlockAmount(rc,incoming,scoredUser);
       }
-      if(rc&&rc.card_id==='S0-MAG-031'){var urgent=!!(target&&(incomingDamage>=Number(target.hp||0)||Number(target.hp||0)<=Number(target.maxHp||100)*0.3));var attacker=rw&&rw.source_lane?sideHeroes(state,'PLAYER')[rw.source_lane]:null;var retaliatoryLethal=!!(attacker&&Number(attacker.hp||0)>0&&incomingDamage>=Number(attacker.hp||0));value+=retaliatoryLethal?350:(urgent?(incomingDamage>=Number(target&&target.hp||0)?125:80):-400);}
-      else if(isUltimateCard(rc))value+=target&&(incomingDamage>=Number(target.hp||0))?180:-240;
-      if(target && incomingDamage>=Number(target.hp||0)) value+=100;
+      if(rc&&rc.card_id==='S0-MAG-031'){var urgent=!!(target&&(projectedLethal||Number(target.hp||0)<=Number(target.maxHp||100)*0.3));var attacker=rw&&rw.source_lane?sideHeroes(state,'PLAYER')[rw.source_lane]:null;var retaliatoryLethal=!!(attacker&&Number(attacker.hp||0)>0&&incomingDamage>=Number(attacker.hp||0));value+=retaliatoryLethal?350:(urgent?(projectedLethal?125:80):-400);}
+      else if(isUltimateCard(rc))value+=projectedLethal?180:-240;
+      if(projectedLethal)value+=100;
       value-=Number(cardCost(rc)||0)*2; return value;
     }
     return options.slice().sort(function(a,b){return score(b)-score(a);})[0]||null;
   }
+  // RC36 Poison + UI patch regression. Public entry point for the existing
+  // deterministic stage7 harness. This does not modify production state.
+  window.GL_RC36_POISON_LETHAL_AI_QA_SELF_TEST=function(){
+    initCards();var previous=appState,wasStarted=matchStarted,wasSuppressed=SUPPRESS_RENDER;
+    try{
+      SUPPRESS_RENDER=true;matchStarted=true;
+      function scenario(hp,poison,sourceHero,attackId,immediate){
+        var s=buildInitialMatchState();appState=s;s.preGame=null;s.turn='PLAYER';s.phase='Battle';
+        s.aiDifficulty='intermediate';s.playerHeroes.CENTER.card_id=sourceHero||'S0-THF-H003';
+        s.aiHeroes.CENTER.hp=hp;s.aiHeroes.CENTER.maxHp=120;s.aiHeroes.CENTER.statuses=[];
+        if(poison)addStatus(s.aiHeroes.CENTER,'Poison',poison,'RC36 Poison Defense test');
+        var rw={card_id:attackId||'S0-THF-011',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER',
+          damage:immediate==null?10:immediate,damage_type:'Magical',attack_type:'Area Attack',
+          options:[{card_id:'S0-THF-012',response_kind:'dodge'}]};
+        return {s:s,rw:rw,p:aiIntermediatePoisonLethalProjection(s,rw)};
+      }
+      var a=scenario(60,2,'S0-THF-H003','S0-THF-011',10);
+      if(a.p.existing_poison!==2||a.p.incoming_poison!==3||a.p.total_poison!==5||a.p.projected_damage!==60||!a.p.lethal)
+        return{ok:false,reason:'HP60 + Poison2 + Renegade Mist 10+3 must count as projected lethal',prediction:a.p};
+      if(chooseAIDefenseResponseOption(a.s,a.rw)!==a.rw.options[0])return{ok:false,reason:'Intermediate AI did not respond to projected Poison lethal'};
+      var b=scenario(61,2,'S0-THF-H003','S0-THF-011',10);
+      if(b.p.projected_damage!==60||b.p.lethal||chooseAIDefenseResponseOption(b.s,b.rw)!==null)
+        return{ok:false,reason:'Projected Poison 60 must not be lethal at 61 HP',prediction:b.p};
+      // Rogue already owns Venom Mastery: printed Poison 2 + class +1 = 3.
+      var c=scenario(60,2,'S0-THF-H002','S0-THF-011',10);
+      if(c.p.incoming_poison!==3||c.p.projected_damage!==60||!c.p.lethal)return{ok:false,reason:'Rogue Venom Mastery must add +1 Poison duration',prediction:c.p};
+      var arrow=scenario(60,2,'S0-ARC-H001','S0-ARC-002',10);
+      if(arrow.p.incoming_poison!==2||arrow.p.projected_damage!==50||arrow.p.lethal)return{ok:false,reason:'Basic Poison Arrow must add only 2 Poison counters',prediction:arrow.p};
+      var d=scenario(70,5,'S0-THF-H003','S0-THF-011',10);
+      if(d.p.total_poison!==6||d.p.projected_damage!==70||!d.p.lethal)
+        return{ok:false,reason:'Poison stacking must cap at 6; not 8',prediction:d.p};
+      var e=scenario(50,5,'S0-THF-H003','S0-THF-018',20);
+      if(e.p.existing_poison!==0||e.p.projected_damage!==20||e.p.lethal)
+        return{ok:false,reason:'Venom Detonation consumed Poison should not be double counted',prediction:e.p};
+      var f=scenario(60,2,'S0-THF-H003','S0-THF-011',10);
+      addStatus(f.s.aiHeroes.CENTER,'Status Immune',1,'status immunity');f.p=aiIntermediatePoisonLethalProjection(f.s,f.rw);
+      if(f.p.incoming_poison!==0||f.p.projected_damage!==30||f.p.lethal)
+        return{ok:false,reason:'New Poison cannot be projected against immune target',prediction:f.p};
+      var g=scenario(60,2,'S0-THF-H003','S0-THF-011',10);
+      g.rw.options.push({card_id:'S0-WAR-003',response_kind:'block'});
+      if(chooseAIDefenseResponseOption(g.s,g.rw)!==g.rw.options[0])return{ok:false,reason:'DODGE should be prioritized over BLOCK when incoming Poison is the lethal component'};
+      var h=scenario(100,0,'S0-THF-H003','S0-WAR-001',20);
+      h.rw.options=[{card_id:'S0-WAR-003',response_kind:'block'}];
+      if(chooseAIDefenseResponseOption(h.s,h.rw)!==null)return{ok:false,reason:'Intermediate ordinary Defense should be conserved on nonlethal attacks'};
+      h.s.aiDifficulty='beginner';if(chooseAIDefenseResponseOption(h.s,h.rw)!==h.rw.options[0])return{ok:false,reason:'Beginner Defense should remain unchanged'};
+      // Real per-target Area Response: a legal Rogue DODGE must prevent the
+      // Mist hit and its 3 added Poison counters without altering old Poison.
+      var live=scenario(60,2,'S0-THF-H003','S0-THF-011',10);appState=live.s;
+      live.s.aiHeroes.CENTER.card_id='S0-THF-H002';live.s.aiHand=['S0-THF-012'];live.s.aiRacial=0;
+      manaPoolCardsForSide(live.s,'AI').splice(0);drawManaCards(live.s,'AI',5,'RC36 QA');syncManaCountForSide(live.s,'AI');
+      openMultiTargetResponseWindow(live.s,{card_id:'S0-THF-011',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI'}, {},['CENTER'],0,0);
+      if(!live.s.responseWindow||(live.s.responseWindow.options||[]).every(function(o){return o.card_id!=='S0-THF-012';}))
+        return{ok:false,reason:'Live Poison Mist Response did not offer Elusive Escape',options:live.s.responseWindow&&live.s.responseWindow.options};
+      autoResolveCurrentAIResponseWindow(live.s);
+      if(live.s.aiHeroes.CENTER.hp!==60||poisonDurationOn(live.s.aiHeroes.CENTER)!==2||live.s.aiHand.indexOf('S0-THF-012')!==-1)
+        return{ok:false,reason:'Live Intermediate AI did not DODGE Poison Mist or incorrectly changed existing Poison',hp:live.s.aiHeroes.CENTER.hp,poison:poisonDurationOn(live.s.aiHeroes.CENTER),hand:live.s.aiHand};
+      return{ok:true,version:'RC36 internal',tests:11,exampleProjectedDamage:60,poisonPerCounter:POISON_TICK_DAMAGE};
+    }catch(err){return{ok:false,error:String(err&&err.stack||err)};}
+    finally{appState=previous;matchStarted=wasStarted;SUPPRESS_RENDER=wasSuppressed;}
+  };
+  // RC36 internal Scouting / all-Poison source regression checks.
+  window.GL_RC36_PATCH3_S0_QA_SELF_TEST=function(){
+    initCards(); var previous=appState,wasStarted=matchStarted,wasSuppressed=SUPPRESS_RENDER;
+    var count=0,assert=function(ok,label,details){count++;if(!ok)throw new Error(label+(details?' :: '+JSON.stringify(details):''));};
+    try{
+      SUPPRESS_RENDER=true;matchStarted=true;
+      var ultimateIds=Object.keys(S0_ULTIMATE_OWNER_NAMES);
+      assert(ultimateIds.length===15,'expected 15 protected Ultimate IDs',ultimateIds);
+      ultimateIds.forEach(function(id){assert(!isScoutingEligibleExpCardId(id),'Ultimate passed Scouting gate',id);});
+      assert(isScoutingEligibleExpCardId('S0-WAR-001'),'normal Warrior Skill should be eligible');
+      assert(isScoutingEligibleExpCardId('S0-THF-013'),'normal Thief Skill should be eligible');
+      assert(!isScoutingEligibleExpCardId('S0-EVT-003'),'Event must be ineligible');
+      assert(!isScoutingEligibleExpCardId('S0-ITM-001'),'Item must be ineligible');
+      assert(!isScoutingEligibleExpCardId('DOES_NOT_EXIST'),'unknown card must be ineligible');
+      function scout(side,lane,chosen,other){
+        var s=buildInitialMatchState();appState=s;s.preGame=null;
+        var opp=oppositeSide(side), h=sideHeroes(s,opp)[lane],otherHero=sideHeroes(s,opp)['LEFT'];
+        h.exp_cards=chosen.slice();h.exp_total=chosen.reduce(function(sum,id){return sum+tributeExpValue(card(id));},0);
+        if(lane!=='LEFT')otherHero.exp_cards=(other||[]).slice();
+        applyImmediateEventItemEffects(s,side,card('S0-EVT-003'),null,null,null,{target_lane:lane});
+        return {s:s,h:h,opp:opp,other:otherHero};
+      }
+      var mix=['S0-ARC-018','S0-WAR-001','S0-THF-019'];
+      var mixed=scout('PLAYER','CENTER',mix,['S0-MAG-001']);
+      assert(JSON.stringify(mixed.h.exp_cards)===JSON.stringify(['S0-ARC-018','S0-THF-019']),'selected mixed stack must preserve both Ultimates',mixed.h.exp_cards);
+      assert(mixed.h.exp_total===400,'only 100 EXP removed from mixed stack',mixed.h.exp_total);
+      assert(JSON.stringify(mixed.s.aiDiscard)===JSON.stringify(['S0-WAR-001']),'Scouting discards only the selected normal Skill',mixed.s.aiDiscard);
+      assert(mixed.other.exp_cards.length===1&&mixed.other.exp_cards[0]==='S0-MAG-001','other Hero stack must not mutate');
+      var pvp=scout('AI','CENTER',['S0-CLE-031','S0-MAG-001','S0-MAG-031']);
+      assert(pvp.h.exp_cards.length===2&&pvp.h.exp_cards[0]==='S0-CLE-031'&&pvp.h.exp_cards[1]==='S0-MAG-031','AI Scouting must protect Ultimates',pvp.h.exp_cards);
+      assert(pvp.s.playerDiscard.length===1&&pvp.s.playerDiscard[0]==='S0-MAG-001','AI Scouting must discard normal Skill only',pvp.s.playerDiscard);
+      var only=scout('PLAYER','CENTER',['S0-THF-019','S0-MAG-031'],['S0-WAR-001']);
+      assert(only.h.exp_cards.length===2&&only.s.aiDiscard.length===0,'only-Ultimate target must remain unchanged');
+      assert(legalScoutingExpChoices(only.s,'PLAYER','CENTER').length===0,'only-Ultimate stack must offer no EXP choices');
+      assert(legalScoutingTargetLanes(only.s,'PLAYER').indexOf('CENTER')===-1,'only-Ultimate Hero cannot be selected for Scouting');
+      // Full PLAYER Scouting payment path: selecting a Hero must never remove
+      // an Ultimate even when that Ultimate appears first in the EXP stack.
+      var committed=buildInitialMatchState();appState=committed;
+      committed.turn='PLAYER';committed.phase='Deploy';committed.mana=30;
+      committed.playerHeroes.LEFT.exhausted=false;
+      committed.playerHand=['S0-EVT-003'];
+      committed.aiHeroes.CENTER.exp_cards=['S0-THF-018','S0-THF-013'];
+      committed.aiHeroes.CENTER.exp_total=300;
+      // Pay with actual Mana cards: the displayed Mana integer alone is not authoritative.
+      drawManaCards(committed,'PLAYER',5,'Scouting patch3 paid-path regression');
+      syncManaCountForSide(committed,'PLAYER');
+      var scoutingLegal=legalPlayStateFor(committed,'PLAYER','S0-EVT-003');
+      assert(scoutingLegal.can,'live Scouting legal play failed',scoutingLegal);
+      beginPlayFromHand(0);chooseHeroFromBoard('PLAYER','LEFT');
+      assert(committed.pending&&committed.pending.type==='scouting_target_selection','live Scouting did not open opponent Hero target');
+      chooseHeroFromBoard('AI','CENTER');
+      assert(committed.pending&&committed.pending.type==='mana_shard_payment_choice','live Scouting did not reach payment before EXP discard');
+      assert(committed.aiHeroes.CENTER.exp_cards.length===2,'live Scouting changed EXP before payment');
+      commitManaShardPaymentChoice();
+      assert(committed.aiHeroes.CENTER.exp_cards.length===1&&committed.aiHeroes.CENTER.exp_cards[0]==='S0-THF-018','live paid Scouting should preserve Ultimate',committed.aiHeroes.CENTER.exp_cards);
+      assert(committed.aiDiscard.indexOf('S0-THF-013')!==-1&&committed.aiDiscard.indexOf('S0-THF-018')===-1,'live paid Scouting discards only ordinary Skill',committed.aiDiscard);
+      var noLane=buildInitialMatchState();appState=noLane;noLane.aiHeroes.CENTER.exp_cards=['S0-WAR-001'];
+      applyImmediateEventItemEffects(noLane,'PLAYER',card('S0-EVT-003'),null,null,null,{});
+      assert(noLane.aiHeroes.CENTER.exp_cards.length===1&&noLane.aiDiscard.length===0,'missing selected lane must not cause another Hero to lose EXP');
+      function poison(srcId,attackId,dtype,oldCount,hp,baseDmg){
+        var st=buildInitialMatchState();appState=st;st.aiDifficulty='intermediate';
+        st.playerHeroes.CENTER.card_id=srcId;st.aiHeroes.CENTER.hp=hp||120;st.aiHeroes.CENTER.maxHp=240;st.aiHeroes.CENTER.statuses=[];
+        if(oldCount)addStatus(st.aiHeroes.CENTER,'Poison',oldCount,'patch3 QA');
+        var rw={card_id:attackId,source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER',
+          damage:baseDmg==null?10:baseDmg,damage_type:dtype,attack_type:'Attack',options:[{card_id:'S0-THF-012',response_kind:'dodge'}]};
+        return {st:st,rw:rw,p:aiIntermediatePoisonLethalProjection(st,rw)};
+      }
+      var scenarios=[
+        ['S0-ARC-H001','S0-ARC-002','Physical',2], // Poison Arrow: 2
+        ['S0-THF-H001','S0-THF-011','Magical',2], // Poison Mist base: 2
+        ['S0-THF-H002','S0-THF-011','Magical',3], // Poison Mist + Venom Mastery: 3
+        ['S0-THF-H002','S0-THF-013','Physical',2], // Rogue Venom Strike + mastery
+        ['S0-THF-H003','S0-THF-013','Physical',3], // Renegade Venom Strike + mastery
+        ['S0-THF-H002','S0-THF-014','Physical',2], // Rogue Viper's Fang
+        ['S0-THF-H003','S0-THF-014','Physical',3], // Renegade Viper's Fang
+        ['S0-THF-H002','S0-THF-017','Magical',2], // Rogue Venom Binding
+        ['S0-THF-H003','S0-THF-017','Magical',3], // Renegade Venom Binding
+        ['S0-THF-H003','S0-THF-019','Magical',2] // Lethal Venom + mastery
+      ];
+      scenarios.forEach(function(row){var x=poison(row[0],row[1],row[2],0,120,10);
+        assert(x.p.incoming_poison===row[3],'all-Poison card projection mismatch', {row:row,result:x.p});});
+      var existing=poison('S0-WAR-H001','S0-WAR-001','Physical',5,60,10);
+      assert(existing.p.projected_damage===60&&existing.p.lethal,'existing Poison counted against unrelated attack',existing.p);
+      var vial=poison('S0-ARC-H001','S0-ARC-006','Physical',2,60,30);
+      vial.st.activeAttachments.push({side:'PLAYER',lane:'CENTER',slot:0,card_id:'S0-ITM-011'});
+      vial.p=aiIntermediatePoisonLethalProjection(vial.st,vial.rw);
+      assert(vial.p.incoming_poison===2&&vial.p.projected_damage===70&&vial.p.lethal,'Poison Vial should add two counters to HP-damaging Physical Skill',vial.p);
+      vial.rw.damage_type='Magical';vial.p=aiIntermediatePoisonLethalProjection(vial.st,vial.rw);
+      assert(vial.p.incoming_poison===0&&vial.p.projected_damage===50&&!vial.p.lethal,'Poison Vial must not add Poison to Magical Skill',vial.p);
+      var instant=poison('S0-THF-H003','S0-THF-019','Magical',4,180,60);
+      assert(instant.p.total_poison===6&&instant.p.instant_defeat&&instant.p.lethal,'Renegade Lethal Venom instant-death is projected',instant.p);
+      assert(chooseAIDefenseResponseOption(instant.st,instant.rw)===instant.rw.options[0],'AI must defend against instant-defeat Lethal Venom');
+      var rogue=poison('S0-THF-H002','S0-THF-019','Magical',4,180,60);
+      assert(!rogue.p.instant_defeat&&!rogue.p.lethal,'non-Renegade Lethal Venom is not an instant defeat',rogue.p);
+      return {ok:true,checks:count,normalSkillOnly:true,ultimateIdsProtected:ultimateIds.length,allPoisonSources:true,lethalVenomInstantDefeat:true};
+    }catch(err){return {ok:false,checks:count,error:String(err&&err.stack||err)};}
+    finally{appState=previous;matchStarted=wasStarted;SUPPRESS_RENDER=wasSuppressed;}
+  };
   function autoResolveCurrentAIResponseWindow(state){
     if(!state || !state.responseWindow || state.responseWindow.target_side!=='AI' || state.pvpHumanVsHuman) return false;
     var chosen=chooseAIDefenseResponseOption(state,state.responseWindow);
@@ -8167,7 +8371,21 @@
   function applyImmediateEventItemEffects(state, side, c, sourceHero, target, hostHero, action){
     if(isBeginAnewCard(c)){ var hand=sideHand(state,side), moved=hand.splice(0); deckForSide(state,side).push.apply(deckForSide(state,side),moved); shufflePile(deckForSide(state,side)); pushLog(state, cardName(c)+' shuffles remaining hand into deck ('+moved.length+' card(s)) then draws 5.'); drawMany(state,side,5,{reason:'CARD_EFFECT'}); if(side==='AI') appendOpponentEventResult(state,c.card_id,['AI shuffled remaining hand into deck ('+moved.length+' card(s)).','AI drew 5 cards.']); }
     if(isLastResortCard(c)){ var solo=LANE_ORDER.map(function(l){return sideHeroes(state,side)[l];}).filter(function(h){return h&&Number(h.hp||0)>0&&!isLegacyModeHero(h);}); if(solo.length===1){ action.attachment_effect={modifier_mode:'double_full_attack_card_damage',multiplier:2,active_from_round:Number(state.round||1)}; pushLog(state, cardName(c)+' Attachment doubles the remaining Hero’s full Attack Card damage this turn.'); } }
-    if(isScoutingCard(c)){ var opp=oppositeSide(side), removed=false, targetLane=action&&action.target_lane, lanes=targetLane?[targetLane]:LANE_ORDER.slice(); lanes.forEach(function(l){ if(removed) return; var eh=sideHeroes(state,opp)[l]; if(eh&&eh.exp_cards&&eh.exp_cards.length){ var idx=eh.exp_cards.findIndex(function(id){ return !isUltimateCard(card(id)); }); if(idx>=0){ var eid=eh.exp_cards.splice(idx,1)[0]; eh.exp_total=Math.max(0,Number(eh.exp_total||0)-tributeExpValue(card(eid))); sideDiscard(state,opp).push(eid); removed=true; pushLog(state, cardName(c)+' auto-discards '+cardName(card(eid))+' from opponent '+l+' EXP stack after payment commit.'); } } }); }
+    if(isScoutingCard(c)){
+      // Never fall back to another Hero when the selected EXP stack has become
+      // ineligible. Protect every Ultimate (including all 15 printed S0 IDs).
+      var opp=oppositeSide(side), targetLane=action&&action.target_lane;
+      var selectedHero=targetLane&&LANE_ORDER.indexOf(targetLane)!==-1?sideHeroes(state,opp)[targetLane]:null;
+      var chosenIndex=selectedHero&&Array.isArray(selectedHero.exp_cards)?selectedHero.exp_cards.findIndex(isScoutingEligibleExpCardId):-1;
+      if(chosenIndex>=0 && Number(selectedHero.hp||0)>0 && !isLegacyModeHero(selectedHero)){
+        var removedId=selectedHero.exp_cards.splice(chosenIndex,1)[0];
+        selectedHero.exp_total=Math.max(0,Number(selectedHero.exp_total||0)-tributeExpValue(card(removedId)));
+        sideDiscard(state,opp).push(removedId);
+        pushLog(state,cardName(c)+' discards normal Skill '+cardName(card(removedId))+' from opponent '+targetLane+' EXP stack. Ultimate EXP is protected.');
+      }else{
+        pushLog(state,cardName(c)+' finds no legal non-Ultimate Skill in the selected EXP stack; no EXP was discarded.');
+      }
+    }
     if(isForgedAllianceCard(c)){ var key=side==='PLAYER'?'racial':'aiRacial'; state[key]=Math.min(RACIAL_TOKEN_CAP,Number(state[key]||0)+1); pushLog(state, cardName(c)+' gains 1 Racial Token.'); }
     if(isManaCatalystCard(c)){ var catalyst=(c.effect||[]).find(function(e){return e&&e.kind==='gain_mana';}), catalystMana=Number(catalyst&&catalyst.amount||2); gainMana(state,side,catalystMana); pushLog(state, cardName(c)+' gains '+catalystMana+' Mana.'); }
     if(c.card_id==='S0-CLE-018'&&sourceHero){

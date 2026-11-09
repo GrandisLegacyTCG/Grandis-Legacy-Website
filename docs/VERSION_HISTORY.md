@@ -4,11 +4,14 @@ Only the current and immediately previous production versions are retained here.
 
 ## VS AI
 
-### RC36 — current
-- Music volume now uses a 45% maximum source gain; the in-game slider is relative to that ceiling.
-- Conditional attacks show the attack name plus condition and calculated pre-Response damage.
-- Sleep no longer cancels paid Casting; Casting counters/releases pause while the source Hero is asleep.
-- RC36.3 includes the latest Starter 4 / Replenish Intermediate AI behavior and the current -40 BLOCK handling for Chain Mail and Ring of Protection.
+### RC36 — current (Patch 4 / internal RC36.6)
+- Includes the cumulative RC36 gameplay/UI fixes through internal Patch 4 while keeping the visible release label RC36.
+- Scouting cannot discard Ultimate EXP Cards and only resolves against a known normal Skill where applicable.
+- Intermediate AI accounts for projected Poison lethality across qualifying Poison sources and existing Poison.
+- PLAY controls remain above colliding Hand artwork.
+- Chain Mail and Ring of Protection Card Review show DAMAGE REDUCTION 40.
+- Health Potion and Greater Health Potion Card Review now show HEALING DONE 30 and 50.
+- Previous RC36 Sleep/Casting, conditional pre-Response damage, Starter 4/Replenish strategy and fixed -40 BLOCK behavior remain included.
 
 ### RC35 — previous
 - Added Beginner / Intermediate opponent difficulty behavior and the RC35 AI strategy series.

@@ -47,6 +47,33 @@
   'S0-EVT-003':'You can only have 1 of this card in your deck.',
   'S0-EVT-008':'You can only have 1 of this card in your deck.'
  });
+// Numeric callouts are copied from the official R3.5 artwork and
+// Deck Builder v1.63. This changes the Card Review popup only.
+// Do not change the actual Item effect magnitudes in the game engine.
+const ITEM_PRINTED_METRICS=Object.freeze({
+ 'S0-ITM-001':Object.freeze({label:'HEALING DONE',value:'30'}),
+ 'S0-ITM-002':Object.freeze({label:'HEALING DONE',value:'50'}),
+ 'S0-ITM-007':Object.freeze({label:'DAMAGE REDUCTION',value:'40'}),
+ 'S0-ITM-016':Object.freeze({label:'DAMAGE REDUCTION',value:'40'})
+});
+function applyItemPrintedMetric(card,rootNode){
+ if(card?.family!=='Item')return;
+ const metric=ITEM_PRINTED_METRICS[card.id];
+ const row=rootNode.querySelector('.review-effect-row.item-effect-row');
+ if(!metric||!row||row.classList.contains('has-metric'))return;
+ const classCell=row.children[0],rankCell=row.children[1];
+ const effectCell=row.querySelector('.review-effect-info');
+ if(!classCell||!rankCell||!effectCell)return;
+ // Exactly the existing Skill metric markup/classes and layout. No new UI template.
+ classCell.classList.add('review-effect-class');
+ rankCell.classList.add('review-effect-rank');
+ const metricCell=node('div','review-effect-metric');
+ metricCell.append(node('span','',metric.label),node('strong','',metric.value));
+ row.insertBefore(metricCell,effectCell);
+ row.classList.remove('no-metric');
+ row.classList.add('has-metric');
+ effectCell.classList.remove('full-span');
+}
  const KEYS=Object.keys(EXPLANATIONS);
  // Player Rulebook v3.0 EN, p.14: verbatim status descriptions; no engine logic changes.
  const STATUSES=Object.freeze({
@@ -219,6 +246,7 @@
  }
  function enhance(card,rootNode){
   if(!card||!rootNode||card.family==='Hero'||card.family==='LegacyModeDefinition')return;
+  applyItemPrintedMetric(card,rootNode);
   const rows=Array.isArray(card.rows)&&card.rows.length?card.rows:[{effect_text:card.text||''}];
   const originalChunks=[...rootNode.children];
   const conditions=printedConditions(card,rows);

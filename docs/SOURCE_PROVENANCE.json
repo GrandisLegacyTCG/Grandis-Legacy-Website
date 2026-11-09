@@ -1,17 +1,12 @@
 {
-  "production": {
-    "vs_ai": "RC36",
-    "deck_builder": "v1.63"
-  },
-  "sources": {
-    "vs_ai": {
-      "file": "Grandis_Legacy_VS_AI_Season0_v1.0_RC36_2026-11-09.zip",
-      "sha256": "5983da9e9c00ae64dad7e4ec224b06ec62bebc478620cca6a623692df6acc1f7"
-    },
-    "deck_builder": {
-      "file": "Grandis_Legacy_Deck_Builder_v1.63_2026-11-09.zip",
-      "sha256": "0cf3cb6fe83ba2c2991cb32eff43b557f5b40e37af513098237d360f98b48699"
-    }
-  },
-  "deploy_policy": "Runtime files plus minimal operational documentation. Developer QA/history/test artifacts are retained only in standalone sources."
+  "production": "VS AI RC36 Patch 4 (internal RC36.6) + Deck Builder v1.63",
+  "vs_ai_source": "Grandis_Legacy_VS_AI_Season0_v1.0_RC36_Patch_4_2026-11-09.zip",
+  "deck_builder_source": "Grandis_Legacy_Deck_Builder_v1.63_2026-11-09.zip",
+  "deploy_policy": "FULL_REPO replacement; developer QA/history trimmed from deployment package",
+  "integration_preserved": [
+    "home navigation",
+    "/deck-builder/ navigation",
+    "artwork loading safeguards",
+    "cache-busting"
+  ]
 }
