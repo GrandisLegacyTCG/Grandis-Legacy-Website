@@ -1,7 +1,7 @@
 path,sha256,size_bytes
 .nojekyll,e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,0
 CNAME,44a91b3c8268eaaf6f99c2c140c75631a0db3e46da6efbd63553c1c73ce94b74,24
-README.md,08c0b0f5e83b1652f770fb2fa533b6819632146e8dafd89a3496bb2538883d94,874
+README.md,88f67248d137ed399c0fd0ef137b232bd49000738cf5e1d28b71d6593ce725ee,1019
 assets/css/site-artwork-loading.css,35bdc582bc83c789ba1fc59083a0885b49fdc959f5742577f7b9d2affa0c719e,497
 assets/css/site-integration.css,de3bde8914128ec0f371b5fb2c51c717e600074596e67f469c99818fc3ad27c7,1554
 assets/fonts/NotoSans-Variable.woff2,4204916b05eabc58243435a9ddfef2a4b88b29c4547aac811c6818695eafcb11,888276
@@ -631,7 +631,7 @@ deck-builder/css/s0-review-v1.57.css,339d9d73576b9cf456741eb46d9a54df84344e515eb
 deck-builder/css/s0-rulebook-v2.9-review-v1.58.css,92a52016ff943d55a40e8fd0b2c5e306471ca1e942b5c26d2f5da55755060f9e,327
 deck-builder/css/s0-shared-header-review.css,9e8eff80539395115b869c0bb7da132373bb8524dbf9eae2bd17f68505a8f44c,3250
 deck-builder/css/s0-ui-v1.49.css,9ceef1bbc5b2dac062c5954838023aba6d3a1e6aabf271c4f1e3e23ee8b36206,13412
-deck-builder/index.html,e5db987d68e9080b087bf8d1c75741444415b3bd47f6282895ed48a066de4c57,18994
+deck-builder/index.html,03561278e06b112239dd6b4cf079ef95c4f3fd5fd2f5bcc2fdb620552bcd49b2,19001
 deck-builder/js/app-s0.js,79da20689c1c58db4e1e9ebb355655161a5699da83609fe85e196646ab5aa983,73275
 deck-builder/js/app.js,818c8b773e60077cc44da2a355b94f4595a94bad0ce1b81b880c5040fa6af896,60523
 deck-builder/js/data-s0.js,ee1be17c0d6537201fb001065a84f2c0071e91bd830ed354d9d8e7915461520f,258068
@@ -657,9 +657,9 @@ deck-builder/style-2/css/s0-style2-hero-class-limit-v1.63.css,e96b9977a992de625c
 deck-builder/style-2/css/s0-style2-mobile-type-v1.64.css,09144b31eda635b8b26d2dece5d468cfe9bf7b66494f7413a29130068ded8978,1875
 deck-builder/style-2/css/s0-style2-mobile-v1.59.css,06136ee471da1fe1046d6a75169522f09813cce76a1e4a51458647cafdbcc3b8,8801
 deck-builder/style-2/css/s0-style2-quantities-v1.36.css,12d6d8e9852cc32c049830adcd0f63aace3c5f4545cf4111a9616cee6e9ba9fd,1355
-deck-builder/style-2/index.html,ddb1dab658221a2b2a313fdffb8118ad034ef8291a1105f9d8e887ef01bbfddc,19858
+deck-builder/style-2/index.html,b386a732386d84b18452cb61379261b3d703ca5de101e2af756c93e7faa9c06f,19865
 deck-builder/style-2/js/app-s0.js,f91be9c20797fd89d6e59237718ee35bdad0d538f69a7fb64f54cf07f6baa53b,66185
-deck-builder/style-2/js/s0-starters-v1.46.js,46b0d5e5dd3206dff11517cb825a9fee024a6bc014ac5d7e29d9cf4a2985fd61,11097
+deck-builder/style-2/js/s0-starters-v1.46.js,ed4f6a40b2d5b247208ac8db72ecf5253d75eba2df5ebe479a4f433dfcfa9d33,11593
 docs/DEPLOY.md,8158a632b72a549d12555721d8d922df384c257c51908ec66a380189b53463df,270
 docs/SOURCE_PROVENANCE.json,09dff8b220bb8d9abf1213e5bd41341fc564a95d2f000c84126fc1c42b88267b,655
 docs/VERSION_HISTORY.md,98c63756eaf7c19d61d03acd4e6ea7b6215497d02641d31dd6bc3fecd0f4966b,140
