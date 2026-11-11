@@ -1,12 +1,13 @@
 {
-  "production": "VS AI RC36 Patch 4 (internal RC36.6) + Deck Builder v1.63",
-  "vs_ai_source": "Grandis_Legacy_VS_AI_Season0_v1.0_RC36_Patch_4_2026-11-09.zip",
-  "deck_builder_source": "Grandis_Legacy_Deck_Builder_v1.63_2026-11-09.zip",
-  "deploy_policy": "FULL_REPO replacement; developer QA/history trimmed from deployment package",
-  "integration_preserved": [
-    "home navigation",
-    "/deck-builder/ navigation",
-    "artwork loading safeguards",
-    "cache-busting"
+  "package": "Grandis Legacy Season 0 Web Deploy",
+  "vs_ai": "RC38",
+  "deck_builder": "v1.64",
+  "artwork_authority": "Main & Legacy R3.6",
+  "rulebook_authority": "Player Rulebook v3.2",
+  "deployment": "GitHub Pages main/root",
+  "trim_policy": "runtime/assets/config + minimal deploy docs; developer QA/history retained only in standalone sources",
+  "source_packages": [
+    "Grandis_Legacy_VS_AI_Season0_RC38_2026-11-11.zip",
+    "Grandis_Legacy_Deck_Builder_v1.64_2026-11-10.zip"
   ]
 }

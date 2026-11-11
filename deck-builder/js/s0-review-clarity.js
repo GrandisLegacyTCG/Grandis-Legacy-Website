@@ -1,5 +1,5 @@
 /* Grandis Legacy Season 0 — Card Review: keyword/status explanations from
-   official Player Rulebook v3.0 EN (2026-11-07), pages 13–14.
+   official Player Rulebook v3.1 EN (2026-11-10), pages 13–14.
    Printed card RULES footer descriptions remain sourced from approved artwork.
    MANA COST +1/+2 are printed card-specific labels, not Rulebook keywords.
    Display only; no changes to deck legality, card effects, gameplay or OSA. */
@@ -28,7 +28,7 @@
  // separate from card effects and from the Legacy artwork RULES already in data-s0.
  // Explicitly transcribed, not synthesized from class names or old Shard terminology.
  const PRINTED_FOOTER_RULES=Object.freeze({
-  'S0-ARC-018':'Only Korvak can use this card or tribute it with a Green Mana Shard for EXP.',
+  'S0-ARC-018':'Only Fenrir can use this card or tribute it with a Green Mana Shard for EXP.',
   'S0-ARC-019':'Only Sylvan can use this card or tribute it with a Green Mana Shard for EXP.',
   'S0-ARC-025':'Only Alden can use this card or tribute it with a Green Mana Shard for EXP.',
   'S0-CLE-018':'Only Elara can use this card or tribute it with a White Mana Shard for EXP.',
@@ -47,7 +47,7 @@
   'S0-EVT-003':'You can only have 1 of this card in your deck.',
   'S0-EVT-008':'You can only have 1 of this card in your deck.'
  });
-// The four Item cards with a *separate printed numeric badge* on R3.5 artwork.
+// The four Item cards with a *separate printed numeric badge* on R3.6 artwork.
 // Display magnitudes as Skill BLOCK/HEALING DONE do (card art retains +/- signs).
 // Do not turn effect-text numbers (duration, draw, temporary buffs) into metrics.
 const ITEM_PRINTED_METRICS=Object.freeze({
@@ -75,7 +75,7 @@ function applyItemPrintedMetric(card,rootNode){
  effectCell.classList.remove('full-span');
 }
  const KEYS=Object.keys(EXPLANATIONS);
- // Player Rulebook v3.0 EN, p.14: verbatim status descriptions; no engine logic changes.
+ // Player Rulebook v3.1 EN, p.14: verbatim status descriptions; no engine logic changes.
  const STATUSES=Object.freeze({
   'Bleed':'This Hero cannot receive Healing. Bleed does not deal damage.',
   'Burn':'Whenever a played Card or activated Ability deals damage to this Hero, increase that damage by 10.',

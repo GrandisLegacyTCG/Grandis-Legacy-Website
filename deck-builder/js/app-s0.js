@@ -7,6 +7,8 @@ const state={
   cards:[],byId:new Map(),legacyCards:[],legacyById:new Map(),sourcePackages:[],
   progressions:[],progressionById:new Map(),progressionByHeroId:new Map(),starters:[],
   deck:{},slots:[emptySlot(),emptySlot(),emptySlot()],selectedCardId:'',
+  // The lower filter row (Mana Cost / Card Pool) is shared across all card types.
+  sharedFilters:{pool:'available',manaMin:0,manaMax:9},
   filtersByTab:{
     heroes:{search:'',pool:'all',className:'',skillType:'',attackStyle:'',keyword:'',effect:'',manaMin:0,manaMax:9},
     legacies:{search:'',pool:'all',className:'',skillType:'',attackStyle:'',keyword:'',effect:'',manaMin:0,manaMax:9},
@@ -30,11 +32,25 @@ function copyLimit(card){return card?.ultimate?.isUltimate||card?.maxCopies===1?
 function selectedProgressions(slots=state.slots){return slots.map(slot=>state.progressionById.get(slot.progressionId)).filter(Boolean)}
 function heroFormationComplete(slots=state.slots){return selectedProgressions(slots).length===3}
 function hasSelectedHeroes(slots=state.slots){return selectedProgressions(slots).length>0}
-const MAX_BASE_CLASSES=2;
-const BASE_CLASS_LIMIT_MESSAGE='Only 2 Base Classes can be selected.';
-function exceedsBaseClassLimit(slots=state.slots){
-  return new Set(selectedProgressions(slots).map(progression=>progression.baseClass).filter(Boolean)).size>MAX_BASE_CLASSES;
+// Count each Hero's Rank I Class only (hybrid progression has one Base Class).
+// A team may use three distinct Base Classes, but never three Heroes from one Base Class.
+const MAX_HEROES_PER_BASE_CLASS=2;
+const BASE_CLASS_LIMIT_MESSAGE='Only 2 Heroes with the same Base Class can be selected.';
+function baseClassCounts(slots=state.slots,excludingSlot=-1){
+  const counts=new Map();
+  slots.forEach((slot,index)=>{
+    if(index===excludingSlot)return;
+    const baseClass=state.progressionById.get(slot.progressionId)?.baseClass;
+    if(baseClass)counts.set(baseClass,(counts.get(baseClass)||0)+1);
+  });
+  return counts;
 }
+function baseClassLimitIssue(slots=state.slots){
+  const counts=baseClassCounts(slots);
+  if([...counts.values()].some(count=>count>MAX_HEROES_PER_BASE_CLASS))return BASE_CLASS_LIMIT_MESSAGE;
+  return '';
+}
+function exceedsBaseClassLimit(slots=state.slots){return Boolean(baseClassLimitIssue(slots));}
 function legacyUniqueComplete(slots=state.slots){const ids=slots.map(slot=>slot.legacyId).filter(Boolean);return ids.length===3&&new Set(ids).size===3}
 function legacyCardCount(slots=state.slots){return slots.reduce((sum,slot)=>sum+(slot.progressionId?3:0)+(slot.legacyId?1:0),0)}
 function isDeckDirty(){return countDeck()>0||state.slots.some(slot=>slot.progressionId||slot.legacyId)||$('deckName').value.trim()!=='New Deck'}
@@ -119,14 +135,30 @@ function buildProgressions(){
   state.progressions.forEach(progression=>progression.cardIds.forEach(id=>state.progressionByHeroId.set(id,progression)));
 }
 
-function resetAllFilterStates(hasHeroes=false){
+function resetAllFilterStates(){
+  // RESET is the only action that clears saved upper-row filters and shared lower-row choices.
+  state.sharedFilters={pool:'available',manaMin:0,manaMax:9};
   for(const tab of ['heroes','legacies','skills','events','items']){
-    state.filtersByTab[tab]={
-      search:'',
-      pool:TAB_FAMILY[tab]&&hasHeroes?'available':'all',
-      className:'',skillType:'',attackStyle:'',keyword:'',effect:'',manaMin:0,manaMax:9
-    };
+    state.filtersByTab[tab]={search:'',className:'',skillType:'',attackStyle:'',keyword:'',effect:''};
   }
+}
+function syncPoolChoiceButtons(){
+  const select=$('cardPoolSelect');if(!select)return;
+  document.querySelectorAll('[data-pool-value]').forEach(button=>{
+    const active=button.dataset.poolValue===select.value;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-pressed',String(active));
+    button.disabled=false;
+    button.title='';
+  });
+}
+function bindPoolChoiceButtons(){
+  document.querySelectorAll('[data-pool-value]').forEach(button=>button.addEventListener('click',()=>{
+    if(button.disabled)return;
+    const select=$('cardPoolSelect');select.value=button.dataset.poolValue;
+    select.dispatchEvent(new Event('change',{bubbles:true}));
+    syncPoolChoiceButtons();
+  }));
 }
 function syncFilterControlsFromState(){
   const filters=state.filters;
@@ -135,28 +167,20 @@ function syncFilterControlsFromState(){
   filters.skillType=window.GL_S0_SUBTYPE_FILTER.fill($('skillTypeFilter'),TAB_FAMILY[state.libraryTab],filters.skillType);
   $('keywordFilter').value=filters.keyword||'';
   $('effectFilter').value=filters.effect||'';
-  $('manaMin').value=String(filters.manaMin);
-  $('manaMax').value=String(filters.manaMax);
-  $('cardPoolSelect').value=hasSelectedHeroes()?filters.pool:'all';
+  $('manaMin').value=String(state.sharedFilters.manaMin);
+  $('manaMax').value=String(state.sharedFilters.manaMax);
+  $('cardPoolSelect').value=state.sharedFilters.pool;
   updateManaRangeLabel();
+  syncPoolChoiceButtons();
 }
-function activateAvailablePool(){
-  const pool=hasSelectedHeroes()?'available':'all';
-  for(const tab of Object.keys(TAB_FAMILY))state.filtersByTab[tab].pool=pool;
-}
-function syncPoolGate(previousHadHeroes=false){
-  const hasHeroes=hasSelectedHeroes();
+function syncPoolGate(){
+  // Card Pool remains exactly as selected, including with zero Heroes.
+  // AVAILABLE lists no playable cards until at least one Hero is selected.
   const select=$('cardPoolSelect');
-  if(!hasHeroes){
-    select.value='all';
-    select.disabled=true;
-  }else{
-    select.disabled=false;
-    if(!previousHadHeroes){
-      for(const tab of Object.keys(TAB_FAMILY))state.filtersByTab[tab].pool='available';
-    }
-    select.value=state.filters.pool;
-  }
+  select.value=state.sharedFilters.pool;
+  select.disabled=false;
+  for(const option of select.options)option.disabled=false;
+  syncPoolChoiceButtons();
 }
 function setLibraryTab(tab){
   if(!['heroes','legacies','skills','events','items'].includes(tab))return;
@@ -187,21 +211,21 @@ function updateFilterVisibility(){
   $('skillTypeField').hidden=!mainTab;
   state.filters.skillType=window.GL_S0_SUBTYPE_FILTER.fill($('skillTypeFilter'),TAB_FAMILY[tab],state.filters.skillType);
   $('filterPanel').dataset.category=tab;
-  $('manaField').hidden=!(tab==='skills'||tab==='events');
+  $('manaField').hidden=!mainTab;
   $('keywordField').hidden=!mainTab;
   $('effectField').hidden=!mainTab;
   $('filterToggle').hidden=false;
-  syncPoolGate(hasSelectedHeroes());
+  syncPoolGate();
 }
 function resetFilters(){
-  state.filters={search:'',pool:TAB_FAMILY[state.libraryTab]&&hasSelectedHeroes()?'available':'all',className:'',skillType:'',attackStyle:'',keyword:'',effect:'',manaMin:0,manaMax:9};
+  resetAllFilterStates();
   syncFilterControlsFromState();
-  syncPoolGate(hasSelectedHeroes());renderLibrary();
+  syncPoolGate();renderLibrary();
 }
 function updateManaRangeLabel(){
   let min=Number($('manaMin').value),max=Number($('manaMax').value);
   if(min>max){if(document.activeElement===$('manaMin'))max=min;else min=max;$('manaMin').value=String(min);$('manaMax').value=String(max)}
-  state.filters.manaMin=min;state.filters.manaMax=max;$('manaRangeValue').textContent=`${min}–${max}`;const track=$('manaRangeTrack');if(track){const minPct=(min/9)*100,maxPct=(max/9)*100;track.style.background=`linear-gradient(to right,#30323d 0 ${minPct}%,#0aa8f6 ${minPct}% ${maxPct}%,#30323d ${maxPct}% 100%)`}
+  state.sharedFilters.manaMin=min;state.sharedFilters.manaMax=max;$('manaRangeValue').textContent=`${min}–${max}`;const track=$('manaRangeTrack');if(track){const minPct=(min/9)*100,maxPct=(max/9)*100;track.style.background=`linear-gradient(to right,#30323d 0 ${minPct}%,#0aa8f6 ${minPct}% ${maxPct}%,#30323d ${maxPct}% 100%)`}
 }
 
 function filteredProgressions(){
@@ -233,8 +257,8 @@ function filteredMainCards(){
       if(!required.length)return false;
     }
     if(state.filters.skillType&&!window.GL_S0_SUBTYPE_FILTER.matches(card,state.filters.skillType))return false;
-    if((family==='Skill'||family==='Event')){const mana=manaNumber(card);if(mana<state.filters.manaMin||mana>state.filters.manaMax)return false}
-    if(state.filters.pool==='available'&&!cardAvailable(card))return false;
+    {const mana=manaNumber(card);if(mana<state.sharedFilters.manaMin||mana>state.sharedFilters.manaMax)return false}
+    if(state.sharedFilters.pool==='available'&&!cardAvailable(card))return false;
     return true;
   }).sort(idSort);
 }
@@ -250,10 +274,15 @@ function renderHeroLibrary(){
   $('libraryResultCount').textContent=`${progressions.length} of ${state.progressions.length} Hero packages`;
   $('heroLibrary').innerHTML=progressions.map(progression=>{
     const selected=selectedIds.has(progression.id),cards=progression.cardIds.map(cardById);
-    return `<article class="hero-package ${selected?'selected':''}" data-hero-package-id="${progression.id}">
+    const nextSlots=clone(state.slots);
+    const blankIndex=nextSlots.findIndex(slot=>!slot.progressionId);
+    if(blankIndex>=0)nextSlots[blankIndex].progressionId=progression.id;
+    const classIssue=!selected&&blankIndex>=0?baseClassLimitIssue(nextSlots):'';
+    const baseBlocked=Boolean(classIssue);
+    return `<article class="hero-package ${selected?'selected':baseBlocked?'base-class-blocked':''}" data-hero-package-id="${progression.id}">
       <div class="hero-rank-cards" draggable="true" data-hero-library-drag="${progression.id}" aria-label="Drag ${esc(progression.name)} to a formation slot">${cards.map(card=>`<span class="hero-rank-card"><img src="${card.image}" alt="${esc(card.name)}"></span>`).join('')}</div>
       <div class="hero-package-info"><span class="info-label">HERO NAME</span><h3>${esc(progression.name)}</h3><dl><div><dt>RACIAL</dt><dd>${esc(progression.race)}</dd></div><div><dt>LINEAGES</dt><dd>${progressionLineageRows(progression).map(esc).join('<br>')}</dd></div></dl>
-      <button class="hero-select ${selected?'remove':''}" type="button" data-hero-action="${progression.id}" ${!selected&&full?'disabled':''}>${selected?'REMOVE HERO':'SELECT HERO'}</button></div>
+      <button class="hero-select ${selected?'remove':''}" type="button" data-hero-action="${progression.id}" ${!selected&&(full||baseBlocked)?'disabled':''}>${selected?'REMOVE HERO':'SELECT HERO'}</button>${baseBlocked?`<small class="hero-base-class-limit">${esc(classIssue)} Replace an existing Hero to choose this progression.</small>`:''}</div>
     </article>`;
   }).join('');
   document.querySelectorAll('[data-hero-action]').forEach(button=>button.addEventListener('click',()=>toggleHero(button.dataset.heroAction)));
@@ -290,6 +319,7 @@ function renderMainLibrary(){
       <span class="card-frame"><img src="${card.image}" alt="${esc(card.name)}">${qty?`<span class="owned-badge">×${qty}</span>`:''}${!available?'<span class="lock-dot">●</span>':''}<button class="library-review-button" type="button" draggable="false" data-open-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></span><span class="library-card-name">${esc(card.name)}</span>
     </article>`;
   }).join('');
+  if(!cards.length&&!hasHeroes&&state.sharedFilters.pool==='available')$('cardLibrary').innerHTML='<p class="s0-available-empty">Select a Hero in the Legacy Deck to view available cards. Or choose ALL CARDS to browse the full library.</p>';
   bindMainLibraryClicks();bindLibraryReviewButtons($('cardLibrary'));
 }
 function bindMainLibraryClicks(){
@@ -336,7 +366,7 @@ async function placeHeroAtSlot(progressionId,targetIndex){
     proposed[targetIndex]={progressionId,legacyId:''};
     proposed[targetIndex].legacyId=defaultLegacyForProgression(progressionId,proposed);
   }
-  if(exceedsBaseClassLimit(proposed)){toast(BASE_CLASS_LIMIT_MESSAGE);return}
+  const classIssue=baseClassLimitIssue(proposed);if(classIssue){toast(classIssue);return}
   const removed=lostCompatibilityEntries(proposed);
   if(removed.length){
     const total=removed.reduce((sum,entry)=>sum+entry.quantity,0);
@@ -344,7 +374,7 @@ async function placeHeroAtSlot(progressionId,targetIndex){
     if(!ok)return;
     removed.forEach(entry=>{if(entry.card)delete state.deck[entry.card.id]});
   }
-  state.slots=proposed;activateAvailablePool();syncPoolGate(previousComplete);renderAll();
+  state.slots=proposed;syncPoolGate();renderAll();
 }
 function bindHeroDropZones(){
   document.querySelectorAll('[data-hero-drop-slot]').forEach(zone=>{
@@ -382,10 +412,10 @@ async function toggleHero(progressionId){
   }else{
     const emptyIndex=state.slots.findIndex(slot=>!slot.progressionId);if(emptyIndex<0)return;
     const proposed=clone(state.slots);proposed[emptyIndex].progressionId=progressionId;proposed[emptyIndex].legacyId=defaultLegacyForProgression(progressionId,proposed);
-    if(exceedsBaseClassLimit(proposed)){toast(BASE_CLASS_LIMIT_MESSAGE);return}
+    const classIssue=baseClassLimitIssue(proposed);if(classIssue){toast(classIssue);return}
     state.slots=proposed;
   }
-  activateAvailablePool();syncPoolGate(previousComplete);renderAll();
+  syncPoolGate();renderAll();
 }
 function swapSlots(leftIndex,rightIndex){
   if(!state.slots[leftIndex]?.progressionId||!state.slots[rightIndex]?.progressionId)return;
@@ -568,8 +598,8 @@ function labeledRowName(label='',prefix=''){
 function romanRank(value){return ({1:'I',2:'II',3:'III'})[Number(value||1)]||String(value||'-')}
 function rankUpBonusText(rank){
   const value=Number(rank||1);
-  if(value===2)return 'After Rank Up, draw 2 cards and gain +1 Mana Regen.';
-  if(value===3)return 'After Rank Up, draw 3 cards and gain +1 Mana Regen.';
+  if(value===2)return 'After Rank Up, return 2 EXP cards to your hand and gain +1 Mana Regen.';
+  if(value===3)return 'After Rank Up, return 3 EXP cards to your hand and gain +1 Mana Regen.';
   return '';
 }
 function heroExpValue(rank){return ({1:'—',2:'300',3:'700'})[Number(rank||1)]||'—'}
@@ -733,7 +763,7 @@ function updateExportButton(){const valid=validationIssues().length===0&&countDe
 function askConfirm(options){return window.GL_S0_MODAL.askConfirm(options,esc)}
 
 function blankDeck(){
-  state.deck={};state.slots=[emptySlot(),emptySlot(),emptySlot()];state.rankView=1;$('deckName').value='New Deck';resetAllFilterStates(false);syncPoolGate(false);setLibraryTab('heroes');renderAll();
+  state.deck={};state.slots=[emptySlot(),emptySlot(),emptySlot()];state.rankView=1;$('deckName').value='New Deck';syncPoolGate();setLibraryTab('heroes');renderAll();
 }
 function normalizeImportedDeck(data){
   data=s0ImportPayload(data);
@@ -756,8 +786,8 @@ function compactDeckName(name=''){
   return starter?`Starter ${starter[1]}`:value;
 }
 function applyDeck(normalized){
-  if(exceedsBaseClassLimit(normalized.slots))throw new Error(BASE_CLASS_LIMIT_MESSAGE);
-  const previousComplete=hasSelectedHeroes();state.deck={...normalized.deck};state.slots=clone(normalized.slots);while(state.slots.length<3)state.slots.push(emptySlot());$('deckName').value=compactDeckName(normalized.name||'New Deck');state.rankView=1;resetAllFilterStates(hasSelectedHeroes());syncPoolGate(previousComplete);setLibraryTab('heroes');renderAll();
+  const classIssue=baseClassLimitIssue(normalized.slots);if(classIssue)throw new Error(classIssue);
+  const previousComplete=hasSelectedHeroes();state.deck={...normalized.deck};state.slots=clone(normalized.slots);while(state.slots.length<3)state.slots.push(emptySlot());$('deckName').value=compactDeckName(normalized.name||'New Deck');state.rankView=1;syncPoolGate();setLibraryTab('heroes');renderAll();
 }
 function starterCover(starter,index){
   const slots=starter.legacy_deck_package_slots||starter.side_deck_package_slots||[];
@@ -816,7 +846,7 @@ function bindStaticEvents(){
   document.querySelectorAll('[data-section-toggle]').forEach(button=>button.addEventListener('click',()=>toggleSection(button.dataset.sectionToggle)));
   $('filterToggle').addEventListener('click',()=>{const panel=$('filterPanel'),open=panel.hidden;panel.hidden=!open;$('filterToggle').setAttribute('aria-expanded',String(open))});
   $('searchInput').addEventListener('input',event=>{state.filters.search=event.target.value;renderLibrary()});
-  $('cardPoolSelect').addEventListener('change',event=>{state.filters.pool=event.target.value;renderLibrary()});
+  $('cardPoolSelect').addEventListener('change',event=>{state.sharedFilters.pool=event.target.value;syncPoolChoiceButtons();renderLibrary()});bindPoolChoiceButtons();
   $('classFilter').addEventListener('change',event=>{state.filters.className=event.target.value;renderLibrary()});
   $('skillTypeFilter').addEventListener('change',event=>{state.filters.skillType=event.target.value;renderLibrary()});
   $('keywordFilter').addEventListener('change',event=>{state.filters.keyword=event.target.value;renderLibrary()});
@@ -893,13 +923,13 @@ function s0Validation(){
  const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'starter_safe'});
  const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
  if(ultClasses.size>3){v.errors.push('More than 3 different Ultimate Color Mana Shards are required');v.ok=false;}
- if(exceedsBaseClassLimit()){v.errors.push(BASE_CLASS_LIMIT_MESSAGE);v.ok=false;}
+ const classIssue=baseClassLimitIssue();if(classIssue){v.errors.push(classIssue);v.ok=false;}
  return v;
 }
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.4-MainDeck-LegacyDeck-PlayerRulebook-v2.9',rulebook:'v2.9',season:'S0',builder_version:'1.61',style,
+  source_authority:'R3.6-MainDeck-LegacyDeck-PlayerRulebook-v3.1',rulebook:'v3.1',season:'S0',builder_version:'1.64',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

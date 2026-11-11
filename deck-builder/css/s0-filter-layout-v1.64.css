@@ -1,0 +1,163 @@
+/* Grandis Legacy v1.64 minor filter-layout revision (both styles, desktop and mobile).
+   Desktop rows: 2+2+2+2 then 3+3+2 of an eight-track grid. */
+.gl-filter-grid-style1,
+.gl-filter-grid-style2 {
+  display:grid!important;
+  grid-template-columns:repeat(8,minmax(0,1fr))!important;
+  gap:10px 8px!important;
+  align-items:start!important;
+  min-width:0!important;
+}
+.gl-filter-grid-style1 > *,
+.gl-filter-grid-style2 > * { min-width:0!important; }
+.gl-filter-grid-style1 > #skillTypeField,
+.gl-filter-grid-style2 > #skillTypeField { grid-column:1 / span 2!important;grid-row:1!important; }
+.gl-filter-grid-style1 > #classField,
+.gl-filter-grid-style2 > #classField { grid-column:3 / span 2!important;grid-row:1!important; }
+.gl-filter-grid-style1 > #keywordField,
+.gl-filter-grid-style2 > #keywordField { grid-column:5 / span 2!important;grid-row:1!important; }
+.gl-filter-grid-style1 > #effectField,
+.gl-filter-grid-style2 > #effectField { grid-column:7 / span 2!important;grid-row:1!important; }
+.gl-filter-grid-style1 > #manaField,
+.gl-filter-grid-style2 > .mana-filter {
+  grid-column:1 / span 3!important;
+  grid-row:2!important;
+  align-self:start!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+  margin:0!important;
+  padding:0!important;
+  background:none!important;
+  border:0!important;
+  min-height:0!important;
+  width:100%!important;
+  height:auto!important;
+}
+.gl-filter-grid-style1 > #cardPoolField,
+.gl-filter-grid-style2 > #cardPoolField {
+  grid-column:4 / span 3!important;
+  grid-row:2!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+  margin:0!important;
+  width:100%!important;
+  min-height:0!important;
+  align-self:start!important;
+}
+.gl-filter-grid-style1 > #resetFilters,
+.gl-filter-grid-style2 > #resetFilters {
+  grid-column:7 / span 2!important;
+  grid-row:2!important;
+  align-self:end!important;
+  width:100%!important;
+  min-width:0!important;
+  height:34px!important;
+  margin:0!important;
+  padding:0 8px!important;
+  font-size:10px!important;
+}
+/* Retain TYPE native control for Style 2 state compatibility but use the
+   header quick buttons on BOTH desktop and mobile. */
+.gl-filter-grid-style2 > .gl-type-field { display:none!important; }
+.gl-filter-grid-style1 > [hidden],.gl-filter-grid-style2 > [hidden] { display:none!important; }
+/* Same visual width as the row above. Both bottom section headings centred. */
+.gl-filter-grid-style1 > #manaField .field-label-row,
+.gl-filter-grid-style2 > .mana-filter .mana-label {
+  display:flex!important;
+  justify-content:center!important;
+  position:relative!important;
+  align-items:center!important;
+  width:100%!important;
+  height:17px!important;
+  min-height:17px!important;
+  margin:0!important;
+}
+.gl-filter-grid-style1 > #manaField .field-label-row > span,
+.gl-filter-grid-style2 > .mana-filter .mana-label > span {text-align:center!important;width:auto!important;}
+.gl-filter-grid-style1 > #manaField .field-label-row strong,
+.gl-filter-grid-style2 > .mana-filter .mana-label strong {
+  position:absolute!important;
+  right:0!important;
+  top:0!important;
+  text-align:right!important;
+}
+.gl-filter-grid-style1 > #cardPoolField > span,
+.gl-filter-grid-style2 > #cardPoolField > span {
+  text-align:center!important;
+  width:100%!important;
+  height:17px!important;
+  min-height:17px!important;
+  line-height:17px!important;
+  font-size:10px!important;
+  font-weight:900!important;
+  color:#f2c65b!important;
+  letter-spacing:.06em!important;
+}
+.gl-filter-grid-style1 > #manaField .mana-range-wrap,
+.gl-filter-grid-style2 > .mana-filter .mana-range-wrap {width:100%!important;height:34px!important;min-height:34px!important;}
+.gl-pool-native-select {position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;}
+.gl-pool-choice {
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  width:100%!important;
+  height:34px!important;
+  min-height:34px!important;
+  border:1px solid #555965!important;
+  border-radius:7px!important;
+  overflow:hidden!important;
+  background:#20222a!important;
+}
+.gl-pool-option {
+  min-width:0!important;
+  width:100%!important;
+  height:100%!important;
+  border:0!important;
+  border-radius:0!important;
+  padding:0 2px!important;
+  background:transparent!important;
+  color:#e8e9ed!important;
+  font:800 clamp(8px,.65vw,10px) 'Noto Sans',sans-serif!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+  text-align:center!important;
+  cursor:pointer!important;
+}
+.gl-pool-option + .gl-pool-option { border-left:1px solid #494c58!important; }
+.gl-pool-option.active { background:linear-gradient(#bc932e,#8b681d)!important;color:white!important; }
+.gl-pool-option:disabled {opacity:.45!important;cursor:not-allowed!important;}
+.gl-pool-option:focus-visible{outline:2px solid #f5d478!important;outline-offset:-3px!important;z-index:1!important;}
+@media(max-width:760px){
+  .gl-filter-grid-style1,.gl-filter-grid-style2 {
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px 8px!important;
+  }
+  .gl-filter-grid-style1 > #skillTypeField,.gl-filter-grid-style2 > #skillTypeField {grid-column:1!important;grid-row:1!important;}
+  .gl-filter-grid-style1 > #classField,.gl-filter-grid-style2 > #classField {grid-column:2!important;grid-row:1!important;}
+  .gl-filter-grid-style1 > #keywordField,.gl-filter-grid-style2 > #keywordField {grid-column:1!important;grid-row:2!important;}
+  .gl-filter-grid-style1 > #effectField,.gl-filter-grid-style2 > #effectField {grid-column:2!important;grid-row:2!important;}
+  .gl-filter-grid-style1 > #manaField,.gl-filter-grid-style2 > .mana-filter {grid-column:1 / -1!important;grid-row:3!important;}
+  .gl-filter-grid-style1 > #cardPoolField,.gl-filter-grid-style2 > #cardPoolField {grid-column:1 / -1!important;grid-row:4!important;}
+  .gl-filter-grid-style1 > #resetFilters,.gl-filter-grid-style2 > #resetFilters {grid-column:1 / -1!important;grid-row:5!important;min-height:34px!important;}
+  .gl-pool-option {font-size:10px!important;}
+}
+/* At narrow desktop widths, Style 2's library is a split workspace pane.
+   Avoid clipped dropdown text and overlapping choice-button labels while
+   keeping the approved four-column arrangement on full desktop widths. */
+@media (min-width:761px) and (max-width:1099px){
+  .gl-filter-grid-style2 {grid-template-columns:repeat(4,minmax(0,1fr))!important;}
+  .gl-filter-grid-style2 > #skillTypeField {grid-column:1 / span 2!important;grid-row:1!important;}
+  .gl-filter-grid-style2 > #classField {grid-column:3 / span 2!important;grid-row:1!important;}
+  .gl-filter-grid-style2 > #keywordField {grid-column:1 / span 2!important;grid-row:2!important;}
+  .gl-filter-grid-style2 > #effectField {grid-column:3 / span 2!important;grid-row:2!important;}
+  .gl-filter-grid-style2 > .mana-filter {grid-column:1 / span 2!important;grid-row:3!important;}
+  .gl-filter-grid-style2 > #cardPoolField {grid-column:3 / span 2!important;grid-row:3!important;}
+  .gl-filter-grid-style2 > #resetFilters {grid-column:3 / span 2!important;grid-row:4!important;}
+  .gl-filter-grid-style2 .gl-pool-option {font-size:8px!important;}
+}
+
+/* v1.64 minor polish: endpoints below the slider already show 0 and 9.
+   Hide the duplicate live range above, preserving the slider state/logic. */
+.gl-filter-grid-style1 > #manaField #manaRangeValue,
+.gl-filter-grid-style2 > .mana-filter #manaRangeValue {display:none!important;}

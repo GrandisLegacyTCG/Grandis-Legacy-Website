@@ -49,6 +49,7 @@ const feedback=document.createElement('div');feedback.className='gl-feedback';BF
 const choiceOverlay=document.createElement('div');choiceOverlay.className='overlay choice-overlay gl-vsai-choice-overlay';choiceOverlay.innerHTML='<section class="choice-panel"><header class="choice-head"><h2 class="gl-choice-title">Choice</h2></header><div class="choice-body gl-choice-body"></div><footer class="choice-foot"><button type="button" class="gl-choice-cancel" hidden>CANCEL</button><button type="button" class="gl-choice-confirm">CONFIRM</button></footer></section>';document.body.appendChild(choiceOverlay);
 const playedDetailOverlay=document.createElement('div');playedDetailOverlay.className='gl-played-detail-overlay';playedDetailOverlay.innerHTML='<section class="gl-played-detail-panel" role="dialog" aria-modal="true" aria-labelledby="glPlayedDetailTitle"><header class="gl-played-detail-head"><h2 id="glPlayedDetailTitle">Card Played</h2><button type="button" class="gl-played-detail-close" aria-label="Close Card Played detail">CLOSE</button></header><div class="gl-played-detail-body"></div></section>';document.body.appendChild(playedDetailOverlay);
 const cardReviewOverlay=document.createElement('div');cardReviewOverlay.className='gl-card-review-overlay';cardReviewOverlay.innerHTML='<section class="gl-card-review-panel" role="dialog" aria-modal="true" aria-label="Card Review"><div class="gl-card-review-body"></div></section>';document.body.appendChild(cardReviewOverlay);
+const expInspectorOverlay=document.createElement('div');expInspectorOverlay.className='gl-exp-inspector-overlay';expInspectorOverlay.innerHTML='<section class="gl-exp-inspector-panel" id="glExpInspectorDialog" role="dialog" aria-modal="true" aria-labelledby="glExpInspectorTitle"><header class="gl-exp-inspector-head"><div><span class="gl-exp-inspector-eyebrow">HERO EXP CARDS</span><h2 id="glExpInspectorTitle">EXP Cards</h2></div><button type="button" class="gl-exp-inspector-close">CLOSE</button></header><div class="gl-exp-inspector-summary"></div><div class="gl-exp-inspector-list"></div><p class="gl-exp-inspector-foot">Hover to enlarge (as in Legacy Deck); click for full Card Review. Ultimate EXP cannot return to Hand.</p></section>';document.body.appendChild(expInspectorOverlay);
 const animationLayer=document.createElement('div');animationLayer.className='gl-animation-layer';animationLayer.setAttribute('aria-hidden','true');document.body.appendChild(animationLayer);
 const modalHoverPreview=document.createElement('div');modalHoverPreview.className='gl-modal-hover-preview';modalHoverPreview.setAttribute('aria-hidden','true');const modalHoverImg=document.createElement('img');modalHoverPreview.appendChild(modalHoverImg);document.body.appendChild(modalHoverPreview);
 const sidebarHoverPreview=document.createElement('div');sidebarHoverPreview.className='gl-sidebar-hover-preview';sidebarHoverPreview.setAttribute('aria-hidden','true');const sidebarHoverImg=document.createElement('img');sidebarHoverPreview.appendChild(sidebarHoverImg);document.body.appendChild(sidebarHoverPreview);
@@ -64,14 +65,23 @@ let activeModalType='',heldCombatCards=[],handRenderKey='',opponentHandRenderKey
 let uiResponseSourceChoice=null,responseRollbackSnapshot=null;
 let activeCardHold=null,activeCardPhaseStamp='';
 let inspectState=null,lobbyIsOpen=true,lobbyErrorText='';
-let openingFirstSide='PLAYER',openingChoice='HEADS',openingOutcome='HEADS',openingPresentationActive=false;
+let openingFirstSide='PLAYER',openingChoice='HEADS',openingOutcome='HEADS',openingCoinWinner=null,openingChosenOrder=null,openingPresentationActive=false,openingAiDecisionTimer=null;
 let glOpeningHiddenShardUids=new Set(),resultShown=false;
 let transientConnectorKey='',transientConnectorUntil=0,transientDefenseConnector=null;
 let presentationPrimed=false,previousVisualState=null,lastTurnBannerKey='';
+// Rank Up visuals stay on the old Hero until the mandatory EXP choice is committed.
+let glDeferredTrialRankTransitions=[];
+// A manual Rank Up keeps each returned Hand slot hidden until its own flight
+// arrives. Keys include the side and final 0-based Hand index.
+const glTrialHandFlightKeys=new Set();
+// Every Rank Up EXP return uses one atomic visual transaction. Epoch prevents
+// callbacks from a previous match revealing slots in a new match.
+let glPresentationEpoch=0;
+const glTrialReturnBatches=new Set();
 let lastPhaseIndicatorKey='',lastInteractionFocusMode='',matchStartedAt=0,matchStoppedElapsed=0;
 let responsePassWindowKey='',responsePassWindowStartedAt=0;
 let centerChoiceKey='',centerChoiceRenderSig='',centerChoiceBusy=false,centerChoiceMagicRevealed=false;
-let glPresentationActive=0,glPresentationBusyUntil=0;
+let glPresentationActive=0,glPresentationBusyUntil=0,glRankPresentationRunning=0;
 let glAttachmentLastPress={key:'',at:0};
 const seenPresentationEvents=new Set();
 // External draw presentation state. This mirrors the current VS AI model:
@@ -87,33 +97,6 @@ const laneOrder=['LEFT','CENTER','RIGHT'];
 function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
 function cv(id){return id?E().cardView(id):null;}
 function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp':'';}
-// Hand artwork is fetched ahead of the reveal. Keep only a small bounded set
-// of warm Image objects; browser HTTP caching handles later hand re-renders.
-const glHandArtworkPreloads=new Map();
-function preloadHandArtwork(id){
-  if(!id)return;
-  const key=String(id);
-  if(glHandArtworkPreloads.has(key))return;
-  const image=new Image();
-  glHandArtworkPreloads.set(key,image);
-  image.src=art(key);
-  if(glHandArtworkPreloads.size>16)glHandArtworkPreloads.delete(glHandArtworkPreloads.keys().next().value);
-}
-function bindPlayerHandArtwork(card,image,id){
-  // Hold the front transparent against the real card back until it is decoded.
-  // Prevents alt-text flashing on a slow or cold image request.
-  card.classList.add('gl-hand-art','gl-hand-art-loading');
-  const reveal=()=>{if(image.naturalWidth>0)card.classList.remove('gl-hand-art-loading')};
-  const loaded=()=>{
-    if(typeof image.decode==='function')image.decode().then(reveal,()=>{if(image.complete)reveal()});
-    else reveal();
-  };
-  image.addEventListener('load',loaded,{once:true});
-  image.src=art(id);
-  if(image.complete&&image.naturalWidth>0)loaded();
-  preloadHandArtwork(id);
-  // An image request failure leaves the card back visible, not alt text.
-}
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cloneLite(v){try{return JSON.parse(JSON.stringify(v))}catch{return null}}
@@ -218,6 +201,13 @@ function resolveActionSourceLane(s,a){
   return lane===a.lane?a:{...a,lane};
 }
 function statusIcon(name){return 'engine/assets/status-icons/Icon-'+String(name||'').replace(/[^A-Za-z]/g,'')+'.png';}
+function purifyStatusArt(name){
+  const valid=['Bleed','Burn','Freeze','Poison','Stun'];
+  if(valid.includes(name))return statusIcon(name);
+  const glyph=name==='Sleep'?'Zz':String(name||'?').slice(0,2).toUpperCase();
+  const xml='<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect x="6" y="6" width="148" height="148" rx="30" fill="#193244" stroke="#eac874" stroke-width="5"/><text x="80" y="100" fill="#ffe1a5" font-size="58" font-family="sans-serif" text-anchor="middle" font-weight="bold">'+glyph+'</text></svg>';
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
+}
 function getStatusName(x){try{return E().getStatusLabel(x)||x?.name||x?.status||''}catch{return x?.name||x?.status||''}}
 function isPrecommitCancelable(s){const p=s?.pending;if(!p||s?.responseWindow)return false;return ['warp_scroll_selection','source_selection','target_selection','scouting_target_selection','exact_two_target_selection','double_casting_target_selection','mana_spend_choice','mana_shard_payment_choice','optional_magical_surge','status_removal_choice','tribute_target','racial_target_selection','hero_ability_target_selection','legacy_cost_selection','legacy_hero_target_selection','manual_reposition'].includes(p.type);}
 function pendingOwner(p){return p&&(p.decision_side||p.response_owner||p.side||p.source_side||(p.type==='hand_limit_discard'?'PLAYER':null));}
@@ -410,7 +400,7 @@ function placeContextualModalHoverPreview(anchor,compactHero){
   // Contextual popup previews belong to the hovered card, but should not cover the
   // popup grid. Pick the outside edge that corresponds to the hovered card's half
   // of the popup, then fall back to whichever outside edge actually fits.
-  const panel=anchor.closest?.('.choice-panel')||choiceOverlay.querySelector('.choice-panel'),pr=uiRect(panel);
+  const panel=anchor.closest?.('.gl-exp-inspector-panel')||anchor.closest?.('.choice-panel')||choiceOverlay.querySelector('.choice-panel'),pr=uiRect(panel);
   let useRight;
   if(pr){
     useRight=(ar.left+ar.width/2)>=(pr.left+pr.width/2);
@@ -744,22 +734,68 @@ function renderLobby(){
   lobbyOverlay.classList.add('open');appRoot?.classList.add('gl-lobby-hidden');
   const opts=B()?.getStarterDeckOptions?.()||{},state=E()?.getDeckSetupState?.()||{},difficulty=String(state.difficulty||E()?.getAIDifficulty?.()||'beginner'),keys=Object.keys(opts).slice(0,difficulty==='beginner'?3:5);
   const host=document.getElementById('glLobbyDecks'),err=document.getElementById('glLobbyError');if(!host||!err)return;err.textContent=lobbyErrorText||'';err.classList.toggle('show',!!lobbyErrorText);
-  const sideBlock=(side,data)=>{const selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2><span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select><button type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden></div>'+deckFormationHtml(side)+'</section>'};
+  const sideBlock=(side,data)=>{const canImport=difficulty==='intermediate',selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=canImport&&selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');const importControl=canImport?'<button type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden>':'';return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2><span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select>'+importControl+'</div>'+deckFormationHtml(side)+'</section>'};
   host.innerHTML=sideBlock('PLAYER',state.player)+sideBlock('AI',state.ai);
   host.querySelectorAll('[data-lobby-select]').forEach(sel=>sel.onchange=()=>{const side=sel.dataset.lobbySelect,r=E().selectDeck?.(side,sel.value);if(!r?.ok)lobbyErrorText=r?.error||'Could not select deck.';else lobbyErrorText='';renderLobby()});
-  host.querySelectorAll('[data-lobby-import]').forEach(btn=>btn.onclick=()=>host.querySelector('[data-lobby-file="'+btn.dataset.lobbyImport+'"]')?.click());
-  host.querySelectorAll('[data-lobby-file]').forEach(inp=>inp.onchange=()=>{const f=inp.files?.[0];if(!f)return;const side=inp.dataset.lobbyFile,reader=new FileReader();reader.onload=()=>{try{const raw=JSON.parse(String(reader.result||'')),r=E().importDeck?.(side,raw);if(!r?.ok)throw new Error(r?.error||'Invalid deck file.');lobbyErrorText='';renderLobby()}catch(err){lobbyErrorText=String(err?.message||err);renderLobby()}};reader.onerror=()=>{lobbyErrorText='Could not read the selected deck file.';renderLobby()};reader.readAsText(f);inp.value=''});
+  host.querySelectorAll('[data-lobby-import]').forEach(btn=>btn.onclick=()=>{if(difficulty!=='intermediate')return;host.querySelector('[data-lobby-file="'+btn.dataset.lobbyImport+'"]')?.click()});
+  host.querySelectorAll('[data-lobby-file]').forEach(inp=>inp.onchange=()=>{const f=inp.files?.[0];if(!f)return;const side=inp.dataset.lobbyFile;if(difficulty!=='intermediate'){lobbyErrorText='Custom deck import requires Intermediate difficulty.';renderLobby();return;}const reader=new FileReader();reader.onload=()=>{try{const raw=JSON.parse(String(reader.result||'')),r=E().importDeck?.(side,raw);if(!r?.ok)throw new Error(r?.error||'Invalid deck file.');lobbyErrorText='';renderLobby()}catch(err){lobbyErrorText=String(err?.message||err);renderLobby()}};reader.onerror=()=>{lobbyErrorText='Could not read the selected deck file.';renderLobby()};reader.readAsText(f);inp.value=''});
   host.querySelectorAll('[data-lobby-swap-left]').forEach(btn=>btn.onclick=()=>{E().swapLobbyFormation?.(btn.dataset.lobbySwapSide,btn.dataset.lobbySwapLeft,btn.dataset.lobbySwapRight);renderLobby()});
   host.querySelectorAll('[data-lobby-rank-delta]').forEach(btn=>btn.onclick=()=>{E().cycleLobbyRank?.(btn.dataset.lobbyRankSide,Number(btn.dataset.lobbyRankDelta||0));renderLobby()});
   host.querySelectorAll('[data-lobby-progression]').forEach(btn=>btn.onclick=()=>openLobbyHeroProgression(btn.dataset.lobbyProgressionSide,btn.dataset.lobbyProgression));
   lobbyOverlay.querySelectorAll('[data-gl-ai-diff]').forEach(btn=>{const active=btn.dataset.glAiDiff===difficulty;btn.classList.toggle('is-selected',active);btn.setAttribute('aria-pressed',String(active));btn.onclick=()=>{const r=B()?.setAIDifficulty?.(btn.dataset.glAiDiff,true);lobbyErrorText=r?.ok?'':(r?.error||'Could not select difficulty.');renderLobby()};});
   document.getElementById('glLobbyStart').onclick=startMatchFromLobby;
 }
-function coinFaceSrc(face){return String(face||'HEADS').toUpperCase()==='TAILS'?'assets/ui/Racial-Token-Tail.webp?glsrc=867e6c6d1d33':'assets/ui/Racial-Token-Head.webp?glsrc=b1d265365339'}
+function coinFaceSrc(face){return String(face||'HEADS').toUpperCase()==='TAILS'?'assets/ui/Racial-Token-Tail.webp':'assets/ui/Racial-Token-Head.webp'}
 function fairCoinOutcome(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return (a[0]&1)?'TAILS':'HEADS'}catch{return Math.random()<.5?'HEADS':'TAILS'}}
-function renderCoinChoice(){const body=coinOverlay.querySelector('.gl-coin-body');body.innerHTML='<p>Choose Heads or Tails. The winner takes the first Draw Phase.</p><div class="gl-coin-actions"><button type="button" data-coin-choice="HEADS"><img src="'+coinFaceSrc('HEADS')+'" alt="Heads"><span>Heads</span></button><button type="button" data-coin-choice="TAILS"><img src="'+coinFaceSrc('TAILS')+'" alt="Tails"><span>Tails</span></button></div>';body.querySelectorAll('[data-coin-choice]').forEach(btn=>btn.onclick=()=>runCoinFlip(btn.dataset.coinChoice));coinOverlay.classList.add('open')}
-function runCoinFlip(choice){openingChoice=choice==='TAILS'?'TAILS':'HEADS';openingOutcome=fairCoinOutcome();openingFirstSide=openingChoice===openingOutcome?'PLAYER':'AI';const body=coinOverlay.querySelector('.gl-coin-body');let face=openingOutcome==='HEADS'?'TAILS':'HEADS';body.innerHTML='<p>Flipping the coin...</p><div class="gl-coin-flip-stage"><img src="'+coinFaceSrc(face)+'" alt="Coin"></div>';const im=body.querySelector('img');let step=0;const totalSteps=8,halfDuration=72;B()?.playOpeningCoinSound?.();const runStep=()=>{if(step>=totalSteps){im.src=coinFaceSrc(openingOutcome);im.alt=openingOutcome==='HEADS'?'Heads':'Tails';im.style.transition='none';im.style.transform='translateY(0) scaleX(1)';const text=body.querySelector('p');if(text)text.textContent=(openingOutcome==='HEADS'?'Heads':'Tails')+'!';setTimeout(renderCoinResult,1000);return}const progress=(step+1)/totalSteps,lift=Math.round(Math.sin(progress*Math.PI)*22);im.style.transition='transform '+halfDuration+'ms cubic-bezier(.45,0,.55,1)';im.style.transform='translateY(-'+lift+'px) scaleX(.04)';setTimeout(()=>{face=face==='HEADS'?'TAILS':'HEADS';im.src=coinFaceSrc(face);im.style.transition='transform '+halfDuration+'ms cubic-bezier(.2,.75,.3,1)';im.style.transform='translateY(-'+lift+'px) scaleX(1)';setTimeout(()=>{step++;runStep()},halfDuration)},halfDuration)};runStep()}
-function renderCoinResult(){const body=coinOverlay.querySelector('.gl-coin-body'),won=openingFirstSide==='PLAYER';body.innerHTML='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong><p>'+(won?'You will take the first turn.':'Local AI will take the first turn.')+'</p></div><div class="gl-coin-result gl-coin-single-result"><img src="'+coinFaceSrc(openingOutcome)+'" alt="Coin result: '+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div><button class="gl-coin-start" type="button">Start Game</button>';body.querySelector('.gl-coin-start').onclick=beginOpeningPresentation}
+function renderCoinChoice(){
+  openingCoinWinner=null;openingChosenOrder=null;openingFirstSide='PLAYER';
+  if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}
+  const body=coinOverlay.querySelector('.gl-coin-body');
+  body.innerHTML='<p>Choose Heads or Tails. The winner chooses to go FIRST or SECOND.</p><div class="gl-coin-actions"><button type="button" data-coin-choice="HEADS"><img src="'+coinFaceSrc('HEADS')+'" alt="Heads"><span>Heads</span></button><button type="button" data-coin-choice="TAILS"><img src="'+coinFaceSrc('TAILS')+'" alt="Tails"><span>Tails</span></button></div>';
+  body.querySelectorAll('[data-coin-choice]').forEach(btn=>btn.onclick=()=>runCoinFlip(btn.dataset.coinChoice));coinOverlay.classList.add('open');
+}
+function runCoinFlip(choice){
+  openingChoice=choice==='TAILS'?'TAILS':'HEADS';openingOutcome=fairCoinOutcome();
+  openingCoinWinner=openingChoice===openingOutcome?'PLAYER':'AI';openingChosenOrder=null;
+  const body=coinOverlay.querySelector('.gl-coin-body');let face=openingOutcome==='HEADS'?'TAILS':'HEADS';
+  body.innerHTML='<p>Flipping the coin...</p><div class="gl-coin-flip-stage"><img src="'+coinFaceSrc(face)+'" alt="Coin"></div>';
+  const im=body.querySelector('img');let step=0;const totalSteps=8,halfDuration=72;B()?.playOpeningCoinSound?.();
+  const runStep=()=>{
+    if(step>=totalSteps){
+      im.src=coinFaceSrc(openingOutcome);im.alt=openingOutcome==='HEADS'?'Heads':'Tails';im.style.transition='none';im.style.transform='translateY(0) scaleX(1)';
+      const text=body.querySelector('p');if(text)text.textContent=(openingOutcome==='HEADS'?'Heads':'Tails')+'!';
+      setTimeout(renderCoinResult,1000);return;
+    }
+    const progress=(step+1)/totalSteps,lift=Math.round(Math.sin(progress*Math.PI)*22);
+    im.style.transition='transform '+halfDuration+'ms cubic-bezier(.45,0,.55,1)';im.style.transform='translateY(-'+lift+'px) scaleX(.04)';
+    setTimeout(()=>{face=face==='HEADS'?'TAILS':'HEADS';im.src=coinFaceSrc(face);im.style.transition='transform '+halfDuration+'ms cubic-bezier(.2,.75,.3,1)';im.style.transform='translateY(-'+lift+'px) scaleX(1)';setTimeout(()=>{step++;runStep()},halfDuration)},halfDuration);
+  };runStep();
+}
+function renderCoinResult(){
+  if(!coinOverlay.classList.contains('open')||!openingCoinWinner||openingPresentationActive)return;
+  const body=coinOverlay.querySelector('.gl-coin-body'),won=openingCoinWinner==='PLAYER';
+  if(!won){
+    openingChosenOrder=E()?.chooseOpeningTurnOrderForAI?.()||'FIRST';
+    if(openingChosenOrder!=='SECOND')openingChosenOrder='FIRST';
+    openingFirstSide=openingChosenOrder==='FIRST'?'AI':'PLAYER';
+  }
+  const winner='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong><p>'+(won?'Choose whether to take the first or second turn.':'AI chooses '+openingChosenOrder+'.')+'</p></div>';
+  const art='<div class="gl-coin-result gl-coin-single-result"><img src="'+coinFaceSrc(openingOutcome)+'" alt="Coin result: '+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div>';
+  const actions=won?'<div class="gl-coin-turn-actions"><button class="gl-coin-start" type="button" data-gl-coin-order="FIRST">GO FIRST</button><button class="gl-coin-start" type="button" data-gl-coin-order="SECOND">GO SECOND</button></div>':
+    '<p class="gl-coin-ai-decision">AI chose <strong>GO '+openingChosenOrder+'</strong> · Starting match...</p>';
+  body.innerHTML=winner+art+actions;
+  body.querySelectorAll('[data-gl-coin-order]').forEach(btn=>btn.onclick=()=>chooseCoinTurnOrder(btn.dataset.glCoinOrder));
+  if(!won){
+    openingAiDecisionTimer=setTimeout(()=>{openingAiDecisionTimer=null;if(coinOverlay.classList.contains('open')&&!openingPresentationActive&&openingCoinWinner==='AI')beginOpeningPresentation();},1400);
+  }
+}
+function chooseCoinTurnOrder(order){
+  if(openingCoinWinner!=='PLAYER'||openingChosenOrder||!coinOverlay.classList.contains('open')||openingPresentationActive)return false;
+  if(order!=='FIRST'&&order!=='SECOND')return false;
+  openingChosenOrder=order;openingFirstSide=order==='FIRST'?'PLAYER':'AI';
+  coinOverlay.querySelectorAll('[data-gl-coin-order]').forEach(btn=>{btn.disabled=true;});
+  return beginOpeningPresentation();
+}
 // RC35.5: schedule a single lobby cleanup after the authoritative game-over result.
 // No timer is started during active play, an unfinished Response or coin flip.
 let glCompletedMatchRefreshTimer=null;
@@ -774,14 +810,19 @@ function scheduleCompletedMatchRefresh(s){
     if(final?.gameOver&&!lobbyIsOpen){window.location.reload();}
   },60000);
 }
-function resetPresentationState(){cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
+function resetPresentationState(){
+  glPresentationEpoch++;
+  for(const batch of [...glTrialReturnBatches])batch.cancel();
+  glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
+  if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();
 }
 function beginOpeningPresentation(){
-  const r=E().commitOpeningSetup?.(openingChoice,openingOutcome,openingFirstSide);if(!r?.ok){coinOverlay.querySelector('.gl-coin-body').innerHTML='<p>'+esc(r?.error||'Could not begin the match.')+'</p>';return}
-  (st()?.playerHand||[]).forEach(preloadHandArtwork); // Website integration: warm opening-hand art.
+  if(openingPresentationActive||!openingCoinWinner||(openingChosenOrder!=='FIRST'&&openingChosenOrder!=='SECOND')||!coinOverlay.classList.contains('open'))return false;
+  if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}
+  const r=E().commitOpeningSetup?.(openingChoice,openingOutcome,openingFirstSide,openingChosenOrder);if(!r?.ok){coinOverlay.querySelector('.gl-coin-body').innerHTML='<p>'+esc(r?.error||'Could not begin the match.')+'</p>';return}
   startMatchTimer();coinOverlay.classList.remove('open');openingPresentationActive=true;lastTurnBannerKey='';
   (r.handEvents||[]).forEach(e=>{if(e?.id)seenPresentationEvents.add(e.id);const side=e.side==='AI'?'AI':'PLAYER';glHiddenCommittedDrawSlots[side].set(Number(e.hand_index),String(e.id||side+'-'+e.hand_index))});
   (r.manaEvents||[]).forEach(e=>glOpeningHiddenShardUids.add((e.side==='AI'?'AI':'PLAYER')+'|'+String(e.uid)));
@@ -802,7 +843,7 @@ function visualStateOf(s){
   return{turn:s.turn,round:Number(s.round||1),phase:s.phase,hero,discard:{PLAYER:(s.playerDiscard||[]).slice(),AI:(s.aiDiscard||[]).slice()},playerMana:(s.playerManaPoolCards||[]).map(x=>String(x.uid)),aiMana:(s.aiManaPoolCards||[]).map(x=>String(x.uid)),presentation:(s.presentationEvents||[]).map(x=>cloneLite(x)).filter(Boolean)};
 }
 function multisetAdded(before,after){const counts=new Map();(before||[]).forEach(id=>counts.set(String(id),(counts.get(String(id))||0)+1));const out=[];(after||[]).forEach(id=>{const k=String(id),n=counts.get(k)||0;if(n>0)counts.set(k,n-1);else out.push(id)});return out;}
-function battlefieldPresentationBusy(){return glPresentationActive>0||Date.now()<glPresentationBusyUntil;}
+function battlefieldPresentationBusy(){return glRankPresentationRunning>0||glPresentationActive>0||Date.now()<glPresentationBusyUntil;}
 function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=false){
   if(!src||!fromEl||!toEl)return false;const fr=uiRect(fromEl),tr=uiRect(toEl);if(fr.width<1||tr.width<1)return false;
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);
@@ -833,6 +874,192 @@ function flyToHeroOrientation(src,fromEl,toEl,side,lane,duration=390,onFinish,pl
   }));
   setTimeout(()=>{im.remove();glPresentationActive=Math.max(0,glPresentationActive-1);glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);if(typeof onFinish==='function')onFinish(true)},duration+24);return true;
 }
+// The Hand flex fan expands when a Return EXP card is appended. Animate
+// existing cards from their previous positions to the new layout so they do
+// not snap sideways before the returned card arrives at its exact slot.
+function snapshotHandPositions(side){
+  const host=side==='AI'?oppHandTrack:playerHandTrack;
+  return [...(host?.querySelectorAll(':scope > .hand-card')||[])].map(c=>{
+    const r=uiRect(c);return r?{left:r.left,top:r.top,width:r.width,height:r.height}:null;
+  });
+}
+function animateHandExpansion(side,before,duration=440){
+  if(!Array.isArray(before)||!before.length)return;
+  const host=side==='AI'?oppHandTrack:playerHandTrack,
+    cards=[...(host?.querySelectorAll(':scope > .hand-card')||[])];
+  cards.slice(0,before.length).forEach((c,i)=>{
+    const prev=before[i],next=uiRect(c);if(!prev||!next)return;
+    const dx=prev.left-next.left,dy=prev.top-next.top;
+    if(Math.abs(dx)<.8&&Math.abs(dy)<.8)return;
+    // The independent CSS translate property preserves the card's authored
+    // rotate()/fan transform. Animating transform would cancel that rotation.
+    try{c.animate([{translate:dx+'px '+dy+'px'},{translate:'0px 0px'}],
+      {duration,easing:'cubic-bezier(.22,.72,.2,1)'}).finished.catch(()=>{});}catch{}
+  });
+}
+function trialFlightKey(side,index){return (side==='AI'?'AI':'PLAYER')+'|'+Number(index);}
+// The source popup is removed as soon as the Rank Up choice commits. Capture
+// its exact screen rectangle first and reuse it as the animation origin.
+function virtualFlightSource(rect){return {getBoundingClientRect:()=>rect};}
+// Shared by deferred Rank Up VFX and the manual popup-to-Hand flights.
+function revealTrialReturnSlot(e){
+  if(!e)return;
+  const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index),host=side==='AI'?oppHandTrack:playerHandTrack;
+  glHiddenCommittedDrawSlots[side].delete(idx);
+  const slot=host?.querySelector('.hand-card[data-hand-index="'+idx+'"]');
+  if(slot){
+    // The committed slot was already laid out before the flight began. Just
+    // reveal it; rebuilding the entire fan here caused a sideways snap.
+    slot.classList.remove('gl-presentation-hidden');
+  }else{
+    // Defensive fallback if another mechanic replaced the Hand meanwhile.
+    invalidateHandRender(side);renderHand(st());renderOpponentHand(st());
+  }
+}
+// One animation frame, one timer, and one reveal for every returned EXP Card.
+// Per-card flyBetween() callbacks were independently scheduled, and an unrelated
+// 120ms render could rebuild Hand nodes between their completions. On busy
+// machines this looked random (Rank II vs III and Player vs AI).
+function runAtomicTrialReturnBatch(side,items,onComplete){
+  side=side==='AI'?'AI':'PLAYER';
+  const hand=side==='AI'?oppHandTrack:playerHandTrack;
+  const epoch=glPresentationEpoch;
+  const arrivals=(items||[]).filter(x=>Number.isInteger(Number(x.hand_index))&&Number(x.hand_index)>=0);
+  let settled=false,timer=null,active=0,clones=[];
+  const batch={cancel:()=>finish(true),complete:()=>finish(false)};glTrialReturnBatches.add(batch);
+  const finish=(cancelled=false)=>{
+    if(settled)return;settled=true;clearTimeout(timer);
+    clones.forEach(x=>x.remove());glPresentationActive=Math.max(0,glPresentationActive-active);
+    glTrialReturnBatches.delete(batch);
+    if(cancelled||epoch!==glPresentationEpoch)return;
+    // The Hand may have been re-rendered by the engine since launch; reveal
+    // CURRENT slots, not stale DOM references captured at flight start.
+    // Clear all locks BEFORE touching any DOM nodes, as a single transaction.
+    arrivals.forEach(item=>{
+      const idx=Number(item.hand_index);
+      const token=String(glHiddenCommittedDrawSlots[side].get(idx)||'');
+      if(token.startsWith('TRIAL-'))glHiddenCommittedDrawSlots[side].delete(idx);
+      glTrialHandFlightKeys.delete(trialFlightKey(side,idx));
+    });
+    const cards=[...(hand?.querySelectorAll(':scope > .hand-card[data-hand-index]')||[])];
+    cards.forEach(card=>{
+      if(arrivals.some(item=>Number(item.hand_index)===Number(card.dataset.handIndex)) &&
+         !glHiddenCommittedDrawSlots[side].has(Number(card.dataset.handIndex)))
+        card.classList.remove('gl-presentation-hidden');
+    });
+    // Rebuild only if an expected destination was replaced during the motion.
+    if(arrivals.some(item=>!cards.some(card=>Number(card.dataset.handIndex)===Number(item.hand_index)))){
+      invalidateHandRender(side);if(side==='AI')renderOpponentHand(st());else renderHand(st());
+    }
+    if(side==='AI')syncOpponentHand();else syncPlayerHandToHeroCenter();
+    glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+70);
+    if(typeof onComplete==='function')onComplete();
+  };
+  if(!arrivals.length){finish();return batch}
+  // A hidden tab may throttle requestAnimationFrame indefinitely. Keep the
+  // gameplay state and Hand visibility consistent when visibility changes.
+  if(document.hidden||window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches){
+    requestAnimationFrame(()=>finish(false));
+    setTimeout(()=>finish(false),45);return batch;
+  }
+  // Some Hand layouts change on the next render tick after Rank Up. Do not
+  // start only 1 of 2/3 flights when one destination is briefly absent or
+  // zero-sized: the incomplete batch was another intermittent failure mode.
+  // Retry the COMPLETE geometry snapshot, never individual cards.
+  let geometryAttempts=0;
+  const startWhenReady=()=>{
+    if(settled||epoch!==glPresentationEpoch)return;
+    if(side==='AI')syncOpponentHand();else syncPlayerHandToHeroCenter();
+    const movements=[],missing=[];
+    for(const item of arrivals){
+      const target=hand?.querySelector('.hand-card[data-hand-index="'+Number(item.hand_index)+'"]');
+      const from=item.from,fr=uiRect(from),to=uiRect(target);
+      if(!fr||!to||fr.width<1||fr.height<1||to.width<1||to.height<1){missing.push(item);continue;}
+      movements.push({src:item.src||((side==='AI')?'assets/ui/back-main.webp':art(item.card_id)),fr,to});
+    }
+    if(missing.length){
+      // Recover the final Hand nodes if the periodic renderer replaced them.
+      // Keep every committed return hidden throughout retries.
+      if(++geometryAttempts<=6){
+        if(geometryAttempts===2){invalidateHandRender(side);if(side==='AI')renderOpponentHand(st());else renderHand(st());}
+        requestAnimationFrame(startWhenReady);return;
+      }
+      // If rendering truly cannot produce a destination, never strand an
+      // invisible card or leave the game waiting on an animation callback.
+      finish(false);return;
+    }
+    const duration=440,fragment=document.createDocumentFragment();
+    movements.forEach(m=>{
+      const im=document.createElement('img');im.className='gl-flying-card gl-trial-exp-flight';
+      im.src=m.src;im.style.left=m.fr.left+'px';im.style.top=m.fr.top+'px';
+      im.style.width=m.fr.width+'px';im.style.height=m.fr.height+'px';
+      im.style.transform='translate(0px,0px)';fragment.appendChild(im);clones.push(im);
+    });
+    animationLayer.appendChild(fragment);active=clones.length;
+    glPresentationActive+=active;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+duration+70);
+    E()?.playCardMotionSound?.();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(settled||epoch!==glPresentationEpoch)return;
+      // A single requestAnimationFrame writes all destinations. No stagger.
+      movements.forEach((m,i)=>{
+        const im=clones[i];im.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';
+        im.style.transform='translate('+(m.to.left-m.fr.left)+'px,'+(m.to.top-m.fr.top)+'px)';
+        im.style.width=m.to.width+'px';im.style.height=m.to.height+'px';im.style.opacity='.76';
+      });
+      // Start the ONE completion timer only after the ONE animation frame
+      // actually starts. Slow displays previously revealed too early.
+      timer=setTimeout(()=>finish(false),duration+55);
+    }));
+  };
+  requestAnimationFrame(startWhenReady);
+  return batch;
+}
+function animateTrialExpChoiceCommit(p,cardsHost,discardTarget){
+  if(centerChoiceBusy||p?.type!=='trial_rankup_return_exp')return false;
+  const side=p.side==='AI'?'AI':'PLAYER',
+    all=[...cardsHost.querySelectorAll('.gl-center-choice-card')],
+    selected=[...new Set((p.selected_indices||[]).map(Number))].sort((a,b)=>Number(p.candidates?.[b]?.discard_index??0)-Number(p.candidates?.[a]?.discard_index??0)),
+    oldState=st(),oldLength=(side==='AI'?oldState?.aiHand:oldState?.playerHand)?.length||0;
+  if(selected.some(i=>!Number.isInteger(i)||i<0||i>=all.length))return false;
+  const oldEventIds=new Set((oldState?.presentationEvents||[]).map(e=>e.id));
+  const flights=all.map((el,i)=>{const r=uiRect(el);return {index:i,card_id:p.candidates?.[i]?.card_id,rect:r?{left:r.left,top:r.top,width:r.width,height:r.height}:null};});
+  // Pre-lock the committed positions before calling the engine; after commit,
+  // reconcile with its authoritative hand indices (never trust UI ordering).
+  selected.forEach((_,i)=>{
+    const idx=oldLength+i;glTrialHandFlightKeys.add(trialFlightKey(side,idx));
+    glHiddenCommittedDrawSlots[side].set(idx,'TRIAL-SELECT-PENDING');
+  });
+  centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');
+  const outcome=intent('handleChoiceConfirm',[]);
+  if(outcome?.ok===false){
+    selected.forEach((_,i)=>{const idx=oldLength+i;glTrialHandFlightKeys.delete(trialFlightKey(side,idx));glHiddenCommittedDrawSlots[side].delete(idx)});
+    centerChoiceBusy=false;centerChoiceStage.classList.remove('is-busy');return false;
+  }
+  const returned=(st()?.presentationEvents||[]).filter(e=>e?.type==='TRIAL_EXP_RETURNED_TO_HAND'&&e.side===side&&e.lane===p.lane&&!oldEventIds.has(e.id)&&e.choice_animated);
+  const returnedItems=[];
+  selected.forEach((sourceIndex,i)=>{
+    const event=returned[i],idx=Number(event?.hand_index??oldLength+i);
+    if(idx!==oldLength+i){glTrialHandFlightKeys.delete(trialFlightKey(side,oldLength+i));glHiddenCommittedDrawSlots[side].delete(oldLength+i);}
+    glTrialHandFlightKeys.add(trialFlightKey(side,idx));glHiddenCommittedDrawSlots[side].set(idx,'TRIAL-SELECT-'+(event?.id||i));
+    const flight=flights[sourceIndex];
+    returnedItems.push({side,hand_index:idx,card_id:event?.card_id||flight?.card_id,
+      src:art(event?.card_id||flight?.card_id),from:flight?.rect?virtualFlightSource(flight.rect):null});
+  });
+  // The pending selector is gone; put the new Hand in its final layout while
+  // leaving every returned slot invisible until the entire batch lands.
+  renderNow();
+  const discarded=flights.filter(item=>!selected.includes(item.index));
+  discarded.forEach((item,i)=>{
+    if(!item.rect||!item.card_id)return;
+    const from=virtualFlightSource(item.rect),to=discardTarget?.querySelector?.('.zoneCard')||discardTarget;
+    flyBetween(art(item.card_id),from,to,300,null,i===0);
+  });
+  runAtomicTrialReturnBatch(side,returnedItems);
+  return true;
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)for(const batch of [...glTrialReturnBatches])batch.complete();
+});
 function queueBattlefieldTributeMotion(p,lane){
   if(!p||p.type!=='tribute_target'||!p.card_id||!Number.isInteger(Number(p.hand_index))||!lane)return false;
   const from=playerHandTrack?.querySelector('.hand-card[data-hand-index="'+Number(p.hand_index)+'"] .hand-art'),to=heroCardEl('PLAYER',lane);
@@ -909,20 +1136,33 @@ function showNewCounterEvents(s){
 function showTurnBannerFor(s){const key=String(s.turn)+'|'+Number(s.round||1);if(openingPresentationActive||!s.turn||lastTurnBannerKey===key)return;lastTurnBannerKey=key;turnBanner.innerHTML='<strong>'+(s.turn==='PLAYER'?'YOUR TURN':'AI TURN')+'</strong><small>ROUND '+Number(s.round||1)+'</small>';turnBanner.classList.remove('show');void turnBanner.offsetWidth;turnBanner.classList.add('show');clearTimeout(showTurnBannerFor.t);showTurnBannerFor.t=setTimeout(()=>turnBanner.classList.remove('show'),900)}
 function buildPresentationPlan(s){
   showNewCounterEvents(s);
-  const cur=visualStateOf(s),prev=previousVisualState,plan={draws:[],returns:[],shards:[],heroTransitions:[],moved:[]};
+  const cur=visualStateOf(s),prev=previousVisualState,plan={draws:[],returns:[],expReturns:[],shards:[],heroTransitions:[],moved:[]};
   if(openingPresentationActive){(cur.presentation||[]).forEach(e=>{if(e?.id&&e.reason==='OPENING_HAND')seenPresentationEvents.add(e.id)});previousVisualState=cur;return plan;}
-  (cur.presentation||[]).forEach(e=>{if(!e?.id||seenPresentationEvents.has(e.id))return;seenPresentationEvents.add(e.id);if(presentationPrimed&&e.type==='CARD_DRAWN')plan.draws.push(e);if(presentationPrimed&&e.type==='CARD_RETURNED_TO_DECK')plan.returns.push(e)});
+  (cur.presentation||[]).forEach(e=>{if(!e?.id||seenPresentationEvents.has(e.id))return;seenPresentationEvents.add(e.id);if(presentationPrimed&&e.type==='CARD_DRAWN')plan.draws.push(e);if(presentationPrimed&&e.type==='CARD_RETURNED_TO_DECK')plan.returns.push(e);if(presentationPrimed&&e.type==='TRIAL_EXP_RETURNED_TO_HAND')plan.expReturns.push(e)});
   if(prev&&presentationPrimed){
     for(const side of ['PLAYER','AI']){const before=new Set(side==='PLAYER'?prev.playerMana:prev.aiMana),after=side==='PLAYER'?cur.playerMana:cur.aiMana;after.forEach(uid=>{if(!before.has(uid)){const key=side+'|'+String(uid);if(glExternallyPresentedShardUids.has(key))glExternallyPresentedShardUids.delete(key);else plan.shards.push({side,uid})}});
-      const beforeById={},afterById={};for(const lane of laneOrder){const a=prev.hero[side][lane],b=cur.hero[side][lane];if(a?.image_id)beforeById[a.image_id]=lane;if(b?.image_id)afterById[b.image_id]=lane;if(b?.image_id&&a?.image_id!==b.image_id){const wasAlreadyOnField=laneOrder.some(prevLane=>prev.hero[side][prevLane]?.image_id===b.image_id);if(b.legacy&&!a?.legacy&&!wasAlreadyOnField)plan.heroTransitions.push({side,lane,id:b.image_id,kind:'legacy'});else if(!b.legacy&&!a?.legacy&&!wasAlreadyOnField){const discardDelta=multisetAdded(prev.discard?.[side]||[],cur.discard?.[side]||[]);plan.heroTransitions.push({side,lane,id:b.image_id,fromId:a?.image_id||a?.card_id||'',kind:'rank',expCardIds:discardDelta.length?discardDelta:(a?.exp_cards||[]).slice()})}}}
+      const beforeById={},afterById={};for(const lane of laneOrder){const a=prev.hero[side][lane],b=cur.hero[side][lane];if(a?.image_id)beforeById[a.image_id]=lane;if(b?.image_id)afterById[b.image_id]=lane;if(b?.image_id&&a?.image_id!==b.image_id){const wasAlreadyOnField=laneOrder.some(prevLane=>prev.hero[side][prevLane]?.image_id===b.image_id);if(b.legacy&&!a?.legacy&&!wasAlreadyOnField)plan.heroTransitions.push({side,lane,id:b.image_id,kind:'legacy'});else if(!b.legacy&&!a?.legacy&&!wasAlreadyOnField){const discardDelta=multisetAdded(prev.discard?.[side]||[],cur.discard?.[side]||[]);plan.heroTransitions.push({side,lane,id:b.image_id,fromId:a?.image_id||a?.card_id||'',kind:'rank',expCardIds:(a?.exp_cards||[]).length?(a.exp_cards||[]).slice():discardDelta})}}}
       Object.keys(afterById).forEach(id=>{if(beforeById[id]&&beforeById[id]!==afterById[id])plan.moved.push({side,lane:afterById[id]})});
     }
   }
+  // A human Rank Up waits for the mandatory EXP selection before ANY Rank Up
+  // VFX (old EXP -> Discard, new Hero arrival) begins. Tribute motion remains
+  // separate and finishes normally while the selector is open.
+  if(s.pending?.type==='trial_rankup_return_exp'){
+    const p=s.pending;
+    const wait=plan.heroTransitions.filter(x=>x.kind==='rank'&&x.side===(p.side||'PLAYER')&&x.lane===p.lane);
+    if(wait.length){wait.forEach(x=>{x.selectorAnimated=true});glDeferredTrialRankTransitions.push(...wait);plan.heroTransitions=plan.heroTransitions.filter(x=>!wait.includes(x))}
+  }else if(glDeferredTrialRankTransitions.length){
+    plan.heroTransitions.unshift(...glDeferredTrialRankTransitions);glDeferredTrialRankTransitions=[];
+  }
+  (plan.expReturns||[]).forEach(e=>{
+    const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
+    if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,'TRIAL-EXP-'+e.id);
+  });
   // Same principle as VS AI's GL_HIDDEN_DRAW_TOKENS: keep every pre-existing
   // Hand card rendered, but hide only incoming committed draw slots in-place.
   (plan.draws||[]).forEach(e=>{
     const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
-    if(side==='PLAYER')preloadHandArtwork(e.card_id);
     if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,String(e.id||side+'-'+idx));
   });
   previousVisualState=cur;if(!presentationPrimed)presentationPrimed=true;return plan;
@@ -930,7 +1170,7 @@ function buildPresentationPlan(s){
 function preparePresentationTargets(plan){
 
   (plan.shards||[]).forEach(x=>{const host=x.side==='PLAYER'?playerManaHost:aiManaHost;const el=host?.querySelector('.mana-card[data-uid="'+CSS.escape(String(x.uid))+'"]');if(el)el.classList.add('gl-presentation-deferred')});
-  (plan.heroTransitions||[]).filter(x=>x.kind==='rank').forEach(x=>{
+  (plan.heroTransitions||[]).concat(glDeferredTrialRankTransitions).filter(x=>x.kind==='rank').forEach(x=>{
     const hero=heroCardEl(x.side,x.lane),lane=uiLaneElement(x.side,x.lane),pack=hero?.closest('.gl-hero-physical-stack');
     hero?.classList.add('gl-presentation-hidden');lane?.classList.add('gl-rank-transitioning');
     if(pack&&x.fromId&&!pack.querySelector(':scope > .gl-rank-old-hero')){const old=document.createElement('img');old.className='gl-rank-old-hero';old.src=art(x.fromId);old.alt='Previous Hero Rank';old.draggable=false;pack.appendChild(old)}
@@ -938,9 +1178,9 @@ function preparePresentationTargets(plan){
 }
 function runPresentationPlan(plan,s){
   showTurnBannerFor(s);
-  const draws=(plan.draws||[]).slice(),returns=(plan.returns||[]).flatMap(e=>Array.from({length:Math.min(24,Math.max(0,Math.floor(Number(e.count)||0)))},()=>({side:e.side}))),shards=(plan.shards||[]).slice(),rankTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='rank'),legacyTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='legacy');
+  const draws=(plan.draws||[]).slice(),expReturns=(plan.expReturns||[]).slice(),returns=(plan.returns||[]).flatMap(e=>Array.from({length:Math.min(24,Math.max(0,Math.floor(Number(e.count)||0)))},()=>({side:e.side}))),shards=(plan.shards||[]).slice(),rankTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='rank'),legacyTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='legacy');
   function runShardSequence(index){
-    if(index>=shards.length)return;
+    if(index>=shards.length){if(rankTransitions.length)glRankPresentationRunning=Math.max(0,glRankPresentationRunning-1);return;}
     const x=shards[index],from=zoneEl(x.side,'Shard Deck'),host=x.side==='PLAYER'?playerManaHost:aiManaHost,to=host?.querySelector('.mana-card[data-uid="'+CSS.escape(String(x.uid))+'"]');
     if(to){to.classList.remove('gl-presentation-deferred');to.classList.add('gl-presentation-hidden');layoutManaPoolCards(host)}
     const done=()=>{if(to)to.classList.remove('gl-presentation-hidden');layoutManaPoolCards(host);requestAnimationFrame(()=>setTimeout(()=>runShardSequence(index+1),28))};
@@ -965,21 +1205,81 @@ function runPresentationPlan(plan,s){
     };
     if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,done))done();
   }
+  // Both 2-card and 3-card automatic returns use the SAME visual transaction.
+  // Human returns are owned by the selector-to-Hand batch; they must never be
+  // revealed by an overlapping deferred Rank Up or stand-alone presenter.
+  function runExpReturnBatch(events,from,onComplete){
+    const groups=new Map();
+    (events||[]).forEach(e=>{
+      const side=e.side==='AI'?'AI':'PLAYER';
+      if(!groups.has(side))groups.set(side,[]);
+      groups.get(side).push(e);
+    });
+    if(!groups.size){onComplete();return;}
+    let left=groups.size;
+    const done=()=>{if(--left===0)onComplete()};
+    groups.forEach((list,side)=>{
+      const owned=list.filter(e=>e.choice_animated&&glTrialHandFlightKeys.has(trialFlightKey(side,e.hand_index)));
+      const needsVisual=list.filter(e=>!owned.includes(e));
+      // Own the manual choice flight, not the rank transition's clone.
+      if(!needsVisual.length){done();return;}
+      runAtomicTrialReturnBatch(side,needsVisual.map(e=>({
+        side,card_id:e.card_id,hand_index:e.hand_index,from,
+        src:side==='AI'?'assets/ui/back-main.webp':art(e.card_id)
+      })),done);
+    });
+  }
+  function runStandaloneTrialReturns(index){
+    if(index>=expReturns.length){runReturnSequence(0);return;}
+    const first=expReturns[index],side=first.side,lane=first.lane;
+    const group=expReturns.filter(e=>e.side===side&&e.lane===lane);
+    expReturns.splice(0,expReturns.length,...expReturns.filter(e=>e.side!==side||e.lane!==lane));
+    runExpReturnBatch(group,heroCardEl(side,lane),()=>runStandaloneTrialReturns(0));
+  }
   function runRankTransition(index){
-    if(index>=rankTransitions.length){runReturnSequence(0);return;}
+    if(index>=rankTransitions.length){runStandaloneTrialReturns(0);return;}
     const x=rankTransitions[index],hero=heroCardEl(x.side,x.lane),legacy=zoneEl(x.side,'Legacy Deck'),discard=zoneEl(x.side,'Discard Pile'),exp=(x.expCardIds||[]).filter(Boolean);
+    // Match returned events to exact EXP multiplicities; a Skill may be
+    // Tributed more than once, and only its returned copies go to Hand.
+    const moves=exp.map(id=>{
+      const eventIndex=expReturns.findIndex(e=>e.side===x.side&&e.lane===x.lane&&e.card_id===id);
+      return {id,returned:eventIndex>=0?expReturns.splice(eventIndex,1)[0]:null};
+    });
     const reveal=()=>{const lane=uiLaneElement(x.side,x.lane),pack=hero?.closest('.gl-hero-physical-stack');pack?.querySelector(':scope > .gl-rank-old-hero')?.remove();hero?.classList.remove('gl-presentation-hidden');lane?.classList.remove('gl-rank-transitioning');requestAnimationFrame(()=>setTimeout(()=>runRankTransition(index+1),36))};
     const bringRank=()=>{if(!flyToHeroOrientation(art(x.id),legacy?.querySelector('.zoneCard')||legacy,hero,x.side,x.lane,350,reveal,true))reveal()};
-    if(!exp.length){bringRank();return;}
-    const from=hero,discardTarget=discard?.querySelector('.zoneCard')||discard;
-    let remaining=exp.length,started=false;
-    E()?.playCardMotionSound?.();
-    exp.forEach(id=>{const done=()=>{remaining--;if(remaining<=0)bringRank()};if(flyBetween(art(id),from,discardTarget,230,done,false))started=true;else done()});
-    if(!started&&remaining>0){remaining=0;bringRank()}
+    if(!moves.length){bringRank();return;}
+    // Discard-only EXP is animated alongside eligible Returns. Returned cards
+    // are revealed together only once the complete batch has landed.
+    if(x.selectorAnimated){
+      moves.forEach(move=>{
+        if(move.returned&&!glTrialHandFlightKeys.has(trialFlightKey(move.returned.side,move.returned.hand_index)))revealTrialReturnSlot(move.returned);
+      });
+      bringRank();return;
+    }
+    const returning=moves.filter(move=>move.returned).map(move=>move.returned);
+    const discarded=moves.filter(move=>!move.returned);
+    let pending=(returning.length?1:0)+discarded.length;
+    if(!pending){bringRank();return;}
+    const finish=()=>{if(--pending===0)bringRank()};
+    if(returning.length)runExpReturnBatch(returning,hero,finish);
+    discarded.forEach((move,i)=>{
+      if(!flyBetween(art(move.id),hero,discard?.querySelector('.zoneCard')||discard,330,finish,i===0))finish();
+    });
   }
   legacyTransitions.forEach((x,i)=>setTimeout(()=>{const from=zoneEl(x.side,'Legacy Deck'),to=heroCardEl(x.side,x.lane);flyBetween(art(x.id),from?.querySelector('.zoneCard')||from,to,430)},i*70));
   (plan.moved||[]).forEach(x=>{const lane=uiLaneElement(x.side,x.lane);if(!lane)return;lane.classList.remove('gl-reposition-flash');void lane.offsetWidth;lane.classList.add('gl-reposition-flash');setTimeout(()=>lane.classList.remove('gl-reposition-flash'),720)});
-  if(rankTransitions.length)setTimeout(()=>runRankTransition(0),430);else runReturnSequence(0);
+  // Allow the manual slot-to-slot Return flights to land before the incoming
+  // new-Rank Hero card flies in. Automatic Ultimate returns follow old timing.
+  if(rankTransitions.length){
+    // AI Tribute and Rank Up often commit in the same tick. Wait until the
+    // Tribute card has landed instead of using a fixed 430ms guess.
+    let waitStarted=Date.now();
+    const afterTribute=()=>{
+      if((glPresentationActive>0||Date.now()<glPresentationBusyUntil)&&Date.now()-waitStarted<3200){setTimeout(afterTribute,32);return}
+      runRankTransition(0);
+    };
+    afterTribute();
+  }else runReturnSequence(0);
   E()?.flushBattleFeedback?.();
 }
 function responseOptionsForHand(rw,idx){
@@ -1137,8 +1437,10 @@ function pendingActionInfo(s,p){
 function bindBattlefieldHandHover(card){
   if(!card||card.dataset.glHoverBound==='1')return;card.dataset.glHoverBound='1';
   let leaveTimer=0;
-  card.addEventListener('mouseenter',()=>{clearTimeout(leaveTimer);card.classList.add('is-hovered')});
-  card.addEventListener('mouseleave',()=>{clearTimeout(leaveTimer);leaveTimer=setTimeout(()=>card.classList.remove('is-hovered'),170)});
+  card.addEventListener('mouseenter',()=>{clearTimeout(leaveTimer);card.classList.add('is-hovered');syncExpButtonLock()});
+  card.addEventListener('mouseleave',()=>{clearTimeout(leaveTimer);leaveTimer=setTimeout(()=>{card.classList.remove('is-hovered');syncExpButtonLock()},170);syncExpButtonLock()});
+  card.addEventListener('focusin',syncExpButtonLock);
+  card.addEventListener('focusout',()=>setTimeout(syncExpButtonLock,0));
 }
 
 // Stage 1.5.9: calculate the fan from the actual number of visible slots on both sides.
@@ -1320,6 +1622,9 @@ function centerChoiceModeFor(s){
     if(p.type==='response_payment_choice'&&Number(p.mana_cost||0)>0&&responseDiscardStageApprovedKey===responseDiscardStageKey(p))return'pay';
     return'discard';
   }
+  // Trial Return EXP uses the exact same foreground selector as DISCARD.
+  if(p.type==='trial_rankup_return_exp'||p.type==='scouting_exp_selection')return'discard';
+  if(p.type==='saint_purify_choice')return'purify';
   if(p.type==='s0_bard_draw_choice')return'bard';
   if(p.type==='draw_replacement_choice')return'draw-replacement';
   if(p.type==='racial_stoneblood')return'stoneblood';
@@ -1333,7 +1638,7 @@ let lastCenterChoiceBodyMode='';
 function setCenterChoiceBodyMode(mode){
   const changed=mode!==lastCenterChoiceBodyMode;
   lastCenterChoiceBodyMode=mode;
-  ['pay','opponent-shard','opponent-hand','magic-scope','bard','discard','draw-replacement','stoneblood'].forEach(x=>document.body.classList.toggle('gl-center-'+x,mode===x));
+  ['pay','opponent-shard','opponent-hand','magic-scope','bard','discard','purify','draw-replacement','stoneblood'].forEach(x=>document.body.classList.toggle('gl-center-'+x,mode===x));
   document.body.classList.toggle('gl-center-choice-active',!!mode);
   centerFocusBackdrop.classList.toggle('is-visible',!!mode);
   if(mode){
@@ -1345,7 +1650,10 @@ function setCenterChoiceBodyMode(mode){
   }else if(changed){classChoiceHoverOwner=null;hideModalHoverPreview()}
 }
 function centerChoiceOrigin(mode,p){
+  if(mode==='discard'&&p?.type==='trial_rankup_return_exp')return heroCardEl(p.side||'PLAYER',p.lane);
+  if(mode==='discard'&&p?.type==='scouting_exp_selection')return heroCardEl(p.target_side||'AI',p.target_lane);
   if(mode==='bard'||mode==='discard'||mode==='draw-replacement')return document.querySelector('.hand.bottom');
+  if(mode==='purify')return heroCardEl(p?.target_side||'PLAYER',p?.target_lane);
   if(mode==='stoneblood')return document.querySelector('.battlefield .player-heroes');
   if(mode==='pay')return document.querySelector('.player-mana-pool');
   if(mode==='opponent-shard')return p?.target_side==='PLAYER'?document.querySelector('.player-mana-pool'):document.querySelector('.opponent-mana-pool');
@@ -1459,7 +1767,19 @@ function renderCenterChoiceStage(s){
   let identity='',sig='',cards=[],selectedKeys=new Set(),clickableKeys=new Set(),titleText='',helperText='',statusText='',selectedTarget=null,otherTarget=null;
   const makeBtn=(text,cls,disabled,fn)=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=text;b.disabled=!!disabled;b.onclick=fn;actions.appendChild(b);return b};
 
-  if(mode==='bard'){
+  if(mode==='purify'){
+    const choices=p.status_choices||[],selected=p.selected_status_choice==null?-1:Number(p.selected_status_choice);
+    identity='purify|'+String(p.target_side||'PLAYER')+'|'+String(p.target_lane||'')+'|'+String(p.source_card_id||'')+'|'+choices.map(x=>String(x.status_index)+':'+String(x.label)).join('|');
+    sig=identity+'|'+String(selected);
+    titleText='HOLY REJUVENATION — REMOVE STATUS';
+    helperText='Healing resolved. Choose the negative Status to remove from '+String(p.target_lane||'the healed Hero')+'.';
+    statusText=selected>=0?'1 / 1 SELECTED':'0 / 1 SELECTED';
+    cards=choices.map((x,i)=>{
+      const statusName=String(x.label||'Status').trim().split(/\s+/)[0];
+      return {key:String(i),idx:i,front:purifyStatusArt(statusName),back:purifyStatusArt(statusName),faceUp:true,selected:i===selected,clickable:true,label:String(x.label||'Status')};
+    });
+    otherTarget=heroCardEl(p.target_side||'PLAYER',p.target_lane);
+  }else if(mode==='bard'){
     const ids=s.playerHand||[],chosen=new Set((p.selected_indices||[]).map(Number));
     const max=Number(p.max_count||1),rank=max>1?'MAESTRO':'BARD';
     identity='bard|'+p.source_lane+'|'+rank+'|'+ids.join('|');
@@ -1474,23 +1794,27 @@ function renderCenterChoiceStage(s){
     const legacy=p.type==='legacy_cost_selection';
     const cleanup=p.type==='hand_limit_discard';
     const search=p.type==='card_search_choice';
-    const available=legacy?(p.cost_candidates||[]):response?(p.candidates||[]):
+    const expReturn=p.type==='trial_rankup_return_exp';
+    const scouting=p.type==='scouting_exp_selection';
+    const available=scouting?(p.exp_choices||[]):expReturn?(p.candidates||[]):legacy?(p.cost_candidates||[]):response?(p.candidates||[]):
       search?(p.candidates||[]):(s.playerHand||[]).map((card_id,hand_index)=>({card_id,hand_index}));
-    const chosen=legacy?(p.selected_cost_indices||[]):response?(p.selected_indices||[]):
+    const chosen=scouting?(p.selected_exp_choice==null?[]:[Number(p.selected_exp_choice)]):expReturn?(p.selected_indices||[]):legacy?(p.selected_cost_indices||[]):response?(p.selected_indices||[]):
       cleanup?(p.selected||[]):(p.multi_select?(p.selected_indices||[]):
       p.selected_index==null?[]:[Number(p.selected_index)]);
     const selected=new Set(chosen.map(Number));
-    const required=legacy?Number(p.required_cost||1):response?Number(p.required_discard_count||1):
+    const required=scouting?1:expReturn?Math.min(Number(p.quota||0),available.length):legacy?Number(p.required_cost||1):response?Number(p.required_discard_count||1):
       cleanup?Number(p.required||1):Number(p.required_count||1);
     const responseCard=response?cv(p.response_option?.card_id):null;
     const sourceCard=legacy?cv(p.card_id):search?cv(p.source_card_id):null;
     const name=(responseCard||sourceCard)?.name||'Card';
     identity='discard|'+p.type+'|'+String(p.resolve_to||'')+'|'+name+'|'+
-      available.map(c=>String(c.hand_index??c.index??'')+':'+c.card_id).join('|')+'|'+required;
+      available.map(c=>String(c.hand_index??c.index??c.discard_index??c.exp_index??'')+':'+c.card_id).join('|')+'|'+required;
     sig=identity+'|'+[...selected].sort((a,b)=>a-b).join(',');
-    titleText=cleanup?'HAND LIMIT — DISCARD':(legacy?'LEGACY COST — '+name.toUpperCase():
+    titleText=scouting?'SCOUTING — DISCARD OPPONENT EXP':expReturn?'RANK '+(Number(p.rank)===2?'II':'III')+' — RETURN EXP':cleanup?'HAND LIMIT — DISCARD':(legacy?'LEGACY COST — '+name.toUpperCase():
       response?name.toUpperCase()+' — DISCARD COST':name.toUpperCase()+' — CHOOSE DISCARD');
-    helperText=cleanup?'Discard exactly '+required+' card(s) to meet the Hand limit.':
+    helperText=scouting?'Select 1 normal Skill EXP Card from opponent '+String(p.target_lane||'')+'. Ultimate EXP cannot be discarded.':
+      expReturn?'Select exactly '+required+' normal EXP Skill Card'+(required===1?'':'s')+' to return to Hand. Confirm unlocks only after all required cards are selected. Remaining EXP goes to Discard. Return is NOT Draw.':
+      cleanup?'Discard exactly '+required+' card(s) to meet the Hand limit.':
       legacy?'Select '+required+' eligible Skill card(s) to pay the Legacy Ability cost.':
       response?'Select '+required+' other Hand card(s) as the Response cost. No cost is spent before confirmation.':
       'Choose the required Hand card to discard.';
@@ -1498,8 +1822,8 @@ function renderCenterChoiceStage(s){
     cards=available.map((c,i)=>({key:String(i),idx:i,card_id:c.card_id,front:art(c.card_id),
       back:'assets/ui/back-main.webp',faceUp:true,selected:selected.has(i),clickable:true,
       label:cv(c.card_id)?.name||c.card_id}));
-    selectedTarget=centerChoiceDestinationForZone('PLAYER','Discard Pile');
-    otherTarget=centerChoiceDestinationForZone('PLAYER','Hand');
+    selectedTarget=centerChoiceDestinationForZone(scouting?(p.target_side||'AI'):'PLAYER',expReturn?'Hand':'Discard Pile');
+    otherTarget=scouting?heroCardEl(p.target_side||'AI',p.target_lane):centerChoiceDestinationForZone('PLAYER',expReturn?'Discard Pile':'Hand');
   }else if(mode==='draw-replacement'){
     const id=String(p.drawn_card_id||'');
     identity='draw-replacement|'+String(p.source_lane||'')+'|'+String(p.abilityId||'')+'|'+id+'|'+String(p.hand_index);
@@ -1564,7 +1888,20 @@ function renderCenterChoiceStage(s){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=p.candidates?.[i]?.card_id,front=c.querySelector('.gl-center-choice-front img');if(front&&id)bindContextualModalPreview(front,id)});
   }
 
-  if(mode==='bard'){
+  if(mode==='purify'){
+    cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{
+      const status=p.status_choices?.[i];
+      const caption=document.createElement('span');caption.className='gl-purify-status-caption';
+      caption.textContent=String(status?.label||'Status');c.appendChild(caption);
+      c.title=String(status?.detail||status?.label||'Remove status');
+      c.onclick=()=>{if(!centerChoiceBusy)intent('selectSaintPurifyChoice',[i])};
+    });
+    makeBtn('REMOVE SELECTED STATUS','gl-center-choice-primary',p.selected_status_choice==null||!(p.status_choices||[])[Number(p.selected_status_choice)],()=>{
+      // The bridge exposes the authoritative confirm dispatcher, not the
+      // internal commitSaintPurifyChoice helper.
+      if(!centerChoiceBusy)intent('handleChoiceConfirm',[]);
+    });
+  }else if(mode==='bard'){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=cards[i]?.card_id||p.candidates?.[i]?.card_id||s.playerHand?.[i];if(id)bindClassChoiceHoverPreview(c,id)});
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach(c=>c.onclick=()=>{if(!centerChoiceBusy)intent('toggleS0BardDrawIndex',[Number(c.dataset.choiceIndex)])});
     makeBtn('SKIP','gl-center-choice-cancel',false,()=>{
@@ -1582,17 +1919,19 @@ function renderCenterChoiceStage(s){
       const id=cards[i]?.card_id;if(id)bindClassChoiceHoverPreview(c,id);
       c.onclick=()=>{
         if(centerChoiceBusy)return;
-        if(p.type==='legacy_cost_selection')intent('selectLegacyCostChoice',[i]);
+        if(p.type==='scouting_exp_selection')intent('selectScoutingExpChoice',[i]);
+        else if(p.type==='trial_rankup_return_exp')intent('trialSelectRankUpReturn',[i]);
+        else if(p.type==='legacy_cost_selection')intent('selectLegacyCostChoice',[i]);
         else if(p.type==='hand_limit_discard')intent('toggleDiscardIndex',[i]);
         else if(p.type==='response_payment_choice')intent('selectResponsePaymentChoice',[i]);
         else intent('selectCardSearchChoice',[i]);
       };
     });
-    const legacy=p.type==='legacy_cost_selection',cleanup=p.type==='hand_limit_discard',response=p.type==='response_payment_choice';
-    const selectedCount=legacy?(p.selected_cost_indices||[]).length:cleanup?(p.selected||[]).length:
+    const legacy=p.type==='legacy_cost_selection',cleanup=p.type==='hand_limit_discard',response=p.type==='response_payment_choice',expReturn=p.type==='trial_rankup_return_exp',scouting=p.type==='scouting_exp_selection';
+    const selectedCount=scouting?(p.selected_exp_choice==null?0:1):expReturn?(p.selected_indices||[]).length:legacy?(p.selected_cost_indices||[]).length:cleanup?(p.selected||[]).length:
       response?(p.selected_indices||[]).length:p.multi_select?(p.selected_indices||[]).length:
       p.selected_index==null?0:1;
-    const need=legacy?Number(p.required_cost||1):cleanup?Number(p.required||1):
+    const need=scouting?1:expReturn?Math.min(Number(p.quota||0),(p.candidates||[]).length):legacy?Number(p.required_cost||1):cleanup?Number(p.required||1):
       response?Number(p.required_discard_count||1):Number(p.required_count||1);
     const canCancel=legacy||response||(p.type==='card_search_choice'&&p.resolve_to==='gods_blessing_precommit');
     if(canCancel)makeBtn('CANCEL','gl-center-choice-cancel',false,()=>{
@@ -1601,7 +1940,7 @@ function renderCenterChoiceStage(s){
       else intent('cancelPendingAction',[]);
     });
     const needsMana=response&&Number(p.mana_cost||0)>0;
-    makeBtn(needsMana?'CONTINUE TO MANA':(cleanup?'DISCARD SELECTED':'DISCARD & CONFIRM'),
+    makeBtn(scouting?'DISCARD '+selectedCount+' / 1 EXP':expReturn?'RETURN '+selectedCount+' / '+need+' EXP':needsMana?'CONTINUE TO MANA':(cleanup?'DISCARD SELECTED':'DISCARD & CONFIRM'),
       'gl-center-choice-primary',selectedCount!==need,async()=>{
         if(centerChoiceBusy)return;
         if(needsMana){
@@ -1611,6 +1950,10 @@ function renderCenterChoiceStage(s){
           renderCenterChoiceStage(st());
           return;
         }
+        // Return EXP is special: only after the state has committed do the
+        // Hand's final card slots exist. Animate to those exact slots instead
+        // of the Hand zone center, which previously caused a visible jump.
+        if(expReturn&&selectedCount>0){animateTrialExpChoiceCommit(p,cardsHost,otherTarget);return;}
         const keys=new Set(cards.filter(c=>c.selected).map(c=>c.key));
         if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget)){
           if(response)intent('commitResponsePaymentChoice',[]);
@@ -1737,6 +2080,76 @@ function renderExpStack(pack,h,exhaustedVisual){
     }
   }
 }
+// EXP is public under a Hero, but the raised Player Hand can overlap the
+// small lower-left counter. The counter is a real disabled button while ANY
+// Hand card is elevated by hover/focus, preventing accidental battlefield taps.
+let expInspectorLocation=null,expInspectorReturnFocus=null,expInspectorSignature='';
+function playerHandIsRaised(){
+  return !!playerHandTrack?.querySelector('.hand-card:hover,.hand-card.is-hovered,.hand-card.hand-hover-active,.hand-card:focus-within');
+}
+function syncExpButtonLock(){
+  const locked=playerHandIsRaised();
+  document.querySelectorAll('.hero-lane > button.gl-hero-exp-indicator').forEach(button=>{
+    button.disabled=locked;
+    button.setAttribute('aria-disabled',locked?'true':'false');
+    button.title=locked?'Move away from the raised Hand card to inspect EXP.':(button.dataset.glExpTitle||'View EXP Cards');
+  });
+}
+function closeExpInspector(){
+  // Legacy Deck and EXP Inspector share the contextual hover layer.
+  // Always dismiss it before opening Card Review or returning to the board.
+  hideModalHoverPreview();
+  const restore=expInspectorReturnFocus,loc=expInspectorLocation;
+  expInspectorLocation=null;expInspectorReturnFocus=null;expInspectorSignature='';
+  expInspectorOverlay.classList.remove('open');
+  const button=loc?uiLaneElement(loc.side,loc.lane)?.querySelector(':scope > button.gl-hero-exp-indicator'):null;
+  const candidate=button?.isConnected?button:restore;
+  if(candidate?.isConnected&&typeof candidate.focus==='function')candidate.focus({preventScroll:true});
+}
+function renderExpInspector(){
+  const loc=expInspectorLocation;if(!loc)return;
+  const h=sideHeroes(st(),loc.side)?.[loc.lane];
+  if(!h||h.legacy_mode){closeExpInspector();return;}
+  const ids=Array.isArray(h.exp_cards)?h.exp_cards.slice():[],total=Math.max(0,Math.floor(Number(h.exp_total)||0));
+  const data=ids.map(id=>({id:String(id),view:cv(id)}));
+  const sig=JSON.stringify([loc.side,loc.lane,heroImageId(h),total,ids]);
+  if(sig===expInspectorSignature)return;expInspectorSignature=sig;
+  const heroName=cv(heroImageId(h))?.name||heroImageId(h)||'Hero';
+  expInspectorOverlay.querySelector('#glExpInspectorTitle').textContent=(loc.side==='PLAYER'?'YOUR':'OPPONENT')+' '+loc.lane+' - '+heroName;
+  const attachedTotal=data.reduce((sum,x)=>sum+(x.view?.isUltimate?200:100),0);
+  const retained=Math.max(0,total-attachedTotal);
+  const summary=expInspectorOverlay.querySelector('.gl-exp-inspector-summary');summary.replaceChildren();
+  for(const [label,value] of [['TOTAL EXP',total],['ATTACHED CARDS',data.length],['ATTACHED EXP',attachedTotal],['RETAINED EXP',retained]]){
+    const cell=document.createElement('div'),labelEl=document.createElement('span'),valueEl=document.createElement('strong');
+    labelEl.textContent=label;valueEl.textContent=String(value);cell.append(labelEl,valueEl);summary.appendChild(cell);
+  }
+  const host=expInspectorOverlay.querySelector('.gl-exp-inspector-list');host.replaceChildren();
+  if(!data.length){const empty=document.createElement('p');empty.className='gl-exp-inspector-empty';empty.textContent='No EXP Cards are currently attached to this Hero.';host.appendChild(empty);return;}
+  data.forEach(({id,view},index)=>{
+    const ultimate=!!view?.isUltimate,card=document.createElement('button');card.type='button';card.className='gl-exp-inspector-card';
+    card.dataset.expCardId=id;card.dataset.expIndex=String(index);
+    const img=document.createElement('img');img.src=art(id);img.alt=view?.name||id;img.draggable=false;
+    const name=document.createElement('strong');name.textContent=view?.name||id;
+    const sub=document.createElement('span');sub.textContent=(ultimate?'ULTIMATE - 200 EXP (cannot return)':'SKILL - 100 EXP');
+    card.append(img,name,sub);card.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();closeExpInspector();openCardReview(id)});
+    host.appendChild(card);
+    // Exactly the Legacy Deck contextual enlarge behavior, reused rather than a new zoom UI.
+    bindChoicePreview(img,id,'contextual');
+  });
+}
+function openExpInspector(side,lane){
+  if(playerHandIsRaised())return false;
+  const hero=sideHeroes(st(),side)?.[lane];if(!hero||hero.legacy_mode)return false;
+  hideModalHoverPreview();
+  expInspectorReturnFocus=document.activeElement;expInspectorLocation={side,lane};expInspectorSignature='';
+  renderExpInspector();expInspectorOverlay.classList.add('open');
+  expInspectorOverlay.querySelector('.gl-exp-inspector-close')?.focus({preventScroll:true});
+  return true;
+}
+expInspectorOverlay.querySelector('.gl-exp-inspector-close').addEventListener('click',closeExpInspector);
+expInspectorOverlay.addEventListener('click',e=>{if(e.target===expInspectorOverlay)closeExpInspector()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&expInspectorOverlay.classList.contains('open')){e.stopPropagation();closeExpInspector()}});
+
 function renderHero(side,lane,h,s){
   const laneEl=uiLaneElement(side,lane),hc=heroCardEl(side,lane);if(!laneEl||!hc)return;
   laneEl.classList.add('hero-panel');laneEl.dataset.side=side;laneEl.dataset.lane=lane;hc.classList.add('hero-main');
@@ -1781,18 +2194,26 @@ function renderHero(side,lane,h,s){
     hp.style.setProperty('--hp-ratio',String(hpPct/100));
     hp.innerHTML='<span class="gl-hp-text">'+Math.round(hpNow)+'/'+Math.round(hpMax)+'</span><span class="gl-hp-track"><span class="gl-hp-fill"></span></span>';
   }
-  // RC35.6: return to the compact RC32-style rectangular EXP label.
-  // Keep the existing physical EXP stack; hide this total when it is zero or Legacy.
+  // v2.13: the existing lower-left EXP label becomes a public EXP inspector
+  // button. Keep the same location and hide it for 0 EXP or Legacy, as before.
   let expBadge=laneEl.querySelector(':scope > .gl-hero-exp-indicator');
   const expTotal=Math.max(0,Math.floor(Number(h?.exp_total||0)));
   if(legacyMode||expTotal===0){if(expBadge)expBadge.remove();}
   else{
-    if(!expBadge){expBadge=document.createElement('span');expBadge.className='gl-hero-exp-indicator';laneEl.appendChild(expBadge);}
+    if(!expBadge||expBadge.tagName!=='BUTTON'){
+      expBadge?.remove();expBadge=document.createElement('button');expBadge.type='button';
+      expBadge.className='gl-hero-exp-indicator';laneEl.appendChild(expBadge);
+    }
     const label=expTotal+' EXP';
     if(expBadge.textContent!==label)expBadge.textContent=label;
-    expBadge.setAttribute('aria-label',label);
+    expBadge.setAttribute('aria-label','View '+label+' cards for '+(cv(heroImageId(h))?.name||'Hero'));
+    expBadge.setAttribute('aria-haspopup','dialog');expBadge.setAttribute('aria-controls','glExpInspectorDialog');
     const rank=Number(h?.rank||1),goal=rank<=1?300:(rank===2?700:null);
-    expBadge.title=goal===null?label+' (Rank III)':label+' / '+goal+' to next Rank';
+    expBadge.dataset.glExpTitle=(goal===null?label+' (Rank III)':label+' / '+goal+' to next Rank')+' - click to view EXP Cards';
+    expBadge.onclick=e=>{e.preventDefault();e.stopPropagation();if(!playerHandIsRaised())openExpInspector(side,lane)};
+    expBadge.disabled=playerHandIsRaised();
+    expBadge.setAttribute('aria-disabled',expBadge.disabled?'true':'false');
+    expBadge.title=expBadge.disabled?'Move away from the raised Hand card to inspect EXP.':expBadge.dataset.glExpTitle;
   }
   // Draw This Turn moved into the existing Hero-information ! tooltip in Stage 1.5.10.
   laneEl.querySelector(':scope > .gl-draw-this-turn')?.remove();
@@ -1901,9 +2322,6 @@ function renderStatuses(laneEl,h,s,side,lane,delayExhaust){
     if(p?.target_lane===lane&&p?.target_side===side){
       if(p.type==='status_removal_choice'){
         b.classList.add('gl-clickable');b.onclick=()=>{intent('selectStatusRemovalChoice',[idx]);intent('handleChoiceConfirm',[])};
-      }else if(p.type==='saint_purify_choice'){
-        const choiceIndex=(p.status_choices||[]).findIndex(x=>Number(x.status_index)===idx);
-        if(choiceIndex>=0){b.classList.add('gl-clickable');b.onclick=()=>{intent('selectSaintPurifyChoice',[choiceIndex]);intent('handleChoiceConfirm',[])}}
       }
     }
     holder.append(b,tip);wrap.appendChild(holder);
@@ -2308,7 +2726,15 @@ function renderAttackLine(s,chain){
     const line=document.createElementNS(svg.namespaceURI,'path');line.setAttribute('class','gl-pending-attack-line is-looping');line.setAttribute('marker-end','url(#glVsaiAttackArrow)');line.setAttribute('d',`M ${sx} ${sy} Q ${(sx+ex)/2} ${(sy+ey)/2-lift} ${ex} ${ey}`);svg.appendChild(line);
   });
 }
+function updateCommittedHandSlotVisibility(side){
+  const host=side==='AI'?oppHandTrack:playerHandTrack,hidden=glHiddenCommittedDrawSlots[side];
+  host?.querySelectorAll(':scope > .hand-card[data-hand-index]').forEach(el=>{
+    if(el.classList.contains('gl-draw-reservation-slot'))return;
+    el.classList.toggle('gl-presentation-hidden',hidden.has(Number(el.dataset.handIndex)));
+  });
+}
 function renderHand(s){
+  updateCommittedHandSlotVisibility('PLAYER');
   const model=E().getHandModel(),rw=s.responseWindow,p=s.pending,responseMap=new Map();
   if(rw?.response_owner==='PLAYER')(rw.options||[]).forEach((o,i)=>{if(Number.isInteger(Number(o.hand_index))){const k=Number(o.hand_index);if(!responseMap.has(k))responseMap.set(k,[]);responseMap.get(k).push(i)}});
   const responseNeedsDiscard=p?.type==='response_payment_choice'&&Number(p.required_discard_count||0)>0;
@@ -2324,13 +2750,13 @@ function renderHand(s){
   const directCandidates=new Map();
   if(directChoice)(p.candidates||[]).forEach((x,i)=>directCandidates.set(Number(x.hand_index),i));
   const directSelected=selectedChoiceIndex(p);
-  const pendingDraws=glPendingDrawReservations.PLAYER||[],hiddenDrawKey=[...glHiddenCommittedDrawSlots.PLAYER.keys()].sort((a,b)=>a-b).join(',');
+  const pendingDraws=glPendingDrawReservations.PLAYER||[];
   const signature=(s.playerHand||[]).map((id,idx)=>{
     const m=model[idx]||{},r=(responseMap.get(idx)||[]).join(','),d=discardSet.has(idx)?1:0,dc=directCandidates.has(idx)?directCandidates.get(idx):'';
     const ds=(discardSelectionState(p,idx).selected||bardSelected.has(idx))?1:0;
     const manaOnlyBlock=!m.canPlay&&Array.isArray(m.playReasons)&&m.playReasons.length>0&&m.playReasons.every(reason=>/not enough mana/i.test(String(reason||'')));
-    return [id,m.canPlay?1:0,manaOnlyBlock?1:0,m.canTribute?1:0,r,d,dc,directSelected===dc?1:0,ds,glHiddenCommittedDrawSlots.PLAYER.has(idx)?'H':''].join(':');
-  }).join('|')+'#'+String(p?.type||'')+'#'+String(p?.resolve_to||'')+'#BARD:'+String(bardSelection)+'#'+String(rw?.response_window_token||rw?.card_id||'')+'#'+String(uiResponseSourceChoice?.handIndex??'')+'#'+String(uiResponseSourceChoice?.stage||'')+'#'+String(uiResponseSourceChoice?.selectedOptionIndex??'')+'#'+JSON.stringify(p?.selected_indices||p?.selected_cost_indices||p?.selected||[])+'#HD:'+hiddenDrawKey+'#PR:'+pendingDraws.map(x=>x.id).join(',');
+    return [id,m.canPlay?1:0,manaOnlyBlock?1:0,m.canTribute?1:0,r,d,dc,directSelected===dc?1:0,ds,'' ].join(':');
+  }).join('|')+'#'+String(p?.type||'')+'#'+String(p?.resolve_to||'')+'#BARD:'+String(bardSelection)+'#'+String(rw?.response_window_token||rw?.card_id||'')+'#'+String(uiResponseSourceChoice?.handIndex??'')+'#'+String(uiResponseSourceChoice?.stage||'')+'#'+String(uiResponseSourceChoice?.selectedOptionIndex??'')+'#'+JSON.stringify(p?.selected_indices||p?.selected_cost_indices||p?.selected||[])+'#PR:'+pendingDraws.map(x=>x.id).join(',');
   if(signature===handRenderKey)return;handRenderKey=signature;
   playerHandTrack.innerHTML='';
   (s.playerHand||[]).forEach((id,idx)=>{
@@ -2361,7 +2787,7 @@ function renderHand(s){
       if(m.canTribute){addAction(actions,'TRIBUTE','tribute',()=>intent('beginTributeFromHand',[idx]));actionCount++}
     }
     if(actionCount)card.classList.add('gl-has-action');
-    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.alt=v?.name||'Card';im.draggable=false;bindPlayerHandArtwork(card,im,id);card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
+    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.src=art(id);im.alt=v?.name||'Card';im.draggable=false;card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
   });
   pendingDraws.forEach((r,i)=>{
     const idx=(s.playerHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');
@@ -2401,9 +2827,10 @@ function handleDiscardClick(p,handIndex){
   }
 }
 function renderOpponentHand(s){
+  updateCommittedHandSlotVisibility('AI');
   const p=s.pending,choice=p?.type==='opponent_hand_choice'&&pendingOwner(p)==='PLAYER',scopeReveal=p?.type==='magic_scope_reveal'&&pendingOwner(p)==='PLAYER',reveal=choice?!!p.reveal_cards:scopeReveal;
-  const pendingDraws=glPendingDrawReservations.AI||[],hiddenDrawKey=[...glHiddenCommittedDrawSlots.AI.keys()].sort((a,b)=>a-b).join(',');
-  const key=JSON.stringify([s.aiHand||[],p?.type,choice?(p.candidates||[]):null,scopeReveal?(p.revealed_cards||[]):null,reveal,hiddenDrawKey,pendingDraws.map(x=>x.id)]);
+  const pendingDraws=glPendingDrawReservations.AI||[];
+  const key=JSON.stringify([s.aiHand||[],p?.type,choice?(p.candidates||[]):null,scopeReveal?(p.revealed_cards||[]):null,reveal,pendingDraws.map(x=>x.id)]);
   if(key===opponentHandRenderKey)return;opponentHandRenderKey=key;
   oppHandTrack.innerHTML='';document.querySelector('.gl-magic-scope-done')?.remove();
   if(choice){
@@ -2597,11 +3024,14 @@ function renderAllowedModal(s){
     // still clears the preview through the center-choice lifecycle.
     const centerPreviewOwnedByCenterChoice=!!centerChoiceModeFor(s)&&
       classChoiceHoverOwner?.isConnected&&centerChoiceStage.contains(classChoiceHoverOwner);
-    if(!centerPreviewOwnedByCenterChoice)hideModalHoverPreview();
+    // EXP Inspector reuses the Legacy Deck hover-preview layer. Polling
+    // renderAllowedModal must not erase it every 120ms while the panel is open.
+    const expPreviewOwnedByInspector=expInspectorOverlay.classList.contains('open');
+    if(!centerPreviewOwnedByCenterChoice&&!expPreviewOwnedByInspector)hideModalHoverPreview();
     if(p)inspectState=null;
     choiceOverlay.classList.remove('open','gl-choice-main-deck-preview');activeModalType='';modalRenderKey='';return;
   }
-  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],required_count:p.required_count||p.required_choices||p.max_count||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||''});
+  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||''});
   activeModalType=p.type;choiceOverlay.classList.add('open');
   // Polling renders used to destroy/recreate the modal buttons every 120 ms, which could eat
   // ordinary mouse clicks. Rebuild only when the choice state actually changes.
@@ -2621,19 +3051,31 @@ function renderAllowedModal(s){
   }
   const choicePreviewMode=choicePreviewModeFromCandidateZone(p),mainDeckPreview=choicePreviewMode==='fixed';
   choiceOverlay.classList.toggle('gl-choice-main-deck-preview',mainDeckPreview);
-  title.textContent=p.title||({card_search_choice:'Choose Card',legacy_defeat_choice:'Choose Legacy',legacy_card_choice:'Legacy Choice',crystal_ball_reorder:'Crystal Ball — Reorder Top Deck'}[p.type]);
+  title.textContent=p.title||({card_search_choice:'Choose Card',legacy_defeat_choice:'Choose Legacy',legacy_card_choice:'Legacy Choice',crystal_ball_reorder:'Crystal Ball — Reorder Top Deck',trial_rankup_return_exp:'TRIAL · Rank '+(Number(p.rank)===2?'II':'III')+' Return EXP',scouting_exp_selection:'TRIAL · Scouting Choose EXP'}[p.type]);
   body.innerHTML='';body.classList.remove('gl-choice-body-main-deck');
   // v6.90.7: Main Deck preview is the v6.88 floating preview OUTSIDE the popup.
   // Do not reserve an internal preview column. The popup keeps all seven card columns.
   const listHost=body;
   const instruction=document.createElement('p');instruction.className='choice-instruction';
-  if(p.type==='legacy_defeat_choice')instruction.textContent=(cv(p.defeated_card_id)?.name||'Hero')+' was defeated. Choose which Legacy card will replace this Hero.';
+  if(p.type==='trial_rankup_return_exp')instruction.textContent='Choose exactly '+Math.min(Number(p.quota||0),(p.candidates||[]).length)+' normal EXP Skill Cards to return to Hand. Ultimate EXP and unselected cards remain in Discard. This is NOT a Draw; Mana Regen +1 is already applied.';
+  else if(p.type==='scouting_exp_selection')instruction.textContent='Scouting was paid and committed. Choose exactly 1 opponent normal Skill EXP Card to DISCARD. Ultimate EXP Cards cannot be chosen.';
+  else if(p.type==='legacy_defeat_choice')instruction.textContent=(cv(p.defeated_card_id)?.name||'Hero')+' was defeated. Choose which Legacy card will replace this Hero.';
   else if(p.type==='card_search_choice')instruction.textContent=p.instruction||'Select the required card choice.';
   else if(p.type==='legacy_card_choice')instruction.textContent='Choose exactly '+Number(p.required_choices||1)+' card(s).';
   else instruction.textContent='Reorder the revealed top cards. The first card shown will be the next card drawn.';
   listHost.appendChild(instruction);
   const grid=document.createElement('div');grid.className='choice-grid '+(p.type==='crystal_ball_reorder'?'reorder-choice-grid':'card-search-choice-grid');listHost.appendChild(grid);
-  if(p.type==='legacy_defeat_choice'){
+  if(p.type==='trial_rankup_return_exp'){
+    const selected=new Set((p.selected_indices||[]).map(Number)),maximum=Math.min(Number(p.quota||0),(p.candidates||[]).length);
+    (p.candidates||[]).forEach((x,i)=>grid.appendChild(choiceCardTile(x.card_id,i,selected.has(i),()=>intent('trialSelectRankUpReturn',[i]),'contextual')));
+    confirm.textContent='Return '+selected.size+' / '+maximum+' EXP Card'+(selected.size===1?'':'s');
+    confirm.disabled=selected.size!==maximum;
+  }else if(p.type==='scouting_exp_selection'){
+    const choices=p.exp_choices||[],selected=p.selected_exp_choice===null?-1:Number(p.selected_exp_choice);
+    choices.forEach((x,i)=>grid.appendChild(choiceCardTile(x.card_id,i,selected===i,()=>intent('selectScoutingExpChoice',[i]),'contextual')));
+    confirm.textContent='Discard Selected EXP';
+    confirm.disabled=selected<0||!choices[selected];
+  }else if(p.type==='legacy_defeat_choice'){
     (p.candidates||[]).forEach((raw,i)=>{const id=typeof raw==='string'?raw:(raw.card_id||raw.id);grid.appendChild(choiceCardTile(id,i,selectedChoiceIndex(p)===i,()=>intent('selectLegacyDefeatChoice',[i]),'contextual'))});
     const legacySelected=selectedChoiceIndex(p);confirm.textContent=p.committing?'Entering Legacy Mode…':'Enter Legacy Mode';confirm.disabled=!!p.committing||legacySelected==null||!(p.candidates||[])[legacySelected];
   }else if(p.type==='card_search_choice'){
@@ -2659,7 +3101,7 @@ function autoSpecialChoices(s){
   // v6.89 center-choice UX keeps even a single opponent Shard visible as an explicit
   // blind choice so the player sees the card move, reveal after confirm, and destination.
 }
-function renderRacialTokens(s){const set=(sel,n)=>{const row=document.querySelector(sel);if(!row)return;row.innerHTML='';for(let i=0;i<2;i++){const im=document.createElement('img');im.className='racial-token';im.src=i<n?'assets/ui/Racial-Token-Head.webp?glsrc=b1d265365339':'assets/ui/Racial-Token-Tail.webp?glsrc=867e6c6d1d33';row.appendChild(im)}};set('.player-right-rail .racial-row',Number(s.racial||0));set('.opponent-left-rail .racial-row',Number(s.aiRacial||0))}
+function renderRacialTokens(s){const set=(sel,n)=>{const row=document.querySelector(sel);if(!row)return;row.innerHTML='';for(let i=0;i<2;i++){const im=document.createElement('img');im.className='racial-token';im.src=i<n?'assets/ui/Racial-Token-Head.webp':'assets/ui/Racial-Token-Tail.webp';row.appendChild(im)}};set('.player-right-rail .racial-row',Number(s.racial||0));set('.opponent-left-rail .racial-row',Number(s.aiRacial||0))}
 function renderRegenCounter(side,value){
   const zone=zoneEl(side,'Shard Deck');if(!zone)return;
   let badge=zone.querySelector(':scope > .gl-regen-counter');
@@ -2753,12 +3195,28 @@ function renderNow(){
   // Only normalize objectively inconsistent Response state. Mandatory gameplay choices are never force-cleared.
   if(repairBlockingStateIfNeeded(s)){setTimeout(renderNow,0);return;}
   const presentationPlan=buildPresentationPlan(s);
+  // Hold the AI action director through the COMPLETE Rank Up choreography,
+  // including the 72ms pauses when no clone is in flight. Lock before RAF.
+  if((presentationPlan.heroTransitions||[]).some(x=>x.kind==='rank'))glRankPresentationRunning++;
+  const expHandBefore=(presentationPlan.expReturns||[]).length?
+    {PLAYER:snapshotHandPositions('PLAYER'),AI:snapshotHandPositions('AI')}:null;
   if(uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')uiResponseSourceChoice=null;
   if(responseRollbackSnapshot&&s.pending?.type!=='response_payment_choice'&&!uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')responseRollbackSnapshot=null;
   autoSpecialChoices(s);const chain=renderCombatStacks(s);
   for(const side of ['PLAYER','AI'])for(const lane of laneOrder)renderHero(side,lane,sideHeroes(s,side)?.[lane],s);
-  renderHand(s);renderOpponentHand(s);renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);
-  requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);runPresentationPlan(presentationPlan,s)});
+  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);
+    requestAnimationFrame(()=>{
+    syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();
+    layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);
+    if(expHandBefore){
+      // FLIP the existing cards, but keep the newly returned Hand slots hidden
+      // until their individual animation finishes.
+      for(const side of ['PLAYER','AI'])
+        if((presentationPlan.expReturns||[]).some(e=>e.side===side))
+          animateHandExpansion(side,expHandBefore[side]);
+    }
+    runPresentationPlan(presentationPlan,s);
+  });
 }
 function clearAuthoredDummyState(){
   document.querySelectorAll('.hand-track').forEach(x=>x.innerHTML='');
@@ -2778,7 +3236,7 @@ function markReservedDrawEventHandled(reservation){
 }
 function queueBattlefieldReservedDraw(reservation,commit){
   if(!reservation||typeof commit!=='function')return false;
-  const side=reservation.side==='AI'?'AI':'PLAYER',list=glPendingDrawReservations[side];if(side==='PLAYER')preloadHandArtwork(reservation.card_id);list.push(reservation);invalidateHandRender(side);renderNow();
+  const side=reservation.side==='AI'?'AI':'PLAYER',list=glPendingDrawReservations[side];list.push(reservation);invalidateHandRender(side);renderNow();
   const run=()=>new Promise(resolve=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const from=zoneEl(side,'Main Deck'),hand=side==='PLAYER'?playerHandTrack:oppHandTrack,to=hand?.querySelector('.gl-draw-reservation-slot[data-draw-reservation-id="'+CSS.escape(String(reservation.id||''))+'"]');
     const finish=()=>{try{commit()}finally{markReservedDrawEventHandled(reservation);const at=list.findIndex(x=>String(x.id)===String(reservation.id));if(at>=0)list.splice(at,1);invalidateHandRender(side);renderNow();resolve()}};

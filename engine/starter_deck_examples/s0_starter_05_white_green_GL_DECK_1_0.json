@@ -2,7 +2,7 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "White-Green Deck",
-  "format": "Grandis Legacy Season 0 / Player Rulebook v3.0 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Rulebook v3.2 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
@@ -83,17 +83,17 @@
     {
       "card_id": "S0-CLE-007",
       "card_name": "Holy Ring",
-      "quantity": 2
+      "quantity": 3
     },
     {
       "card_id": "S0-CLE-010",
       "card_name": "Holy Barrier",
-      "quantity": 2
+      "quantity": 1
     },
     {
       "card_id": "S0-CLE-011",
       "card_name": "Flash Heal",
-      "quantity": 2
+      "quantity": 1
     },
     {
       "card_id": "S0-CLE-018",
@@ -157,12 +157,17 @@
     },
     {
       "card_id": "S0-CLE-029",
-      "card_name": "",
+      "card_name": "Tune Up",
       "quantity": 1
     },
     {
       "card_id": "S0-ARC-027",
-      "card_name": "",
+      "card_name": "Sleeping Dart",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-CLE-008",
+      "card_name": "Holy Fire",
       "quantity": 1
     }
   ],
@@ -190,67 +195,109 @@
     {
       "slot": "LEFT",
       "progression": "S0-CLE-H001",
-      "legacy": "S0-CLE-L001"
+      "legacy": "S0-CLE-L001",
+      "package_id": "S0-STARTER-05-PACKAGE-1",
+      "package_name": "Elara Heavens + Sun God Church"
     },
     {
       "slot": "CENTER",
       "progression": "S0-CLE-H007",
-      "legacy": "S0-CLE-L002"
+      "legacy": "S0-CLE-L002",
+      "package_id": "S0-STARTER-05-PACKAGE-2",
+      "package_name": "Melody Silverstring + Wand of First Light"
     },
     {
       "slot": "RIGHT",
       "progression": "S0-ARC-H001",
-      "legacy": "S0-ARC-L001"
+      "legacy": "S0-ARC-L001",
+      "package_id": "S0-STARTER-05-PACKAGE-3",
+      "package_name": "Fenrir Ironfang + Golden Arrows"
     }
   ],
   "legacy_deck_expanded": [
     {
       "card_id": "S0-CLE-H001",
-      "card_type": "Hero"
+      "card_name": "Elara Heavens",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-1",
+      "package_name": "Elara Heavens + Sun God Church"
     },
     {
       "card_id": "S0-CLE-H002",
-      "card_type": "Hero"
+      "card_name": "Elara Heavens",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-1",
+      "package_name": "Elara Heavens + Sun God Church"
     },
     {
       "card_id": "S0-CLE-H003",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-CLE-H007",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-CLE-H008",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-CLE-H009",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-ARC-H001",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-ARC-H002",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-ARC-H003",
-      "card_type": "Hero"
+      "card_name": "Elara Heavens",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-1",
+      "package_name": "Elara Heavens + Sun God Church"
     },
     {
       "card_id": "S0-CLE-L001",
-      "card_type": "Legacy"
+      "card_name": "Sun God Church",
+      "card_type": "Legacy",
+      "package_id": "S0-STARTER-05-PACKAGE-1",
+      "package_name": "Elara Heavens + Sun God Church"
+    },
+    {
+      "card_id": "S0-CLE-H007",
+      "card_name": "Melody Silverstring",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-2",
+      "package_name": "Melody Silverstring + Wand of First Light"
+    },
+    {
+      "card_id": "S0-CLE-H008",
+      "card_name": "Melody Silverstring",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-2",
+      "package_name": "Melody Silverstring + Wand of First Light"
+    },
+    {
+      "card_id": "S0-CLE-H009",
+      "card_name": "Melody Silverstring",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-2",
+      "package_name": "Melody Silverstring + Wand of First Light"
     },
     {
       "card_id": "S0-CLE-L002",
-      "card_type": "Legacy"
+      "card_name": "Wand of First Light",
+      "card_type": "Legacy",
+      "package_id": "S0-STARTER-05-PACKAGE-2",
+      "package_name": "Melody Silverstring + Wand of First Light"
+    },
+    {
+      "card_id": "S0-ARC-H001",
+      "card_name": "Fenrir Ironfang",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-3",
+      "package_name": "Fenrir Ironfang + Golden Arrows"
+    },
+    {
+      "card_id": "S0-ARC-H002",
+      "card_name": "Fenrir Ironfang",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-3",
+      "package_name": "Fenrir Ironfang + Golden Arrows"
+    },
+    {
+      "card_id": "S0-ARC-H003",
+      "card_name": "Fenrir Ironfang",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-05-PACKAGE-3",
+      "package_name": "Fenrir Ironfang + Golden Arrows"
     },
     {
       "card_id": "S0-ARC-L001",
-      "card_type": "Legacy"
+      "card_name": "Golden Arrows",
+      "card_type": "Legacy",
+      "package_id": "S0-STARTER-05-PACKAGE-3",
+      "package_name": "Fenrir Ironfang + Golden Arrows"
     }
   ],
   "default_formation": {
@@ -261,11 +308,11 @@
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "RC34 / uploaded Deck Builder v1.61 export / checked against Season 0 current card IDs",
+  "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_05_white_green_GL_DECK_1_0.json",
-  "source_authority": "User-provided Starter 5 updated 2026-11-08",
-  "source_export_sha256": "6b5a65f72d868798d51c645268f2892939256fdda1cc778a230e788a9c166ade",
-  "source_approval_basis": "Uploaded by designer during VS AI Development P1",
+  "source_authority": "User uploaded Deck Builder v1.61 export / R3.6 print authority / Rulebook v3.2",
+  "source_export_sha256": "78088d6c3a846f8edf0f26a207528259eff8f2725d16a8f3560f74e4b6b8ad21",
+  "source_approval_basis": "Designer supplied 2026-11-10",
   "active_starter_id": "s0_starter_05_white_green",
   "active_starter_slot": 5,
   "generated_only": true,

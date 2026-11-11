@@ -2,7 +2,7 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "Green-Yellow Deck",
-  "format": "Grandis Legacy Season 0 / Player Rulebook v3.0 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Rulebook v3.2 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
@@ -58,7 +58,7 @@
     {
       "card_id": "S0-THF-010",
       "card_name": "Back Slash",
-      "quantity": 2
+      "quantity": 3
     },
     {
       "card_id": "S0-THF-011",
@@ -73,7 +73,7 @@
     {
       "card_id": "S0-THF-015",
       "card_name": "Venom Sovereign",
-      "quantity": 2
+      "quantity": 1
     },
     {
       "card_id": "S0-THF-016",
@@ -176,8 +176,8 @@
       "quantity": 1
     },
     {
-      "card_id": "S0-ITM-020",
-      "card_name": "Freeze Bomb",
+      "card_id": "S0-ITM-019",
+      "card_name": "Warp Scroll",
       "quantity": 1
     }
   ],
@@ -205,67 +205,109 @@
     {
       "slot": "LEFT",
       "progression": "S0-ARC-H004",
-      "legacy": "S0-ARC-L002"
+      "legacy": "S0-ARC-L002",
+      "package_id": "S0-STARTER-04-PACKAGE-1",
+      "package_name": "Sylvan Galesong + Falconer's Whistle"
     },
     {
       "slot": "CENTER",
       "progression": "S0-ARC-H007",
-      "legacy": "S0-ARC-L001"
+      "legacy": "S0-ARC-L001",
+      "package_id": "S0-STARTER-04-PACKAGE-2",
+      "package_name": "Alden Sterling + Golden Arrows"
     },
     {
       "slot": "RIGHT",
       "progression": "S0-THF-H001",
-      "legacy": "S0-THF-L001"
+      "legacy": "S0-THF-L001",
+      "package_id": "S0-STARTER-04-PACKAGE-3",
+      "package_name": "Finnian Copperpot + Hidden Stash"
     }
   ],
   "legacy_deck_expanded": [
     {
       "card_id": "S0-ARC-H004",
-      "card_type": "Hero"
+      "card_name": "Sylvan Galesong",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-1",
+      "package_name": "Sylvan Galesong + Falconer's Whistle"
     },
     {
       "card_id": "S0-ARC-H005",
-      "card_type": "Hero"
+      "card_name": "Sylvan Galesong",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-1",
+      "package_name": "Sylvan Galesong + Falconer's Whistle"
     },
     {
       "card_id": "S0-ARC-H006",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-ARC-H007",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-ARC-H008",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-ARC-H009",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-THF-H001",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-THF-H002",
-      "card_type": "Hero"
-    },
-    {
-      "card_id": "S0-THF-H003",
-      "card_type": "Hero"
+      "card_name": "Sylvan Galesong",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-1",
+      "package_name": "Sylvan Galesong + Falconer's Whistle"
     },
     {
       "card_id": "S0-ARC-L002",
-      "card_type": "Legacy"
+      "card_name": "Falconer's Whistle",
+      "card_type": "Legacy",
+      "package_id": "S0-STARTER-04-PACKAGE-1",
+      "package_name": "Sylvan Galesong + Falconer's Whistle"
+    },
+    {
+      "card_id": "S0-ARC-H007",
+      "card_name": "Alden Sterling",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-2",
+      "package_name": "Alden Sterling + Golden Arrows"
+    },
+    {
+      "card_id": "S0-ARC-H008",
+      "card_name": "Alden Sterling",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-2",
+      "package_name": "Alden Sterling + Golden Arrows"
+    },
+    {
+      "card_id": "S0-ARC-H009",
+      "card_name": "Alden Sterling",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-2",
+      "package_name": "Alden Sterling + Golden Arrows"
     },
     {
       "card_id": "S0-ARC-L001",
-      "card_type": "Legacy"
+      "card_name": "Golden Arrows",
+      "card_type": "Legacy",
+      "package_id": "S0-STARTER-04-PACKAGE-2",
+      "package_name": "Alden Sterling + Golden Arrows"
+    },
+    {
+      "card_id": "S0-THF-H001",
+      "card_name": "Finnian Copperpot",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-3",
+      "package_name": "Finnian Copperpot + Hidden Stash"
+    },
+    {
+      "card_id": "S0-THF-H002",
+      "card_name": "Finnian Copperpot",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-3",
+      "package_name": "Finnian Copperpot + Hidden Stash"
+    },
+    {
+      "card_id": "S0-THF-H003",
+      "card_name": "Finnian Copperpot",
+      "card_type": "Hero",
+      "package_id": "S0-STARTER-04-PACKAGE-3",
+      "package_name": "Finnian Copperpot + Hidden Stash"
     },
     {
       "card_id": "S0-THF-L001",
-      "card_type": "Legacy"
+      "card_name": "Hidden Stash",
+      "card_type": "Legacy",
+      "package_id": "S0-STARTER-04-PACKAGE-3",
+      "package_name": "Finnian Copperpot + Hidden Stash"
     }
   ],
   "default_formation": {
@@ -276,11 +318,11 @@
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "RC34 / uploaded Deck Builder v1.61 export / checked against Season 0 current card IDs",
+  "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_04_green_yellow_GL_DECK_1_0.json",
-  "source_authority": "User-provided Starter 4 updated 2026-11-08",
-  "source_export_sha256": "e5902558f1757d31a14bdcf9395b71092e561c0ddf09af09e67fddc243d73130",
-  "source_approval_basis": "Uploaded by designer during VS AI Development P1",
+  "source_authority": "User uploaded Deck Builder v1.61 export / R3.6 print authority / Rulebook v3.2",
+  "source_export_sha256": "b43797831a752e19c1158bde6325e3c067639f7bc93153eb29275cc053d90f6d",
+  "source_approval_basis": "Designer supplied 2026-11-10",
   "active_starter_id": "s0_starter_04_green_yellow",
   "active_starter_slot": 4,
   "generated_only": true,

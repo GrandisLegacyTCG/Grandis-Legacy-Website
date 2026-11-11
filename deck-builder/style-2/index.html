@@ -39,9 +39,11 @@
   <link rel="stylesheet" href="../css/s0-launch-v1.58.css?v=1.58&glsrc=2fb8fecdb20b">
   <link rel="stylesheet" href="../css/s0-rulebook-v2.9-review-v1.58.css?v=1.58-rulebook29&glsrc=92a52016ff94">
   <link rel="stylesheet" href="css/s0-style2-mobile-v1.59.css?v=1.61&glsrc=06136ee471da">
-  <link rel="stylesheet" href="../css/s0-mobile-header-v1.63.css?v=1.63&glsrc=11978a252875">
-  <link rel="stylesheet" href="css/s0-style2-desktop-type-filters-v1.63.css?v=1.63-filter&glsrc=aad2ca01587c">
-  <link rel="stylesheet" href="css/s0-style2-hero-class-limit-v1.63.css?v=1.63-class-limit&glsrc=013c352e9d97">
+  <link rel="stylesheet" href="../css/s0-mobile-header-v1.63.css?v=1.64&glsrc=11978a252875">
+  <link rel="stylesheet" href="css/s0-style2-desktop-type-filters-v1.63.css?v=1.64-filter&glsrc=aad2ca01587c">
+  <link rel="stylesheet" href="css/s0-style2-hero-class-limit-v1.63.css?v=1.64-hero-limit-2&glsrc=e96b9977a992">
+  <link rel="stylesheet" href="../css/s0-filter-layout-v1.64.css?v=1.64-ui-filter-3&glsrc=ce2626156a96">
+  <link rel="stylesheet" href="css/s0-style2-mobile-type-v1.64.css?v=1.64-mobile-type-2&glsrc=09144b31eda6">
 </head>
 <body>
   <div class="app-shell">
@@ -132,7 +134,6 @@
               <label class="gl-type-field"><span>TYPE</span><select id="familyFilter"><option value="">All Types</option><option value="Skill">Skills</option><option value="Event">Events</option><option value="Item">Items</option></select></label>
               <label id="skillTypeField"><span>SUBTYPE</span><select id="skillTypeFilter" aria-label="Filter by subtype"><option value="">All Subtypes</option></select></label>
               <label id="classField"><span>CLASS</span><select id="classFilter"><option value="">All Classes</option><option>Archer</option><option>Cleric</option><option>Mage</option><option>Thief</option><option>Warrior</option></select></label>
-              <label class="gl-card-pool-field"><span>CARD POOL</span><select id="cardPoolSelect" aria-label="Card Pool"><option value="available">Available Cards</option><option value="all">All Cards</option></select></label>
               <label id="keywordField"><span>KEYWORD</span><select id="keywordFilter" aria-label="Filter by keyword"><option value="">All Keywords</option></select></label>
               <label id="effectField"><span>EFFECT</span><select id="effectFilter" aria-label="Filter by card effect"><option value="">All Effects</option></select></label>
               <div class="mana-filter">
@@ -147,7 +148,15 @@
                   <span class="range-end">9</span>
                 </div>
               </div>
-              <button id="resetFilters" class="reset-filter" type="button">RESET FILTERS</button>
+              <div class="gl-card-pool-field" id="cardPoolField">
+                <span>CARD POOL</span>
+                <div class="gl-pool-choice" role="group" aria-label="Card Pool">
+                  <button type="button" class="gl-pool-option" data-pool-value="available" aria-pressed="true">AVAILABLE CARDS</button>
+                  <button type="button" class="gl-pool-option" data-pool-value="all" aria-pressed="false">ALL CARDS</button>
+                </div>
+                <select id="cardPoolSelect" class="gl-pool-native-select" aria-label="Card Pool" aria-hidden="true" tabindex="-1"><option value="available">Available Cards</option><option value="all">All Cards</option></select>
+              </div>
+              <button id="resetFilters" class="reset-filter" type="button">RESET</button>
             </div>
             </div>
           </div>
@@ -252,20 +261,20 @@
     <img id="hoverCardZoomImage" src="" alt="Card hover preview">
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="../js/season0-catalog.js?v=1.62&glsrc=f6af98a9e5ec"></script>
+  <script src="../js/season0-catalog.js?v=1.64-r36&glsrc=56cbd033cf2b"></script>
   <script src="../js/season0-legality.browser.js?v=1.60&glsrc=251a75b1d78b"></script>
   <script>window.GL_DECK_BUILDER_BASE="../";</script>
-  <script src="../js/data-s0.js?v=1.62&glsrc=05d635006350"></script>
-  <script src="js/s0-starters-v1.46.js?v=1.46.0&glsrc=ec8f4d57360e"></script>
+  <script src="../js/data-s0.js?v=1.64-r36-starters-2&glsrc=ee1be17c0d65"></script>
+  <script src="js/s0-starters-v1.46.js?v=1.64-starters-2&glsrc=46b0d5e5dd32"></script>
   <script src="../js/s1-to-s0-import.js?v=1.32.2&glsrc=01cf9f2274f0"></script>
   <script src="../js/s0-availability.js?v=1.35.0&glsrc=f133a6635af1"></script>
   <script src="../js/s0-effect-filter.js?v=1.35.0&glsrc=6c2db7231557"></script>
-  <script src="../js/s0-review-clarity.js?v=1.63-items&glsrc=1ea517e9a30e"></script>
+  <script src="../js/s0-review-clarity.js?v=1.64-r36&glsrc=3e1fd2d50034"></script>
   <script src="../js/s0-shared-workspace.js?v=1.58&glsrc=1fe58b5ce52c"></script>
   <script src="../js/s0-subtype-filter.js?v=1.49.0&glsrc=4deaa259777b"></script>
   <script src="../js/s0-ui-v1.49.js?v=1.56&glsrc=f27eca24fc71"></script>
   <script src="../js/s0-modal-shared.js?v=1.52&glsrc=5bc0edd6de7d"></script>
-  <script src="js/app-s0.js?v=1.62&glsrc=d8e774359329"></script>
+  <script src="js/app-s0.js?v=1.64-baseclass3-importfix&glsrc=f91be9c20797"></script>
   <script>
   // file:// URLs have no web-server index fallback; directory anchors would
   // open a file listing instead of Deck Builder in Firefox and other browsers.
