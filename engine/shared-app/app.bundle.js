@@ -3906,6 +3906,40 @@
     });
     return highest;
   }
+  // RC38 Intermediate: allow the normal EXP focus to change ONLY if its Hero
+  // is truly critical (<=30% HP), still >=200 EXP short of Rank Up, and has
+  // no currently usable card or racial defense. Mandatory immediate Rank Up
+  // (100 EXP by any legal Tribute; 200 EXP by a legal owner Ultimate) is
+  // evaluated earlier and must never be displaced by this escape heuristic.
+  function aiIntermediateHeroHasUsableDefense(state,hero){
+    if(!state||!isActiveHeroSlot(hero))return false;
+    var lane=LANE_ORDER.find(function(l){return (state.aiHeroes||{})[l]===hero;});
+    if(!lane)return false;
+    var racial=racialActionFor(hero)||{},racialCost=Number((racial.cost&&racial.cost.racial_token)||0);
+    if(racial.action_key==='stoneblood'&&!hasStatus(hero,'Stun')&&
+       Number(state[racialTokenKey('AI')]||0)>=racialCost&&
+       !racialAbilityUsedThisTurnByHero(state,hero))return true;
+    // Ask the actual Response legality resolver rather than assuming a card
+    // is usable merely because it is in Hand: Class/Rank, Mana, Status,
+    // additional costs and Racial Token availability all matter.
+    return ['Physical','Magical'].some(function(damageType){
+      var incoming={card_id:damageType==='Physical'?'S0-WAR-001':'S0-MAG-001',
+        source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:lane,
+        attack_type:'Single Target',damage:30,damage_type:damageType,
+        cannot_block:false,cannot_dodge:false,affected_lanes:[lane]};
+      return responseOptionsFor(state,'AI',incoming).some(function(option){
+        return option&&(Number.isInteger(option.hand_index)||
+          option.response_kind==='dragon_scale'||option.response_kind==='second_chance');
+      });
+    });
+  }
+  function aiIntermediateCanShiftExpFocus(state,hero){
+    if(!state||!hero||!isActiveHeroSlot(hero)||heroRank(hero)>=3)return false;
+    var maxHp=Math.max(1,Number(hero.maxHp||0)),hp=Number(hero.hp||0),
+      need=Math.max(0,Number(nextRankThreshold(hero)||0)-Number(hero.exp_total||0));
+    if(hp<=0||hp/maxHp>0.30||need<200)return false;
+    return !aiIntermediateHeroHasUsableDefense(state,hero);
+  }
   function aiIntermediateFocusedHero(state){
     if(!state)return null;
     var heroes=state.aiHeroes||{},active=LANE_ORDER.map(function(l){return heroes[l];}).filter(function(h){
@@ -3914,12 +3948,13 @@
     var previous=state.aiExpFocus;
     if(previous&&previous.progression_id){
       var kept=active.find(function(h){return heroProgressionId(h)===previous.progression_id&&heroRank(h)===previous.rank;});
-      if(kept)return kept;
+      if(kept&&!aiIntermediateCanShiftExpFocus(state,kept))return kept;
     }
-    // Also reconstruct the focus correctly in older saved matches lacking the field.
-    // Rank I keeps its first investment; Rank II locks after 2 normal Tributes.
+    // Reconstruct focus even in older saved matches. Both Rank I and Rank II
+    // retain focus after the first 100-EXP investment, unless the critical-
+    // HP / no-defense condition permits changing the Hero being developed.
     var invested=active.filter(function(h){var rank=heroRank(h),exp=Number(h.exp_total||0);
-      return rank===1?exp>0:(rank===2&&exp>=500);
+      return (rank===1?exp>0:(rank===2&&exp>300))&&!aiIntermediateCanShiftExpFocus(state,h);
     });
     invested.sort(function(a,b){
       var an=Math.max(0,Number(nextRankThreshold(a)||0)-Number(a.exp_total||0)),
@@ -3983,26 +4018,27 @@
   function aiIntermediateTributeHeroScore(state,action){
     var hero=(state.aiHeroes||{})[action.target_lane];if(!isActiveHeroSlot(hero))return -10000;
     var rank=heroRank(hero),exp=Number(hero.exp_total||0),active=LANE_ORDER.map(function(l){return (state.aiHeroes||{})[l];}).filter(isActiveHeroSlot);
-    var focused=aiIntermediateFocusedHero(state);
+    var focused=aiIntermediateFocusedHero(state),mayShift=aiIntermediateCanShiftExpFocus(state,hero);
     if(focused){
       if(heroProgressionId(hero)!==heroProgressionId(focused)||rank!==heroRank(focused))return -10000;
-      return 1550+exp*.3; // A committed Rank Up overrides Starter lane / HP bonuses.
+      return 1550+exp*.3; // A protected or healthy committed Hero keeps its EXP Focus.
     }
     var unranked=active.filter(function(h){return heroRank(h)===1;});
     if(unranked.length){
       if(rank!==1)return -10000;
-      var invested=unranked.filter(function(h){return Number(h.exp_total||0)>0;});
+      var invested=unranked.filter(function(h){return Number(h.exp_total||0)>0&&!aiIntermediateCanShiftExpFocus(state,h);});
       if(invested.length){
-        // Never spread EXP if a Rank I hero already has an investment.
+        // Never spread EXP away from an invested Hero who is still safe or
+        // defended. Only an unprotected critically wounded Hero may give way.
         var maxExp=Math.max.apply(null,invested.map(function(h){return Number(h.exp_total||0);}));
         if(exp<maxExp)return -10000;
-        return 430+exp*.3;
+        return 430+exp*.3-(mayShift?900:0);
       }
       var hand=(state.aiHand||[]).map(card),family=baseFamilyForHero(hero),future=hand.filter(function(c){
         return c&&isSkillCard(c)&&isAttackCard(c)&&cardBaseSkillClass(c)===family&&
           JSON.stringify((c.requirement||{}).printed_class_rank_requirements||[]).indexOf('2')!==-1;
       }).length;
-      return 100+(action.target_lane==='CENTER'?95:0)+Math.min(2,future)*42;
+      return 100+(action.target_lane==='CENTER'?95:0)+Math.min(2,future)*42-(mayShift?900:0);
     }
     if(rank>=3)return -800;
     var score=exp*.24+100;
@@ -4010,15 +4046,18 @@
     else if(aiStarterIs(state,5))score+=action.target_lane==='CENTER'?500:(action.target_lane==='RIGHT'?420:-500);
     else score+=(Number(hero.hp||0)/Math.max(1,Number(hero.maxHp||100)))*245;
     if(Number(hero.hp||0)<Number(hero.maxHp||100)*.35)score-=180;
+    if(mayShift)score-=900; // Critically wounded with no usable Defense or Racial protection.
     return score;
   }
-  function aiIntermediateTributeScore(state,action){
+  function aiIntermediateTributeScore(state,action,forcedRankUp){
     var c=card(action.card_id),h=(state.aiHeroes||{})[action.target_lane];
     if(!c||!h||!isActiveHeroSlot(h))return -10000;
-    var missing=Math.max(0,Number(nextRankThreshold(h)||0)-Number(h.exp_total||0)),val=isUltimateCard(c)?200:100;
-    if(missing<val)return -10000; // Never overflow EXP; includes 200/600 Ultimate cases.
-    if(aiIntermediateSavedUltimate(c.card_id))return -10000;
-    var heroScore=aiIntermediateTributeHeroScore(state,action);
+    var missing=Math.max(0,Number(nextRankThreshold(h)||0)-Number(h.exp_total||0)),val=tributeExpValue(c);
+    if(missing<val && !(forcedRankUp&&isUltimateCard(c)&&missing===100&&val===200))return -10000; // Ordinary AI avoids overflow, but Rulebook-legal Ultimate overflow can complete a mandatory 100-EXP Rank Up.
+    // A legal immediate Rank Up overrides the ordinary "save this Ultimate"
+    // heuristic and any cached EXP Focus. Legality/payment remain authoritative.
+    if(!forcedRankUp&&aiIntermediateSavedUltimate(c.card_id))return -10000;
+    var heroScore=forcedRankUp?(1550+Number(h.exp_total||0)*.3):aiIntermediateTributeHeroScore(state,action);
     if(heroScore<=-9000)return -10000;
     var hand=state.aiHand||[],same=hand.filter(function(id){return id===c.card_id;}).length,
       klass=String(c.classification||''),cost=Number(cardCost(c)||0),regen=Number(state.aiManaRegen||1),score=0;
@@ -4056,6 +4095,48 @@
     if(['S0-EVT-007','S0-EVT-009'].indexOf(c.card_id)>=0)score-=160;
     if(Number(state.manaRegen||1)>=5&&/mana burn|mana steal/i.test(String(c.card_text||'')))score+=155;
     return score+heroScore-Number(action.cost||0);
+  }
+  // RC38 locked Intermediate Tribute priorities (11 Nov 2026):
+  // P0: a Hero only 100 EXP from Rank Up MUST receive a legal Tribute.
+  //     Prefer a normal Skill over a legal Ultimate that would overflow EXP.
+  // P1: if no P0 is possible, a Hero 200 EXP short MUST receive a legal
+  //     200-EXP Ultimate belonging to that living Hero (matching Color Mana).
+  // Both outrank cached EXP Focus, low-HP penalties, starter preferences and
+  // any stored Reform follow-up plan. If neither is LEGAL, use normal AI policy.
+  function aiIntermediateRankUpTributePriority(state,legalActions){
+    if(!aiIntermediate(state)||!state)return null;
+    var candidates=[];
+    (legalActions||[]).forEach(function(a){
+      if(!a||a.type!=='TRIBUTE_CARD')return;
+      var h=(state.aiHeroes||{})[a.target_lane],c=card(a.card_id);
+      if(!h||!isActiveHeroSlot(h)||heroRank(h)>=3||!c)return;
+      var missing=Number(nextRankThreshold(h)||0)-Number(h.exp_total||0),
+          expValue=tributeExpValue(c),ultimate=isUltimateCard(c),tier=-1;
+      if(missing===100&&(expValue===100&&!ultimate || expValue===200&&ultimate))tier=0;
+      else if(missing===200&&expValue===200&&ultimate)tier=1;
+      if(tier<0)return;
+      candidates.push({action:a,tier:tier,hero:h,
+        hpRatio:Number(h.hp||0)/Math.max(1,Number(h.maxHp||100)),
+        value:aiIntermediateTributeScore(state,a,true)});
+    });
+    if(!candidates.length)return null;
+    candidates.sort(function(a,b){
+      if(a.tier!==b.tier)return a.tier-b.tier;
+      // At 100 EXP remaining, prefer an ordinary Skill over an Ultimate:
+      // the latter is legal, but wastes 100 of its 200 EXP on overflow.
+      if(a.tier===0){
+        var au=isUltimateCard(card(a.action.card_id)),bu=isUltimateCard(card(b.action.card_id));
+        if(au!==bu)return au?1:-1;
+      }
+      // When several Rank Ups can finish this turn, save the more wounded
+      // Hero first. HP is never a reason to skip a qualifying Rank Up.
+      if(Math.abs(a.hpRatio-b.hpRatio)>1e-9)return a.hpRatio-b.hpRatio;
+      if(a.value!==b.value)return b.value-a.value;
+      return Number(a.action.hand_index||0)-Number(b.action.hand_index||0);
+    });
+    var chosen=candidates[0];
+    chosen.action.ai_tribute_priority=chosen.tier===0?'RANK_UP_100':'RANK_UP_ULTIMATE_200';
+    return chosen.action;
   }
   function aiIntermediateCanSearchFinisher(state,sourceCard,action){
     var sid=String(sourceCard&&sourceCard.card_id||''),pool=sid==='S0-ITM-018'?(state.aiDeck||[]):(state.aiDiscard||[]);
@@ -4680,6 +4761,12 @@
     if(aiIntermediate(state))playable=playable.filter(function(a){return !aiIntermediatePreserveSkillForRank(state,a);});
     var futurePlan=state.aiPlan&&Number(state.aiPlan.not_before_round||0)>Number(state.round||0)?state.aiPlan:null;
     if(futurePlan&&futurePlan.preferred_card_id)playable=playable.filter(function(a){return a.card_id!==futurePlan.preferred_card_id;});
+    // Check legal instant-Rank-Up Tributes BEFORE any stored follow-up or
+    // ordinary EXP Focus; one Tribute per Reform still applies.
+    if(phase==='Reform'&&aiIntermediate(state)){
+      var urgentTribute=aiIntermediateRankUpTributePriority(state,nonSkip);
+      if(urgentTribute)return urgentTribute;
+    }
     var planned=aiPlannedFollowUpAction(state,phase,playable);
     if(planned){ state.aiPlan=null; return planned; }
     if(state.aiPlan && state.aiPlan.followup_phase===phase && Number(state.aiPlan.not_before_round||0)<=Number(state.round||0)) state.aiPlan=null;
@@ -4757,7 +4844,7 @@
     if(aiIntermediate(state)){
       var afterHero=(state.aiHeroes||{})[action.target_lane];
       if(ranked||!isActiveHeroSlot(afterHero)||heroRank(afterHero)!==beforeRank)state.aiExpFocus=null;
-      else if(beforeRank===1||(beforeRank===2&&Number(afterHero.exp_total||0)>=500))
+      else if(beforeRank===1||(beforeRank===2&&Number(afterHero.exp_total||0)>300))
         state.aiExpFocus={progression_id:heroProgressionId(afterHero),rank:beforeRank};
     }
     appendOpponentEventResult(state,tributeEvt,[ranked?'Rank Up triggered immediately. See RANK UP tile.':'No Rank Up occurred.']);

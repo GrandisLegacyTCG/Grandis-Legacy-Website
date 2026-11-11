@@ -8,6 +8,8 @@
   "trim_policy": "runtime/assets/config + minimal deploy docs; developer QA/history retained only in standalone sources",
   "source_packages": [
     "Grandis_Legacy_VS_AI_Season0_RC38_2026-11-11.zip",
-    "Grandis_Legacy_Deck_Builder_v1.64_2026-11-10.zip"
-  ]
+    "Grandis_Legacy_Deck_Builder_v1.64_2026-11-11.zip"
+  ],
+  "starter_decks": "Five designer-supplied Deck Builder v1.64 exports dated 2026-11-11",
+  "rc38_update": "Intermediate AI Tribute/EXP Focus update included"
 }

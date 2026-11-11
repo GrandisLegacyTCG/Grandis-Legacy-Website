@@ -12,5 +12,5 @@ This repository is deployment-focused. Development QA archives, historical check
 
 ## Current / previous production versions
 
-- Current: VS AI RC38 + Deck Builder v1.64 — artwork R3.6, Rulebook v3.2 authority
+- Current: VS AI RC38 + Deck Builder v1.64 — artwork R3.6, Rulebook v3.2 authority; starter decks refreshed 2026-11-11; latest RC38 Intermediate AI Tribute/EXP Focus update included
 - Previous: VS AI RC36 (cumulative internal RC36.8) + Deck Builder v1.63
