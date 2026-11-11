@@ -56,7 +56,7 @@ const sidebarHoverPreview=document.createElement('div');sidebarHoverPreview.clas
 const turnBanner=document.createElement('div');turnBanner.className='gl-turn-banner';turnBanner.setAttribute('aria-live','polite');document.body.appendChild(turnBanner);
 const counterBanner=document.createElement('div');counterBanner.className='gl-counter-banner';counterBanner.setAttribute('aria-live','polite');counterBanner.setAttribute('aria-atomic','true');document.body.appendChild(counterBanner);
 const seenCounterMessages=new Set(),seenRacialMessages=new Set(),presentationNoticeQueue=[];let counterBannerTimer=null,presentationNoticeActive=false;
-const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><img class="gl-lobby-logo" src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"><h1 id="glLobbyTitle">VS AI LOBBY</h1></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
+const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><a class="gl-lobby-home" href="./" aria-label="Grandis Legacy homepage"><img class="gl-lobby-logo" src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a><h1 id="glLobbyTitle">VS AI LOBBY</h1><nav class="gl-lobby-app-actions" aria-label="Grandis Legacy applications"><a class="gl-lobby-app-link" href="deck-builder/">GO TO DECK BUILDER</a></nav></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
 const coinOverlay=document.createElement('div');coinOverlay.className='gl-coin-overlay';coinOverlay.innerHTML='<section class="gl-coin-card" role="dialog" aria-modal="true" aria-label="Coin flip"><div class="gl-coin-body"></div></section>';document.body.appendChild(coinOverlay);
 const progressionOverlay=document.createElement('div');progressionOverlay.className='gl-progression-overlay';progressionOverlay.innerHTML='<section class="gl-progression-card" role="dialog" aria-modal="true" aria-labelledby="glProgressionTitle"><header><div><span>HERO PROGRESSION</span><h2 id="glProgressionTitle">Hero Progression</h2></div><button type="button" class="gl-progression-close">Close</button></header><div class="gl-progression-row"></div><p>Select a Rank card to open Card Review.</p></section>';document.body.appendChild(progressionOverlay);
 const resultOverlay=document.createElement('div');resultOverlay.className='gl-result-overlay';resultOverlay.innerHTML='<section class="gl-result-card" role="dialog" aria-modal="true" aria-labelledby="glResultTitle"><header><span>GAME RESULT</span><h2 id="glResultTitle">Match Complete</h2></header><div class="gl-result-body"></div></section>';document.body.appendChild(resultOverlay);
@@ -97,6 +97,26 @@ const laneOrder=['LEFT','CENTER','RIGHT'];
 function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
 function cv(id){return id?E().cardView(id):null;}
 function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp':'';}
+function glBindPlayerHandArtwork(card, img, id) {
+  const fallback='assets/ui/back-main.webp';
+  card.classList.add('gl-hand-art','gl-hand-art-loading');
+  function showWhenDecoded(){
+    let decoded;
+    try { decoded=typeof img.decode==='function' ? img.decode().catch(()=>{}) : Promise.resolve(); }
+    catch (_) { decoded=Promise.resolve(); }
+    Promise.resolve(decoded).then(()=>{
+      if (card.isConnected && img.naturalWidth>0) card.classList.remove('gl-hand-art-loading');
+    });
+  }
+  img.addEventListener('load', showWhenDecoded);
+  img.addEventListener('error', () => {
+    if (img.getAttribute('src')!==fallback) img.src=fallback;
+    else { img.style.display='none'; card.classList.remove('gl-hand-art-loading'); }
+  });
+  img.src=art(id);
+  if (img.complete && img.naturalWidth>0) showWhenDecoded();
+}
+
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cloneLite(v){try{return JSON.parse(JSON.stringify(v))}catch{return null}}
@@ -2800,7 +2820,7 @@ function renderHand(s){
       if(m.canTribute){addAction(actions,'TRIBUTE','tribute',()=>intent('beginTributeFromHand',[idx]));actionCount++}
     }
     if(actionCount)card.classList.add('gl-has-action');
-    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.src=art(id);im.alt=v?.name||'Card';im.draggable=false;card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
+    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.alt=v?.name||'Card';im.draggable=false;glBindPlayerHandArtwork(card,im,id);card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
   });
   pendingDraws.forEach((r,i)=>{
     const idx=(s.playerHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');
