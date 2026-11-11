@@ -1,0 +1,16 @@
+/* Shared warning tooltip for invalid/incomplete Deck Builder drafts. */
+[data-gl-deck-errors]{cursor:help;}
+[data-gl-deck-errors]:focus-visible{outline:2px solid #f6bf50;outline-offset:3px;}
+.deck-status.invalid{color:#ff9f9f;}
+.gl-deck-validation-tooltip{
+ position:fixed!important;z-index:2147483000!important;
+ box-sizing:border-box;width:min(380px,calc(100vw - 20px));max-height:min(330px,58vh);
+ overflow-y:auto;background:#23252f;color:#f7f7fb;border:1px solid #af7e39;
+ box-shadow:0 14px 40px rgba(0,0,0,.6);border-radius:10px;padding:14px 16px;
+ font:500 12px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+ text-align:left;white-space:normal;pointer-events:auto;
+}
+.gl-deck-validation-tooltip strong{display:block;color:#ffcc70;font-size:13px;margin-bottom:8px;}
+.gl-deck-validation-tooltip ul{margin:0;padding-left:19px;}
+.gl-deck-validation-tooltip li{margin:4px 0;overflow-wrap:anywhere;}
+@media(max-width:600px){.gl-deck-validation-tooltip{font-size:12px;padding:12px 14px;max-height:50vh;}}

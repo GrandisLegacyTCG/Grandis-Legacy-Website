@@ -349,9 +349,11 @@ function renderMainDeck(){hideHover();
   root.scrollTop=scrollTop;bindReviewButtons(root);bindHoverPreviews(root); // Main Deck hover is shown over the LEFT library panel; clicking the card opens Review.
 
   const total=countDeck();$('deckCount').textContent=total;$('mainTabCount').textContent=`${total} / ${MAIN_DECK_LEGAL_LIMIT}`;$('skillCount').textContent=familyCount('Skill');$('eventCount').textContent=familyCount('Event');$('itemCount').textContent=familyCount('Item');renderSkillClassTooltip();
-  const valid=validationIssues().length===0;
+  const report=s0Validation(),valid=report.ok;
   $('deckValidation').textContent=valid?'Deck Valid':'Deck Invalid';
-  $('deckValidation').classList.toggle('valid',valid);$('deckValidation').classList.toggle('invalid',!valid);$('deckValidation').title='Season 0 · Mana Deck: '+s0Draft().shard_deck.map(x=>x.quantity+' × '+(x.kind==='MANA'?'Regular Mana Shard':(({Archer:'Green',Cleric:'White',Mage:'Blue',Thief:'Yellow',Warrior:'Red'})[x.class_name]||x.class_name)+' Mana Shard')).join(', ');
+  $('deckValidation').classList.toggle('valid',valid);$('deckValidation').classList.toggle('invalid',!valid);
+  window.GL_S0_VALIDATION_TIP?.setBadge($('deckValidation'),report);
+  if(report.ok)$('deckValidation').title='Season 0 - Mana Deck: '+s0Draft().shard_deck.map(x=>x.quantity+' x '+(x.kind==='MANA'?'Regular Mana Shard':(({Archer:'Green',Cleric:'White',Mage:'Blue',Thief:'Yellow',Warrior:'Red'})[x.class_name]||x.class_name)+' Mana Shard')).join(', ');
   const exportButton=$('exportJson');if(exportButton){exportButton.disabled=!valid;exportButton.title=valid?'Export valid 50-card Season 0 deck':'Export requires exactly 50 cards and a valid deck';}
   $('emptyDeck').hidden=entries.length>0;
   s0Persist();
@@ -463,10 +465,11 @@ function mainDeckViewCardHtml(card,quantity){const mobile=isMobileMainDeck();ret
 function renderMainDeckView(){
   const root=$('mainDeckViewGrid');if(!root)return;
   const entries=Object.entries(state.deck).filter(([,qty])=>Number(qty)>0).map(([id,quantity])=>({card:state.byId.get(id),quantity:Number(quantity)})).filter(item=>item.card).sort(mainDeckSort);
-  const total=countDeck(),valid=validationIssues().length===0;
+  const total=countDeck(),report=s0Validation(),valid=report.ok;
   $('mainDeckViewCount').textContent=total;
   $('mainDeckViewValidation').textContent=valid?'Deck Valid':'Deck Invalid';
   $('mainDeckViewValidation').classList.toggle('valid',valid);$('mainDeckViewValidation').classList.toggle('invalid',!valid);
+  window.GL_S0_VALIDATION_TIP?.setBadge($('mainDeckViewValidation'),report);
   root.innerHTML=entries.map(({card,quantity})=>mainDeckViewCardHtml(card,quantity)).join('');
   $('mainDeckViewEmpty').hidden=entries.length>0;
   bindReviewButtons(root);
@@ -563,7 +566,7 @@ function s0Persist(){
  if(!window.GL_S0_CAN_PERSIST)return;
  try{
   const value=JSON.stringify(s0Export('shared'));
-  localStorage.setItem('grandis-season0-deck-draft-v2',value);
+  sessionStorage.setItem(window.GL_S0_SHARED_WORKSPACE?.STORAGE_KEY||'grandis-season0-deck-session-v1',value);
   s0LastWorkspaceJson=value;
  }catch(e){/* file:// privacy restrictions must not block cross-style handoff */}
 }
@@ -572,7 +575,7 @@ function s0Restore(serialized){
  try{
   const incoming=serialized===undefined?window.GL_S0_SHARED_WORKSPACE?.takeIncoming():null;
   fromHandoff=Boolean(incoming);
-  const saved=serialized!==undefined?serialized:(!fromHandoff?localStorage.getItem('grandis-season0-deck-draft-v2'):null);
+  const saved=serialized!==undefined?serialized:(!fromHandoff?sessionStorage.getItem(window.GL_S0_SHARED_WORKSPACE?.STORAGE_KEY||'grandis-season0-deck-session-v1'):null);
   const parsed=incoming||(saved?JSON.parse(saved):null);
   if(parsed){
    const normalized=normalizeImportedDeck(parsed);
@@ -594,7 +597,7 @@ function s0Restore(serialized){
   }
  }catch(e){console.warn('Could not restore Season 0 draft:',e.message);}
  finally{window.GL_S0_CAN_PERSIST=true;}
- // Store the received handoff in destination's own storage for refresh/reopening.
+ // Keep the incoming draft for this tab only (not after closing the Deck Builder).
  if(restored&&fromHandoff)s0Persist();
  return restored;
 }
@@ -612,7 +615,7 @@ function s0Draft(){
  return {main_deck,legacy_packages,shard_deck};
 }
 function s0Validation(){
- const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'starter_safe'});
+ const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'rulebook'});
  const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
  if(ultClasses.size>3){v.errors.push('More than 3 different Ultimate Color Mana Shards are required');v.ok=false;}
  const classIssue=baseClassLimitIssue();if(classIssue){v.errors.push(classIssue);v.ok=false;}

@@ -458,10 +458,11 @@ function mainDeckViewCardHtml(card,quantity){return `<article class="legacy-refe
 function renderMainDeckView(){
   const grid=$('mainDeckViewGrid');if(!grid)return;
   const entries=Object.entries(state.deck).filter(([,qty])=>Number(qty)>0).map(([id,quantity])=>({card:state.byId.get(id),quantity:Number(quantity)})).filter(x=>x.card).sort(mainDeckSort);
-  const valid=validationIssues().length===0;
+  const report=s0Validation(),valid=report.ok;
   $('mainDeckViewCount').textContent=String(countDeck());
   $('mainDeckViewValidation').textContent=valid?'Deck Valid':'Deck Invalid';
   $('mainDeckViewValidation').classList.toggle('valid',valid);$('mainDeckViewValidation').classList.toggle('invalid',!valid);
+  window.GL_S0_VALIDATION_TIP?.setBadge($('mainDeckViewValidation'),report);
   grid.innerHTML=entries.map(({card,quantity})=>mainDeckViewCardHtml(card,quantity)).join('');
   $('mainDeckViewEmpty').hidden=entries.length>0;
   grid.querySelectorAll('[data-review-id]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();openCardReview(button.dataset.reviewId)}));
@@ -472,7 +473,11 @@ function renderMainDeck(){
   const entries=Object.entries(state.deck).filter(([,qty])=>qty>0).map(([id,quantity])=>({card:state.byId.get(id),quantity})).filter(entry=>entry.card).sort((a,b)=>idSort(a.card,b.card));
   $('mainTotal').textContent=`${countDeck()}/50`;$('skillCount').textContent=familyCount('Skill');$('eventCount').textContent=familyCount('Event');$('itemCount').textContent=familyCount('Item');
   $('skillGroupCount').textContent=String(familyCount('Skill'));$('eventGroupCount').textContent=String(familyCount('Event'));$('itemGroupCount').textContent=String(familyCount('Item'));
-  const issues=validationIssues();$('deckStatus').textContent=issues.length?'Incomplete':'Deck Valid';$('deckStatus').classList.toggle('valid',!issues.length);$('deckStatus').title='Season 0 · Mana Deck: '+s0Draft().shard_deck.map(x=>x.quantity+' × '+(x.kind==='MANA'?'Regular Mana Shard':(({Archer:'Green',Cleric:'White',Mage:'Blue',Thief:'Yellow',Warrior:'Red'})[x.class_name]||x.class_name)+' Mana Shard')).join(', ');
+  const report=s0Validation(),issues=report.errors,status=$('deckStatus');
+  status.textContent=report.ok?'Deck Valid':(countDeck()<50?'Incomplete':'Deck Invalid');
+  status.classList.toggle('valid',report.ok);status.classList.toggle('invalid',!report.ok);
+  window.GL_S0_VALIDATION_TIP?.setBadge(status,report);
+  if(report.ok)status.title='Season 0 - Mana Deck: '+s0Draft().shard_deck.map(x=>x.quantity+' x '+(x.kind==='MANA'?'Regular Mana Shard':(({Archer:'Green',Cleric:'White',Mage:'Blue',Thief:'Yellow',Warrior:'Red'})[x.class_name]||x.class_name)+' Mana Shard')).join(', ');
   const rowHtml=({card,quantity})=>{const ultimate=Boolean(card.ultimate?.isUltimate),meta=ultimate?`<span class="main-ultimate-label">Ultimate Skill Card</span>${compactManaCost(card)?` • ${esc(compactManaCost(card))}`:''}`:`${esc(card.classification)}${card.cost&&card.cost!=='No Mana cost'?` • ${esc(card.cost)}`:''}`;return `<article class="main-deck-row ${ultimate?'ultimate-card-row':''}" draggable="true" data-main-deck-id="${card.id}" data-drag-type="deck-remove" data-review-id="${card.id}" data-hover-card-id="${card.id}">
     <img src="${card.image}" alt="${esc(card.name)}">
     <div class="main-card-info"><strong>${esc(card.name)}</strong><small>${meta}</small></div>
@@ -871,7 +876,7 @@ function s0Persist(){
  if(!window.GL_S0_CAN_PERSIST)return;
  try{
   const value=JSON.stringify(s0Export('shared'));
-  localStorage.setItem('grandis-season0-deck-draft-v2',value);
+  sessionStorage.setItem(window.GL_S0_SHARED_WORKSPACE?.STORAGE_KEY||'grandis-season0-deck-session-v1',value);
   s0LastWorkspaceJson=value;
  }catch(e){/* file:// privacy restrictions must not block cross-style handoff */}
 }
@@ -880,7 +885,7 @@ function s0Restore(serialized){
  try{
   const incoming=serialized===undefined?window.GL_S0_SHARED_WORKSPACE?.takeIncoming():null;
   fromHandoff=Boolean(incoming);
-  const saved=serialized!==undefined?serialized:(!fromHandoff?localStorage.getItem('grandis-season0-deck-draft-v2'):null);
+  const saved=serialized!==undefined?serialized:(!fromHandoff?sessionStorage.getItem(window.GL_S0_SHARED_WORKSPACE?.STORAGE_KEY||'grandis-season0-deck-session-v1'):null);
   const parsed=incoming||(saved?JSON.parse(saved):null);
   if(parsed){
    const normalized=normalizeImportedDeck(parsed);
@@ -902,7 +907,7 @@ function s0Restore(serialized){
   }
  }catch(e){console.warn('Could not restore Season 0 draft:',e.message);}
  finally{window.GL_S0_CAN_PERSIST=true;}
- // Store the received handoff in destination's own storage for refresh/reopening.
+ // Keep the incoming draft for this tab only (not after closing the Deck Builder).
  if(restored&&fromHandoff)s0Persist();
  return restored;
 }
@@ -920,7 +925,7 @@ function s0Draft(){
  return {main_deck,legacy_packages,shard_deck};
 }
 function s0Validation(){
- const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'starter_safe'});
+ const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'rulebook'});
  const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
  if(ultClasses.size>3){v.errors.push('More than 3 different Ultimate Color Mana Shards are required');v.ok=false;}
  const classIssue=baseClassLimitIssue();if(classIssue){v.errors.push(classIssue);v.ok=false;}

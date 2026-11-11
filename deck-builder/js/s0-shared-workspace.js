@@ -1,10 +1,11 @@
-/* Season 0 shared Deck Builder workspace, DB-11: both visual styles use the same draft.
- * Browser storage works for hosted same-origin tabs. URL fragment transfers the active
- * draft across style navigation even under file:// per-file storage isolation.
- * The fragment contains ONLY the user-authored deck (no private gameplay data).
+/* Season 0 shared Deck Builder workspace.
+ * A deck draft lives only for the current tab/session, never between closed sessions.
+ * Same-tab Style 1/2 navigation keeps the draft; file:// uses a one-time fragment.
  */
 (function(root){'use strict';
- const STORAGE_KEY='grandis-season0-deck-draft-v2';
+ const STORAGE_KEY='grandis-season0-deck-session-v1';
+ // Clear the old persistent autosave so a previous version cannot revive a closed deck.
+ try{root.localStorage.removeItem('grandis-season0-deck-draft-v2');}catch(e){}
  const FRAGMENT_PREFIX='#gl-s0-workspace=';
  function portable(exported){
   return {v:1,n:String(exported.deck_name||exported.name||'New Deck').slice(0,80),
@@ -42,7 +43,7 @@
     try{
      persist();
      const url=new URL(link.getAttribute('href'),root.document.baseURI);
-     // HTTP(S): both styles have shared origin/localStorage. Avoid long, ugly
+     // HTTP(S): both styles have shared origin/sessionStorage. Avoid long, ugly
      // #gl-s0-workspace fragments (and URLs containing deck details).
      // file:// or cross-origin: retain the portable fallback handoff.
      if(root.location.protocol==='file:'){
@@ -73,7 +74,7 @@
    restore(event.newValue);
   });
   const refresh=()=>{
-   try{const saved=root.localStorage.getItem(STORAGE_KEY);if(saved&&saved!==getLastSeen())restore(saved);}catch(e){}
+   try{const saved=root.sessionStorage.getItem(STORAGE_KEY);if(saved&&saved!==getLastSeen())restore(saved);}catch(e){}
   };
   root.addEventListener('focus',refresh);
   root.addEventListener('pageshow',event=>{if(event.persisted)refresh();});
