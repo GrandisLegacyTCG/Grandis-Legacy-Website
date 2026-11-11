@@ -4,9 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Grandis Legacy — VS AI Season 0 RC38 · Artwork R3.6 / Rulebook v3.2</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" sizes="120x120" href="engine/assets/favicon.png">
 <style>
-@font-face{font-family:Noto;src:url('assets/fonts/NotoSans-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+
 :root{
   --sidebar-w:15vw;
   --hero-base-w:clamp(84px,7.25vw,112px);
@@ -34,7 +35,7 @@
 }
 @media(max-height:820px){:root{--hero-base-w:clamp(77px,6.75vw,98px)}}
 *{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07111c;color:var(--text);font-family:Noto,Arial,sans-serif}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07111c;color:var(--text);font-family:"Noto Sans",Arial,sans-serif}
 .app.gl-lobby-hidden{visibility:hidden!important}
 body{background-image:linear-gradient(rgba(3,10,18,.30),rgba(3,10,18,.30)),url('assets/ui/Background.png');background-size:cover;background-position:center}
 button{font:inherit}
@@ -285,9 +286,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?glsrc=730a70886955">
-<link rel="stylesheet" href="assets/css/site-integration.css?glsrc=de3bde891412">
-<link rel="stylesheet" href="assets/css/site-artwork-loading.css?glsrc=35bdc582bc83">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css">
 </head>
 <body>
 <div class="app gl-lobby-hidden">
@@ -457,17 +456,17 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     <div id="glAnimationLayer"></div>
   </div>
   <script>window.GL_APP_MODE="LOCAL_AI";</script>
-  <script src="engine/shared-ui/battlefield-ui.js?glsrc=110394df12e3"></script>
-  <script src="engine/js/static-data.js?glsrc=86d5ba8f0f19"></script>
-  <script src="engine/js/runtime-authority.js?glsrc=74700775e8e9"></script>
-  <script src="engine/shared-app/active-starters.js?glsrc=ab653ad20cb8"></script>
-  <script src="shared-app/db158-card-review.js?glsrc=cfbfc181781e"></script>
-  <script src="engine/shared-app/app.bundle.js?glsrc=54d7c3e8ef00"></script>
-  <script src="runtime/adapters/authority-adapter.js?glsrc=859992904b9c"></script>
-  <script src="runtime/adapters/local-ai-adapter.js?glsrc=0ad1eb6c2b31"></script>
-  <script src="runtime/adapters/pvp-adapter.js?glsrc=6e22b33860dc"></script>
-  <script src="shared-app/app-runtime.js?glsrc=fb4c6cc4a55d"></script>
-  <script src="shared-ui/mobile-landscape-lobby.js?glsrc=c21fcc3913ae"></script>
+  <script src="engine/shared-ui/battlefield-ui.js"></script>
+  <script src="engine/js/static-data.js"></script>
+  <script src="engine/js/runtime-authority.js"></script>
+  <script src="engine/shared-app/active-starters.js"></script>
+  <script src="shared-app/db158-card-review.js"></script>
+  <script src="engine/shared-app/app.bundle.js"></script>
+  <script src="runtime/adapters/authority-adapter.js"></script>
+  <script src="runtime/adapters/local-ai-adapter.js"></script>
+  <script src="runtime/adapters/pvp-adapter.js"></script>
+  <script src="shared-app/app-runtime.js"></script>
+  <script src="shared-ui/mobile-landscape-lobby.js"></script>
 
 </body>
 </html>

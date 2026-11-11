@@ -1879,7 +1879,7 @@ html.gl-mobile-landscape-coin .gl-coin-card{
 /* RC34.4: approved text-only mode buttons; original desktop Lobby and mobile canvas retained. */
 .gl-lobby-foot{justify-content:space-between!important;gap:18px!important}
 .gl-lobby-difficulties{display:flex;align-items:center;gap:14px;margin:0;padding:0;border:0;background:transparent;box-shadow:none}
-.gl-lobby-difficulty{font-family:Noto,"Noto Sans",Arial,sans-serif!important;display:grid;place-items:center;min-width:188px;height:56px;padding:0 24px;border:1px solid #2d4354;border-radius:12px;background:linear-gradient(180deg,#172b3b,#102132);color:#f3f5fa;font-size:16px;font-weight:800;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,box-shadow .14s}
+.gl-lobby-difficulty{font-family:"Noto Sans",Arial,sans-serif!important;display:grid;place-items:center;min-width:188px;height:56px;padding:0 24px;border:1px solid #2d4354;border-radius:12px;background:linear-gradient(180deg,#172b3b,#102132);color:#f3f5fa;font-size:16px;font-weight:800;line-height:1.2;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,box-shadow .14s}
 .gl-lobby-difficulty:hover{border-color:#af995f;background:linear-gradient(180deg,#24384b,#14283b)}
 .gl-lobby-difficulty.is-selected{color:#fff1c9;border-color:#f7d377;background:linear-gradient(180deg,#60491e,#2a261f);box-shadow:0 0 9px rgba(255,197,81,.55),inset 0 1px rgba(255,231,167,.28)}
 .gl-lobby-difficulty:focus-visible{outline:2px solid #ffe397;outline-offset:3px}
@@ -1897,7 +1897,7 @@ html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;
   align-items:center!important;justify-content:center!important;
   border:1px solid #8c7120!important;border-radius:5px!important;
   background:#171205!important;color:#f4ca52!important;
-  font-family:Noto,"Noto Sans",Arial,sans-serif!important;font-size:9px!important;
+  font-family:"Noto Sans",Arial,sans-serif!important;font-size:9px!important;
   font-weight:900!important;letter-spacing:0!important;line-height:16px!important;
   white-space:nowrap!important;box-shadow:0 2px 8px rgba(0,0,0,.58)!important;
 }
@@ -1912,7 +1912,7 @@ html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;
  max-width:84%;min-width:225px;padding:8px 16px;border-radius:9px;
  border:1px solid rgba(241,203,89,.8);background:rgba(4,12,22,.94);
  box-shadow:0 8px 24px rgba(0,0,0,.63),0 0 9px rgba(239,198,68,.15);
- text-align:center;font-family:Noto,Arial,sans-serif;line-height:1.2;
+ text-align:center;font-family:"Noto Sans",Arial,sans-serif;line-height:1.2;
  color:#f4e0a0;pointer-events:none;opacity:0;visibility:hidden;
  transition:opacity .22s ease,visibility .22s ease;
 }
@@ -1926,7 +1926,7 @@ html.gl-mobile-landscape-lobby .gl-lobby-difficulty{height:48px;min-width:172px;
   width:100%;box-sizing:border-box;margin:8px 0 5px;padding:8px 6px;
   border:1px solid rgba(241,203,89,.75);border-radius:8px;
   background:rgba(7,19,33,.96);color:#f4e0a0;text-align:center;
-  font-family:Noto,"Noto Sans",Arial,sans-serif;line-height:1.25;
+  font-family:"Noto Sans",Arial,sans-serif;line-height:1.25;
 }
 .response-conditional-attack strong{font-size:13px;font-weight:900;color:#ffe27b}
 .response-conditional-attack span{font-size:12px;font-weight:800;color:#fff}
@@ -2034,7 +2034,7 @@ body.gl-center-purify .gl-center-choice-card.is-selected{border-color:#fce383;bo
 .gl-exp-inspector-overlay.open{display:flex}
 .gl-exp-inspector-panel{width:min(820px,94vw);max-height:90vh;display:flex;flex-direction:column;
   background:#101923;border:1px solid #a58833;border-radius:15px;overflow:hidden;
-  box-shadow:0 20px 70px rgba(0,0,0,.66);font-family:Noto,Arial,sans-serif}
+  box-shadow:0 20px 70px rgba(0,0,0,.66);font-family:"Noto Sans",Arial,sans-serif}
 .gl-exp-inspector-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
   background:#0b131c;padding:12px 16px;border-bottom:1px solid #29445c}
 .gl-exp-inspector-eyebrow{font-size:10px;font-weight:900;letter-spacing:.09em;color:#9db2c5}
@@ -2068,3 +2068,31 @@ body.gl-center-purify .gl-center-choice-card.is-selected{border-color:#fce383;bo
  .gl-exp-inspector-list{grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;padding:9px}
 }
 
+
+/* Combined VS AI + Deck Builder: local navigation only (no gameplay changes). */
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-topbar{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:12px 20px;padding:8px 12px;min-height:62px;
+  border-bottom:1px solid rgba(210,176,83,.28);background:rgba(6,16,28,.80)
+}
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-logo img{
+  display:block;width:160px;max-width:40vw;max-height:55px;object-fit:contain
+}
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-heading h1{
+  margin:0;color:#f4d35e;font-size:19px;letter-spacing:.025em
+}
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-actions{display:flex;gap:10px;align-items:center}
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-btn{
+  min-height:38px;display:inline-flex;align-items:center;justify-content:center;
+  padding:0 16px;border:1px solid rgba(236,240,248,.46);border-radius:10px;
+  background:rgba(4,9,16,.5);color:#fff;text-decoration:none;font-size:12px;font-weight:850
+}
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-btn:hover,
+.deck-setup-screen.runtime-ui-v14-setup .ai-lobby-btn:focus-visible{border-color:#f4d35e;color:#f4d35e}
+@media(max-width:760px){
+  .deck-setup-screen.runtime-ui-v14-setup .ai-lobby-topbar{gap:5px 10px;justify-content:space-between;padding:6px 10px}
+  .deck-setup-screen.runtime-ui-v14-setup .ai-lobby-logo img{width:125px;max-height:43px}
+  .deck-setup-screen.runtime-ui-v14-setup .ai-lobby-heading h1{font-size:15px}
+  .deck-setup-screen.runtime-ui-v14-setup .ai-lobby-actions{width:100%;justify-content:flex-end;padding:2px 0}
+  .deck-setup-screen.runtime-ui-v14-setup .ai-lobby-btn{min-height:30px;font-size:10px;padding:0 10px}
+}

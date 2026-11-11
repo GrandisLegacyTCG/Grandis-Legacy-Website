@@ -1681,7 +1681,8 @@
     var draft=(deck.deck&&typeof deck.deck==='object'&&Array.isArray(deck.deck.main_deck))?deck.deck:deck;
     if(!deck.main_deck&&draft.main_deck)deck.main_deck=clone(draft.main_deck);
     if(!deck.default_formation&&draft.default_formation)deck.default_formation=clone(draft.default_formation);
-    if(!deck.mana_deck){var shards=deck.shard_deck||draft.shard_deck;if(Array.isArray(shards))deck.mana_deck=clone(shards);}
+    // RC38 app policy: imported JSON Mana fields are advisory only.
+    // The effective Shard Deck is always reconstructed from selected Hero progressions.
     var packages=deck.legacy_packages||draft.legacy_packages;
     if(!deck.legacy_deck_expanded&&Array.isArray(packages)){
       deck.legacy_deck_expanded=[];
@@ -1718,6 +1719,15 @@
     deck.main_deck_count=main.ids.length;
     deck.legacy_deck_count=legacyIds.length;
     deck.legacy_package_count=deck.legacy_deck_package_slots.length;
+    // Ignore ALL supplied mana_deck/shard_deck compositions, including malformed,
+    // off-Class, optional/missing, and oversized Shard Deck entries.
+    // This changes only the in-app deck copy; the original JSON file is untouched.
+    deck.mana_deck=manaDeckCompositionForSelectedHeroes(deck);
+    deck.shard_deck=clone(deck.mana_deck);
+    if(deck.deck && typeof deck.deck==='object'){
+      deck.deck.shard_deck=clone(deck.mana_deck);
+      if(Object.prototype.hasOwnProperty.call(deck.deck,'mana_deck'))deck.deck.mana_deck=clone(deck.mana_deck);
+    }
     deck.deck_name=deck.deck_name || deck.name || draft.name || deck.display_name || deck.preset_id || 'Imported Deck';
     deck.display_name=deck.display_name || deck.deck_name;
     return deck;
@@ -2365,8 +2375,8 @@
     var m=String(cardId||'').match(/^S0-(WAR|MAG|ARC|CLE|THF)-/i); return m?GL_LAB_MANA_CLASS_BY_PREFIX[String(m[1]).toUpperCase()]||'':'';
   }
   // RC38 Mana revision: every selected Hero lineage contributes its base Classes.
-  // A hybrid Rank-II/III card contributes both base Classes, but a Color Shard
-  // is OPTIONAL and may appear at most once per unique Class (no 3-Color cap).
+  // A hybrid Rank-II/III card contributes both base Classes; effective Mana Deck
+  // auto-includes one Color Shard for each unique Class (no 3-Color cap).
   function eligibleManaClassesForDeck(deck){
     var found={},out=[];
     function add(name){name=String(name||'');if(!name||Object.values(GL_LAB_MANA_CLASS_BY_PREFIX).indexOf(name)<0||found[name])return;found[name]=true;out.push(name);}
@@ -2390,20 +2400,24 @@
   function manaPoolCardsKeyForSide(side){return side==='PLAYER'?'playerManaPoolCards':'aiManaPoolCards';}
   function manaCountKeyForSide(side){return side==='PLAYER'?'mana':'aiMana';}
   function manaRegenKeyForSide(side){return side==='PLAYER'?'manaRegen':'aiManaRegen';}
+  // VS AI app-specific auto composition. JSON Mana Deck data is never authoritative:
+  // include ONE Color Mana for every represented Hero Base Class (both Hybrid
+  // families where applicable), then fill the 12-card deck with Regular Mana.
+  function manaDeckCompositionForSelectedHeroes(deck){
+    var classes=eligibleManaClassesForDeck(deck).slice(0,GL_LAB_MANA_DECK_SIZE);
+    var regular=GL_LAB_MANA_DECK_SIZE-classes.length,rows=[];
+    if(regular>0)rows.push({kind:'MANA',quantity:regular});
+    classes.forEach(function(cls){rows.push({kind:'CLASS',class_name:cls,quantity:1});});
+    return rows;
+  }
   function makeManaShard(kind,cls,ownerSide,seq){return{uid:'MANA:'+ownerSide+':'+String(seq),kind:kind==='CLASS'?'CLASS':'GENERIC',class_name:kind==='CLASS'?String(cls||''):'',owner_side:ownerSide,bottom_locked:false};}
   function buildManaDeckForDeck(deck,ownerSide){
-    var official=deck&&Array.isArray(deck.mana_deck)?deck.mana_deck:null;
-    var out=[],seq=0;
-    if(official){
-      official.forEach(function(row){var q=Number(row.quantity||0),cls=String(row.class_name||'');for(var n=0;n<q;n++)out.push(makeManaShard(row.kind==='CLASS'?'CLASS':'GENERIC',cls,ownerSide,++seq));});
-      if(out.length!==GL_LAB_MANA_DECK_SIZE)throw new Error('Season 0 Mana Deck requires exactly 12 physical cards.');
-    }else{
-      var classes=eligibleManaClassesForDeck(deck);
-      // Backward-compatibility for older format with no explicit Shard Deck:
-      // auto-include each unique selected Hero base Class once (up to 12).
-      classes.slice(0,GL_LAB_MANA_DECK_SIZE).forEach(function(cls){out.push(makeManaShard('CLASS',cls,ownerSide,++seq));});
-      while(out.length<GL_LAB_MANA_DECK_SIZE)out.push(makeManaShard('GENERIC','',ownerSide,++seq));
-    }
+    var rows=manaDeckCompositionForSelectedHeroes(deck),out=[],seq=0;
+    rows.forEach(function(row){
+      var q=Number(row.quantity||0),cls=String(row.class_name||'');
+      for(var n=0;n<q;n++)out.push(makeManaShard(row.kind==='CLASS'?'CLASS':'GENERIC',cls,ownerSide,++seq));
+    });
+    if(out.length!==GL_LAB_MANA_DECK_SIZE)throw new Error('Season 0 auto Mana Deck requires exactly 12 physical cards.');
     return STARTUP_SHUFFLE_ENABLED?shuffleDeck(out):out;
   }
   function manaDeckForSide(state,side){var k=manaDeckKeyForSide(side);state[k]=Array.isArray(state[k])?state[k]:[];return state[k];}
@@ -11544,7 +11558,7 @@ function getActivatedHeroAbilities(state, side, lane){
     var root=$('app');
     root.innerHTML=''+
       '<main class="deck-setup-screen runtime-ui-v14-setup">'+
-        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="https://grandislegacytcg.github.io/" aria-label="Grandis Legacy homepage"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-Deck-Builder/style-1/">GO TO DECK BUILDER</a><a id="aiLobbyTutorialButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-VS-AI/tutorial/">GO TO TUTORIAL</a><a id="aiLobbyPvpButton" class="ai-lobby-btn ai-lobby-btn--blue" href="https://grandislegacytcg.github.io/pvp/">GO TO PVP LOBBY</a></nav>')+'</header>'+
+        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="./" aria-label="Grandis Legacy homepage"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="deck-builder/">GO TO DECK BUILDER</a></nav>')+'</header>'+
         '<section class="deck-setup-shell">'+deckSetupHtml()+'</section>'+ 
       '</main>';
     closeChoice();
