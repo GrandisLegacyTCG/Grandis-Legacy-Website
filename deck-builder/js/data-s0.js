@@ -19,6 +19,8 @@ window.GL_DECK_BUILDER_DATA={"schemaVersion":"GL-DECK-BUILDER-DATA-1.1","builder
     return value;
   };
   transform(data);
+  // The separate 242-card review catalog has its own artwork metadata.
+  // Redirect that metadata to the same shared card-art directory too.
   if (root.GL_S0_CATALOG && Array.isArray(root.GL_S0_CATALOG.cards)) {
     for (const card of root.GL_S0_CATALOG.cards) {
       if (typeof card.ui_artwork === 'string' && card.ui_artwork.startsWith('assets/season0/cards/')) {

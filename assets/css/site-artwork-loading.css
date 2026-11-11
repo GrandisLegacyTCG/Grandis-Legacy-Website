@@ -1,4 +1,12 @@
-/* Keep the real Back of Card visible while Hand artwork is loading. */
-.hand.bottom .hand-card.gl-hand-art{background:#081018 url("../ui/back-main.webp") center / 100% 100% no-repeat!important}
-.hand.bottom .hand-card.gl-hand-art > img.hand-art{transition:opacity 180ms ease}
-.hand.bottom .hand-card.gl-hand-art.gl-hand-art-loading > img.hand-art{opacity:0!important;transition:none!important}
+/* RC32 hand-art loading safeguard: the original back is shown until front
+   artwork is decoded. Applies ONLY to the player's Hand, not to other cards. */
+.hand.bottom .hand-card.gl-hand-art{
+  background:#081018 url("../ui/back-main.webp") center / 100% 100% no-repeat!important;
+}
+.hand.bottom .hand-card.gl-hand-art > img.hand-art{
+  transition:opacity 180ms ease;
+}
+.hand.bottom .hand-card.gl-hand-art.gl-hand-art-loading > img.hand-art{
+  opacity:0!important;
+  transition:none!important;
+}
