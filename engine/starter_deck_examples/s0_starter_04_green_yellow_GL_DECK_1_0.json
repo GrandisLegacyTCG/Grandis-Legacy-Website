@@ -28,7 +28,7 @@
     {
       "card_id": "S0-ARC-014",
       "card_name": "Replenish",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-ARC-015",
@@ -58,7 +58,7 @@
     {
       "card_id": "S0-THF-010",
       "card_name": "Back Slash",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-THF-011",
@@ -69,11 +69,6 @@
       "card_id": "S0-THF-012",
       "card_name": "Elusive Escape",
       "quantity": 2
-    },
-    {
-      "card_id": "S0-THF-015",
-      "card_name": "Venom Sovereign",
-      "quantity": 1
     },
     {
       "card_id": "S0-THF-016",
@@ -98,7 +93,7 @@
     {
       "card_id": "S0-THF-030",
       "card_name": "Flash Combo",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-EVT-001",
@@ -108,11 +103,6 @@
     {
       "card_id": "S0-EVT-002",
       "card_name": "Market Bargain",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-EVT-003",
-      "card_name": "Scouting",
       "quantity": 1
     },
     {
@@ -128,21 +118,11 @@
     {
       "card_id": "S0-ITM-002",
       "card_name": "Greater Health Potion",
-      "quantity": 2
-    },
-    {
-      "card_id": "S0-ITM-008",
-      "card_name": "Phoenix Feather",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-012",
       "card_name": "Spectral Grappling Hook",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-ITM-016",
-      "card_name": "Chain Mail",
       "quantity": 1
     },
     {
@@ -178,6 +158,46 @@
     {
       "card_id": "S0-ITM-019",
       "card_name": "Warp Scroll",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-008",
+      "card_name": "Aim Shot",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-017",
+      "card_name": "Venom Binding",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-013",
+      "card_name": "Venom Strike",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-026",
+      "card_name": "Blink Strike",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-014",
+      "card_name": "Viper's Fang",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-024",
+      "card_name": "Cross Bolt",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-004",
+      "card_name": "Smoke Screen",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-006",
+      "card_name": "Sixth Sense",
       "quantity": 1
     }
   ],
@@ -320,11 +340,11 @@
   "validation_warnings": [],
   "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_04_green_yellow_GL_DECK_1_0.json",
-  "source_authority": "User uploaded Deck Builder v1.61 export / R3.6 print authority / Rulebook v3.2",
-  "source_export_sha256": "b43797831a752e19c1158bde6325e3c067639f7bc93153eb29275cc053d90f6d",
-  "source_approval_basis": "Designer supplied 2026-11-10",
+  "source_authority": "User uploaded Deck Builder v1.64 export / R3.6 print authority / Rulebook v3.2 runtime authority",
+  "source_export_sha256": "24eeef9a24ec8738b9ff784bca04f05bb805282762c1d1da2cb2cba585cd079d",
+  "source_approval_basis": "Designer supplied 2026-11-11",
   "active_starter_id": "s0_starter_04_green_yellow",
   "active_starter_slot": 4,
   "generated_only": true,
-  "source_deck_builder": "v1.61"
+  "source_deck_builder": "v1.64"
 }

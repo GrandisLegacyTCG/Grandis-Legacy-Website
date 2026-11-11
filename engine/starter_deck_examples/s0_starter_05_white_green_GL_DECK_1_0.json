@@ -8,7 +8,7 @@
     {
       "card_id": "S0-ARC-026",
       "card_name": "Zol",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-CLE-026",
@@ -83,7 +83,7 @@
     {
       "card_id": "S0-CLE-007",
       "card_name": "Holy Ring",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-CLE-010",
@@ -108,11 +108,6 @@
     {
       "card_id": "S0-EVT-003",
       "card_name": "Scouting",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-EVT-004",
-      "card_name": "Relentless Leveling",
       "quantity": 1
     },
     {
@@ -151,11 +146,6 @@
       "quantity": 1
     },
     {
-      "card_id": "S0-ITM-001",
-      "card_name": "Health Potion",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-CLE-029",
       "card_name": "Tune Up",
       "quantity": 1
@@ -163,11 +153,26 @@
     {
       "card_id": "S0-ARC-027",
       "card_name": "Sleeping Dart",
-      "quantity": 1
+      "quantity": 2
     },
     {
       "card_id": "S0-CLE-008",
       "card_name": "Holy Fire",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-008",
+      "card_name": "Aim Shot",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-CLE-006",
+      "card_name": "Sacred Bolt",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-028",
+      "card_name": "Midnight Lullaby",
       "quantity": 1
     }
   ],
@@ -310,11 +315,11 @@
   "validation_warnings": [],
   "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_05_white_green_GL_DECK_1_0.json",
-  "source_authority": "User uploaded Deck Builder v1.61 export / R3.6 print authority / Rulebook v3.2",
-  "source_export_sha256": "78088d6c3a846f8edf0f26a207528259eff8f2725d16a8f3560f74e4b6b8ad21",
-  "source_approval_basis": "Designer supplied 2026-11-10",
+  "source_authority": "User uploaded Deck Builder v1.64 export / R3.6 print authority / Rulebook v3.2 runtime authority",
+  "source_export_sha256": "41ff98f860c7882036becba17048f31911d1d49760e1e57b882f918848be728c",
+  "source_approval_basis": "Designer supplied 2026-11-11",
   "active_starter_id": "s0_starter_05_white_green",
   "active_starter_slot": 5,
   "generated_only": true,
-  "source_deck_builder": "v1.61"
+  "source_deck_builder": "v1.64"
 }

@@ -8,7 +8,7 @@
     {
       "card_id": "S0-CLE-002",
       "card_name": "Brilliant Radiance",
-      "quantity": 2
+      "quantity": 1
     },
     {
       "card_id": "S0-CLE-007",
@@ -66,18 +66,8 @@
       "quantity": 1
     },
     {
-      "card_id": "S0-EVT-008",
-      "card_name": "Forged Alliance",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-ITM-019",
       "card_name": "Warp Scroll",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-ITM-001",
-      "card_name": "Health Potion",
       "quantity": 1
     },
     {
@@ -138,7 +128,7 @@
     {
       "card_id": "S0-WAR-009",
       "card_name": "Rage Swing",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-WAR-010",
@@ -183,7 +173,7 @@
     {
       "card_id": "S0-WAR-022",
       "card_name": "Sacred Stormblade",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-WAR-025",
@@ -196,8 +186,33 @@
       "quantity": 1
     },
     {
-      "card_id": "S0-CLE-014",
-      "card_name": "Wrathful Radiance",
+      "card_id": "S0-CLE-006",
+      "card_name": "Sacred Bolt",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-CLE-008",
+      "card_name": "Holy Fire",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-002",
+      "card_name": "Power Slash",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-008",
+      "card_name": "Wild Swing",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-004",
+      "card_name": "Cover Up",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-CLE-012",
+      "card_name": "Binding Light",
       "quantity": 1
     }
   ],
@@ -340,10 +355,11 @@
   "validation_warnings": [],
   "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_01_red_white_GL_DECK_1_0.json",
-  "source_authority": "User uploaded Deck Builder v1.61 export / R3.6 print authority / Rulebook v3.2",
-  "source_export_sha256": "ce402747d9c2075fc3df973c6ef517457f4ed724ba04a9b7de86c0ae726e84d4",
-  "source_approval_basis": "Designer supplied 2026-11-10",
+  "source_authority": "User uploaded Deck Builder v1.64 export / R3.6 print authority / Rulebook v3.2 runtime authority",
+  "source_export_sha256": "d9e2e6c98c2d43667943b48772670e4088c6eabd65f4aa954642fc2e2a560975",
+  "source_approval_basis": "Designer supplied 2026-11-11",
   "active_starter_id": "s0_starter_01_red_white",
   "active_starter_slot": 1,
-  "generated_only": true
+  "generated_only": true,
+  "source_deck_builder": "v1.64"
 }

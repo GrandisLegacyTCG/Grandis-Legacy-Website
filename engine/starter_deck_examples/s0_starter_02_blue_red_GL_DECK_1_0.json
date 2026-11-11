@@ -51,18 +51,8 @@
       "quantity": 1
     },
     {
-      "card_id": "S0-EVT-008",
-      "card_name": "Forged Alliance",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-ITM-020",
       "card_name": "Freeze Bomb",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-ITM-001",
-      "card_name": "Health Potion",
       "quantity": 1
     },
     {
@@ -83,7 +73,7 @@
     {
       "card_id": "S0-MAG-007",
       "card_name": "Frostbite",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-MAG-015",
@@ -98,7 +88,7 @@
     {
       "card_id": "S0-MAG-017",
       "card_name": "Frostfire Nova",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-MAG-018",
@@ -163,7 +153,7 @@
     {
       "card_id": "S0-WAR-017",
       "card_name": "Fiery Thrust",
-      "quantity": 2
+      "quantity": 1
     },
     {
       "card_id": "S0-WAR-018",
@@ -188,6 +178,31 @@
     {
       "card_id": "S0-WAR-030",
       "card_name": "Shield Charge",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-002",
+      "card_name": "Ice Lance",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-004",
+      "card_name": "Mana Shield",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-016",
+      "card_name": "Whirlwind",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-006",
+      "card_name": "Savage Blow",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-027",
+      "card_name": "Colossal Bash",
       "quantity": 1
     }
   ],
@@ -330,10 +345,11 @@
   "validation_warnings": [],
   "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_02_blue_red_GL_DECK_1_0.json",
-  "source_authority": "User uploaded Deck Builder v1.61 export / R3.6 print authority / Rulebook v3.2",
-  "source_export_sha256": "6be3cedb42b62b3927b877bfe9b54ddec21797746bd3545bac8900d0a81a4671",
-  "source_approval_basis": "Designer supplied 2026-11-10",
+  "source_authority": "User uploaded Deck Builder v1.64 export / R3.6 print authority / Rulebook v3.2 runtime authority",
+  "source_export_sha256": "43e4e590655a88749ea4b375b809bf951242cca88fad53772e65630964560d2c",
+  "source_approval_basis": "Designer supplied 2026-11-11",
   "active_starter_id": "s0_starter_02_blue_red",
   "active_starter_slot": 2,
-  "generated_only": true
+  "generated_only": true,
+  "source_deck_builder": "v1.64"
 }
