@@ -45,6 +45,7 @@
   <link rel="stylesheet" href="../css/s0-filter-layout-v1.64.css?v=1.64-ui-filter-3&glsrc=ce2626156a96">
   <link rel="stylesheet" href="css/s0-style2-mobile-type-v1.64.css?v=1.64-mobile-type-2&glsrc=09144b31eda6">
   <link rel="stylesheet" href="../css/s0-validation-tooltip-v1.64.css?v=1.64-reasons-session&glsrc=dc0955521c5c">
+  <link rel="stylesheet" href="../css/s0-filter-parity-v1.64.css?v=1.64-filter-parity-1112&glsrc=5a86b40e7f07">
 </head>
 <body>
   <div class="app-shell">
@@ -133,8 +134,8 @@
             <div id="filterPanel" class="filter-panel" hidden>
             <div class="gl-filter-grid-style2">
               <label class="gl-type-field"><span>TYPE</span><select id="familyFilter"><option value="">All Types</option><option value="Skill">Skills</option><option value="Event">Events</option><option value="Item">Items</option></select></label>
-              <label id="skillTypeField"><span>SUBTYPE</span><select id="skillTypeFilter" aria-label="Filter by subtype"><option value="">All Subtypes</option></select></label>
               <label id="classField"><span>CLASS</span><select id="classFilter"><option value="">All Classes</option><option>Archer</option><option>Cleric</option><option>Mage</option><option>Thief</option><option>Warrior</option></select></label>
+              <label id="skillTypeField"><span>SUBTYPE</span><select id="skillTypeFilter" aria-label="Filter by subtype"><option value="">All Subtypes</option></select></label>
               <label id="keywordField"><span>KEYWORD</span><select id="keywordFilter" aria-label="Filter by keyword"><option value="">All Keywords</option></select></label>
               <label id="effectField"><span>EFFECT</span><select id="effectFilter" aria-label="Filter by card effect"><option value="">All Effects</option></select></label>
               <div class="mana-filter">
@@ -262,21 +263,22 @@
     <img id="hoverCardZoomImage" src="" alt="Card hover preview">
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="../js/season0-catalog.js?v=1.64-r36&glsrc=56cbd033cf2b"></script>
-  <script src="../js/season0-legality.browser.js?v=1.64-rulebook-legality&glsrc=251a75b1d78b"></script>
+  <script src="../js/season0-catalog.js?v=1.64-rulebook32&glsrc=ffea9e79708a"></script>
+  <script src="../js/season0-legality.browser.js?v=1.64-hero-colors&glsrc=b2546a7637f7"></script>
   <script>window.GL_DECK_BUILDER_BASE="../";</script>
-  <script src="../js/data-s0.js?v=1.64-r36-starters-2&glsrc=ee1be17c0d65"></script>
+  <script src="../js/data-s0.js?v=1.64-rulebook32&glsrc=c5d7c3f46000"></script>
   <script src="js/s0-starters-v1.46.js?v=1.64-starters-20261111&glsrc=ed4f6a40b2d5"></script>
   <script src="../js/s1-to-s0-import.js?v=1.32.2&glsrc=01cf9f2274f0"></script>
   <script src="../js/s0-availability.js?v=1.35.0&glsrc=f133a6635af1"></script>
   <script src="../js/s0-effect-filter.js?v=1.35.0&glsrc=6c2db7231557"></script>
-  <script src="../js/s0-review-clarity.js?v=1.64-r36&glsrc=3e1fd2d50034"></script>
+  <script src="../js/s0-review-clarity.js?v=1.64-rulebook32&glsrc=d452aaa689ef"></script>
   <script src="../js/s0-shared-workspace.js?v=1.64-session&glsrc=f146da324e5a"></script>
   <script src="../js/s0-validation-tooltip.js?v=1.64-reasons-session&glsrc=bb72fe7fb6e8"></script>
   <script src="../js/s0-subtype-filter.js?v=1.49.0&glsrc=4deaa259777b"></script>
+  <script src="../js/s0-filter-relevance.js?v=1.64-filter-parity-1112&glsrc=cfb0f83bb555"></script>
   <script src="../js/s0-ui-v1.49.js?v=1.56&glsrc=f27eca24fc71"></script>
   <script src="../js/s0-modal-shared.js?v=1.52&glsrc=5bc0edd6de7d"></script>
-  <script src="js/app-s0.js?v=1.64-deck-rulebook-tooltip-session&glsrc=192b5aa588b0"></script>
+  <script src="js/app-s0.js?v=1.64-filter-color-session&glsrc=77ef358d6591"></script>
   <script>
   // file:// URLs have no web-server index fallback; directory anchors would
   // open a file listing instead of Deck Builder in Firefox and other browsers.

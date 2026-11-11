@@ -1,0 +1,53 @@
+/* v1.64 minor: identical filter grid in Style 1 and Style 2.
+   Always show each field. Inapplicable controls are dimmed, not removed. */
+.filter-panel {container-type:inline-size;}
+.gl-filter-grid-style1 > #classField,
+.gl-filter-grid-style2 > #classField {grid-column:1 / span 2!important;grid-row:1!important;}
+.gl-filter-grid-style1 > #skillTypeField,
+.gl-filter-grid-style2 > #skillTypeField {grid-column:3 / span 2!important;grid-row:1!important;}
+.gl-filter-grid-style1 > #keywordField,
+.gl-filter-grid-style2 > #keywordField {grid-column:5 / span 2!important;grid-row:1!important;}
+.gl-filter-grid-style1 > #effectField,
+.gl-filter-grid-style2 > #effectField {grid-column:7 / span 2!important;grid-row:1!important;}
+.gl-filter-grid-style1 > #manaField,
+.gl-filter-grid-style2 > .mana-filter {grid-column:1 / span 3!important;grid-row:2!important;}
+.gl-filter-grid-style1 > #cardPoolField,
+.gl-filter-grid-style2 > #cardPoolField {grid-column:4 / span 3!important;grid-row:2!important;}
+.gl-filter-grid-style1 > #resetFilters,
+.gl-filter-grid-style2 > #resetFilters {grid-column:7 / span 2!important;grid-row:2!important;}
+/* A field is still visible and keeps its place when disabled. */
+#classField.gl-filter-unavailable,
+#skillTypeField.gl-filter-unavailable,
+#keywordField.gl-filter-unavailable,
+#effectField.gl-filter-unavailable,
+#manaField.gl-filter-unavailable,
+.gl-filter-grid-style2 > .mana-filter.gl-filter-unavailable,
+#cardPoolField.gl-filter-unavailable {opacity:.60!important;cursor:not-allowed!important;}
+.gl-filter-grid-style1 > .gl-filter-unavailable select,
+.gl-filter-grid-style2 > label.gl-filter-unavailable select {opacity:1!important;color:#e5e6ee!important;}
+.gl-filter-unavailable select,
+.gl-filter-unavailable input,
+.gl-filter-unavailable button {cursor:not-allowed!important;}
+#cardPoolField.gl-filter-unavailable .gl-pool-choice {pointer-events:none!important;}
+/* Adapt to the actual filter panel width, not the browser viewport width.
+   Style 2's desktop panel is narrower because of its split layout. */
+@container (max-width:575px) {
+ .gl-filter-grid-style1,
+ .gl-filter-grid-style2 {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+ .gl-filter-grid-style1 > #classField,
+ .gl-filter-grid-style2 > #classField {grid-column:1!important;grid-row:1!important;}
+ .gl-filter-grid-style1 > #skillTypeField,
+ .gl-filter-grid-style2 > #skillTypeField {grid-column:2!important;grid-row:1!important;}
+ .gl-filter-grid-style1 > #keywordField,
+ .gl-filter-grid-style2 > #keywordField {grid-column:1!important;grid-row:2!important;}
+ .gl-filter-grid-style1 > #effectField,
+ .gl-filter-grid-style2 > #effectField {grid-column:2!important;grid-row:2!important;}
+ .gl-filter-grid-style1 > #manaField,
+ .gl-filter-grid-style2 > .mana-filter {grid-column:1 / -1!important;grid-row:3!important;}
+ .gl-filter-grid-style1 > #cardPoolField,
+ .gl-filter-grid-style2 > #cardPoolField {grid-column:1 / -1!important;grid-row:4!important;}
+ .gl-filter-grid-style1 > #resetFilters,
+ .gl-filter-grid-style2 > #resetFilters {grid-column:1 / -1!important;grid-row:5!important;}
+ .gl-filter-grid-style1 .gl-pool-option,
+ .gl-filter-grid-style2 .gl-pool-option {font-size:10px!important;}
+}

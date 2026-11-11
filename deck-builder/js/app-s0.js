@@ -148,8 +148,8 @@ function syncPoolChoiceButtons(){
     const active=button.dataset.poolValue===select.value;
     button.classList.toggle('active',active);
     button.setAttribute('aria-pressed',String(active));
-    button.disabled=false;
-    button.title='';
+    button.disabled=select.disabled;
+    button.title=select.disabled?'Not available for this card category':'';
   });
 }
 function bindPoolChoiceButtons(){
@@ -204,18 +204,16 @@ function updateSectionState(){
 function toggleSection(section){state.sectionOpen[section]=!state.sectionOpen[section];updateSectionState()}
 
 function updateFilterVisibility(){
-  const tab=state.libraryTab,mainTab=Boolean(TAB_FAMILY[tab]);
-  $('cardPoolField').hidden=!mainTab;
-  $('classField').hidden=tab==='events';
-  $('classField').querySelector('span').textContent=tab==='items'?'Base Class':'Class';
-  $('skillTypeField').hidden=!mainTab;
-  state.filters.skillType=window.GL_S0_SUBTYPE_FILTER.fill($('skillTypeFilter'),TAB_FAMILY[tab],state.filters.skillType);
+  const tab=state.libraryTab,family=TAB_FAMILY[tab]||'';
+  state.filters.skillType=window.GL_S0_SUBTYPE_FILTER.fill($('skillTypeFilter'),family,state.filters.skillType);
   $('filterPanel').dataset.category=tab;
-  $('manaField').hidden=!mainTab;
-  $('keywordField').hidden=!mainTab;
-  $('effectField').hidden=!mainTab;
+  // All four upper and all three lower controls remain in a fixed grid.
+  for(const id of ['classField','skillTypeField','keywordField','effectField','manaField','cardPoolField'])$(id).hidden=false;
+  $('classField').querySelector('span').textContent='Class';
   $('filterToggle').hidden=false;
   syncPoolGate();
+  window.GL_S0_FILTER_RELEVANCE.apply({family,mode:tab,cards:state.cards});
+  syncPoolChoiceButtons();
 }
 function resetFilters(){
   resetAllFilterStates();
@@ -251,13 +249,8 @@ function filteredMainCards(){
     if(state.filters.keyword&&!(card.keywords||[]).includes(state.filters.keyword))return false;
     if(state.filters.effect&&!window.GL_S0_EFFECT_FILTER.tags(card).includes(state.filters.effect))return false;
     if(family==='Skill'&&state.filters.className&&card.classGroup!==state.filters.className)return false;
-    if(family==='Item'&&state.filters.className){
-      const required=card.requiredBaseClasses||[];
-      if(required.length&&!required.includes(state.filters.className))return false;
-      if(!required.length)return false;
-    }
     if(state.filters.skillType&&!window.GL_S0_SUBTYPE_FILTER.matches(card,state.filters.skillType))return false;
-    {const mana=manaNumber(card);if(mana<state.sharedFilters.manaMin||mana>state.sharedFilters.manaMax)return false}
+    if(family!=='Item'){const mana=manaNumber(card);if(mana<state.sharedFilters.manaMin||mana>state.sharedFilters.manaMax)return false}
     if(state.sharedFilters.pool==='available'&&!cardAvailable(card))return false;
     return true;
   }).sort(idSort);
@@ -920,21 +913,19 @@ function s0Draft(){
    return p?{hero_rank_ids:p.cardIds.slice(),legacy_card_id:slot.legacyId||''}:null;
  }).filter(Boolean);
  let shard_deck;
- try{shard_deck=window.GL_S0_LEGALITY.deriveShardDeck(main_deck,window.GL_S0_CATALOG)}
+ try{shard_deck=window.GL_S0_LEGALITY.deriveShardDeck(main_deck,window.GL_S0_CATALOG,legacy_packages)}
  catch(e){shard_deck=[{kind:'MANA',quantity:12}];}
  return {main_deck,legacy_packages,shard_deck};
 }
 function s0Validation(){
  const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'rulebook'});
- const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
- if(ultClasses.size>3){v.errors.push('More than 3 different Ultimate Color Mana Shards are required');v.ok=false;}
  const classIssue=baseClassLimitIssue();if(classIssue){v.errors.push(classIssue);v.ok=false;}
  return v;
 }
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.6-MainDeck-LegacyDeck-PlayerRulebook-v3.1',rulebook:'v3.1',season:'S0',builder_version:'1.64',style,
+  source_authority:'R3.6-MainDeck-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.64',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

@@ -345,11 +345,12 @@
   "validation_warnings": [],
   "source_database_version": "R3.6",
   "source_file": "engine/starter_deck_examples/s0_starter_02_blue_red_GL_DECK_1_0.json",
-  "source_authority": "User uploaded Deck Builder v1.64 export / R3.6 print authority / Rulebook v3.2 runtime authority",
+  "source_authority": "Designer Deck Builder v1.64 export (2026-11-11); artwork R3.6; game rules Player Rulebook v3.2",
   "source_export_sha256": "43e4e590655a88749ea4b375b809bf951242cca88fad53772e65630964560d2c",
   "source_approval_basis": "Designer supplied 2026-11-11",
   "active_starter_id": "s0_starter_02_blue_red",
   "active_starter_slot": 2,
   "generated_only": true,
-  "source_deck_builder": "v1.64"
+  "source_deck_builder": "v1.64",
+  "source_exported_at": "2026-11-11T10:33:12.397Z"
 }

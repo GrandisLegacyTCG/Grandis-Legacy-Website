@@ -1744,9 +1744,9 @@
         else if(kind==='CLASS'){var cls=String(row.class_name||'');if(!cls||q!==1||colorSeen[cls])errors.push('Deck validation failed: class Mana must be unique and quantity 1.');colorSeen[cls]=true;colors.push(cls);}
         else errors.push('Deck validation failed: invalid Mana Deck card type '+kind+'.');
       });
-      if(manaTotal!==12||colors.length>3)errors.push('Deck validation failed: Mana Deck must contain exactly 12 cards with at most 3 Color Mana.');
-      var uniqueUltimateClasses={};mainIds.forEach(function(id){var c=CARD_BY_ID[id],cls=manaClassFromCardCode(id);if(isUltimateCard(c)&&cls)uniqueUltimateClasses[cls]=true;});
-      if(colors.slice().sort().join('|')!==Object.keys(uniqueUltimateClasses).sort().join('|'))errors.push('Deck validation failed: Color Mana Classes must match selected Ultimate Classes.');
+      if(manaTotal!==GL_LAB_MANA_DECK_SIZE)errors.push('Deck validation failed: Mana Deck must contain exactly 12 cards.');
+      var heroClasses=eligibleManaClassesForDeck(d);
+      colors.forEach(function(cls){if(heroClasses.indexOf(cls)<0)errors.push('Deck validation failed: '+cls+' Color Mana requires a selected Hero with that base Class (including Hybrid).');});
     }
     var ultimateCounts={},normalCounts={}; mainIds.forEach(function(id){ var c=CARD_BY_ID[id]; if(!c)return; if(isUltimateCard(c)){ var key=(c.name||id).toLowerCase(); ultimateCounts[key]=(ultimateCounts[key]||0)+1; } else { normalCounts[id]=(normalCounts[id]||0)+1; } });
     Object.keys(ultimateCounts).forEach(function(k){ if(ultimateCounts[k]>1) errors.push('Deck validation failed: Ultimate card max 1 per name. Duplicate: '+k+' x'+ultimateCounts[k]+'.'); });
@@ -2364,6 +2364,28 @@
   function manaClassFromCardCode(cardId){
     var m=String(cardId||'').match(/^S0-(WAR|MAG|ARC|CLE|THF)-/i); return m?GL_LAB_MANA_CLASS_BY_PREFIX[String(m[1]).toUpperCase()]||'':'';
   }
+  // RC38 Mana revision: every selected Hero lineage contributes its base Classes.
+  // A hybrid Rank-II/III card contributes both base Classes, but a Color Shard
+  // is OPTIONAL and may appear at most once per unique Class (no 3-Color cap).
+  function eligibleManaClassesForDeck(deck){
+    var found={},out=[];
+    function add(name){name=String(name||'');if(!name||Object.values(GL_LAB_MANA_CLASS_BY_PREFIX).indexOf(name)<0||found[name])return;found[name]=true;out.push(name);}
+    var heroIds=(deck&&Array.isArray(deck.legacy_deck_expanded)?deck.legacy_deck_expanded:[]).map(function(e){return typeof e==='string'?e:(e&&e.card_id);}).filter(Boolean);
+    if(!heroIds.length && deck&&deck.default_formation){
+      Object.keys(deck.default_formation).forEach(function(l){var first=deck.default_formation[l];if(first){heroIds.push(first);heroIds.push(rankHeroIdFromProgression(first,2));heroIds.push(rankHeroIdFromProgression(first,3));}});
+    }
+    heroIds.forEach(function(heroId){
+      var c=CARD_BY_ID[heroId],identity=c&&c.identity||{};
+      if(!c||cardFamily(c)!=='Hero')return;
+      add(identity.base_class_family||identity.rank_i_base_class||manaClassFromCardCode(heroId));
+      // This explicit bridge is authoritative for S0 hybrid progressions.
+      add(s0HybridSecondaryBase(heroId));
+      (identity.base_skill_classes||[]).forEach(function(cls){
+        if(Object.values(GL_LAB_MANA_CLASS_BY_PREFIX).indexOf(cls)>=0)add(cls);
+      });
+    });
+    return out;
+  }
   function manaDeckKeyForSide(side){return side==='PLAYER'?'playerManaDeck':'aiManaDeck';}
   function manaPoolCardsKeyForSide(side){return side==='PLAYER'?'playerManaPoolCards':'aiManaPoolCards';}
   function manaCountKeyForSide(side){return side==='PLAYER'?'mana':'aiMana';}
@@ -2376,10 +2398,10 @@
       official.forEach(function(row){var q=Number(row.quantity||0),cls=String(row.class_name||'');for(var n=0;n<q;n++)out.push(makeManaShard(row.kind==='CLASS'?'CLASS':'GENERIC',cls,ownerSide,++seq));});
       if(out.length!==GL_LAB_MANA_DECK_SIZE)throw new Error('Season 0 Mana Deck requires exactly 12 physical cards.');
     }else{
-      var ids=deckEntriesToIds((deck&&deck.main_deck)||[]),seen={},classes=[];
-      ids.forEach(function(id){var c=card(id);if(!isUltimateCard(c))return;var cls=manaClassFromCardCode(id);if(cls&&!seen[cls]){seen[cls]=true;classes.push(cls);}});
-      classes=classes.slice(0,3);
-      classes.forEach(function(cls){out.push(makeManaShard('CLASS',cls,ownerSide,++seq));});
+      var classes=eligibleManaClassesForDeck(deck);
+      // Backward-compatibility for older format with no explicit Shard Deck:
+      // auto-include each unique selected Hero base Class once (up to 12).
+      classes.slice(0,GL_LAB_MANA_DECK_SIZE).forEach(function(cls){out.push(makeManaShard('CLASS',cls,ownerSide,++seq));});
       while(out.length<GL_LAB_MANA_DECK_SIZE)out.push(makeManaShard('GENERIC','',ownerSide,++seq));
     }
     return STARTUP_SHUFFLE_ENABLED?shuffleDeck(out):out;
@@ -3366,6 +3388,7 @@
     return value;
   }
   function aiWarpScrollStrategicPair(state,legalLanes){
+    if(!aiIntermediate(state))return null;
     if(!state||state.turn!=='AI'||state.phase!=='Deploy')return null;
     var before=aiWarpFormationValue(state), best=null;
     for(var i=0;i<legalLanes.length;i++)for(var j=i+1;j<legalLanes.length;j++){
@@ -3476,6 +3499,18 @@
   }
   function aiChooseAurexClassAbilityAction(state){
     if(!state||state.phase!=='Deploy') return null;
+    if(!aiIntermediate(state)){
+      for(var li=0;li<LANE_ORDER.length;li++){
+        var lane=LANE_ORDER[li],entry=(getActivatedHeroAbilities(state,'AI',lane)||[])[0];
+        if(!entry)continue;
+        for(var ti=0;ti<(entry.targets||[]).length;ti++){
+          var targetLane=entry.targets[ti],target=sideHeroes(state,'AI')[targetLane];
+          if(target&&Number(target.maxHp||0)-Number(target.hp||0)>=20)
+            return {type:'CLASS_ABILITY',side:'AI',source_lane:lane,ability_id:entry.abilityId,target_lane:targetLane,label:entry.label};
+        }
+      }
+      return null;
+    }
     var best=null;
     LANE_ORDER.forEach(function(lane){
       var h=sideHeroes(state,'AI')[lane];
@@ -3541,19 +3576,22 @@
         candidates.push({type:'LEGACY_ABILITY',side:'AI',source_side:'AI',source_lane:lane,card_id:heroIdFrom(h),ability_id:entry.abilityId,label:entry.label||cardName(card(heroIdFrom(h))),legacy_entry:entry,score:aiLegacyAbilityScore(state,lane,entry)});
       });
     });
+    if(!aiIntermediate(state))return candidates[0]||null; // Beginner: first legal Legacy, no value optimization.
     candidates.sort(function(a,b){return Number(b.score||0)-Number(a.score||0);});
     return candidates.length&&Number(candidates[0].score||0)>0?candidates[0]:null;
   }
   function aiChooseLegacyCostIndexes(state,ability){
     var need=legacyCostCount(ability),candidates=legacyCostCandidates(state,'AI',ability).slice();
-    candidates.sort(function(a,b){return aiLegacyStrategicCardScore(state,a.card_id)-aiLegacyStrategicCardScore(state,b.card_id)||Number(a.hand_index)-Number(b.hand_index);});
+    if(aiIntermediate(state))candidates.sort(function(a,b){return aiLegacyStrategicCardScore(state,a.card_id)-aiLegacyStrategicCardScore(state,b.card_id)||Number(a.hand_index)-Number(b.hand_index);});
+    // Beginner pays with the earliest eligible Hand cards rather than optimizing value.
     return candidates.slice(0,need).map(function(x){return Number(x.hand_index);});
   }
   function aiChooseLegacyEffectChoices(state,ability,costPaid){
     var count=legacyResultCount(ability),choices=[];
     if(legacyAbilityNeedsDiscardChoice(ability))choices=legacyDiscardReturnCandidates(state,'AI',ability,costPaid||[]);
     else if(legacyAbilityNeedsDeckChoice(ability))choices=legacyDeckSearchCandidates(state,'AI',ability);
-    choices=choices.slice().sort(function(a,b){return aiLegacyStrategicCardScore(state,b.card_id)-aiLegacyStrategicCardScore(state,a.card_id);});
+    choices=choices.slice();
+    if(aiIntermediate(state))choices.sort(function(a,b){return aiLegacyStrategicCardScore(state,b.card_id)-aiLegacyStrategicCardScore(state,a.card_id);});
     return choices.slice(0,Math.max(0,count||1));
   }
   function executeAILegacyAbility(state,action){
@@ -4754,8 +4792,71 @@
     });
     return best;
   }
+  // RC38 Beginner AI: simple, independent S1-style immediate decisions.
+  // The full tactical planner below stays exclusively Intermediate.
+  function chooseBeginnerAIAction(state,phase,legalActions){
+    var legal=(legalActions||getLegalActions('AI',state)).filter(function(a){return a&&a.type!=='SKIP';});
+    var play=legal.filter(function(a){return a.type==='PLAY_CARD'&&!isAIChoiceHeavyCard(card(a.card_id),state)&&aiHealMeetsUtilization(state,a);});
+    var skip={type:'SKIP',side:'AI',label:'Beginner passes '+phase,reason:'Beginner only considers straightforward legal actions.'};
+    if(phase==='Reform'){
+      // The original S1 baseline: donate toward the nearest Rank, no EXP Focus
+      // locks, no finishing-Ultimate optimizer or HP/defense forecasting.
+      var tribute=legal.filter(function(a){return a.type==='TRIBUTE_CARD';});
+      if(!tribute.length)return skip;
+      tribute.sort(function(a,b){var na=aiRankNeed(state,a.target_lane),nb=aiRankNeed(state,b.target_lane);return na-nb||Number(b.exp||0)-Number(a.exp||0)||Number(a.hand_index||0)-Number(b.hand_index||0);});
+      return tribute[0];
+    }
+    if(phase==='Battle'){
+      // No enemy vulnerability scoring, status priming, multi-card planning,
+      // positional prediction or long-term resource management.
+      var attacks=play.filter(function(a){return isAttackCard(card(a.card_id));});
+      if(!attacks.length)return skip;
+      var ordinary=attacks.filter(function(a){return !isUltimateCard(card(a.card_id));});
+      if(ordinary.length)attacks=ordinary;
+      attacks.sort(function(a,b){
+        var da=Number(estimateAIDamage(state,a)||0),db=Number(estimateAIDamage(state,b)||0);
+        return db-da||Number(a.cost||0)-Number(b.cost||0)||Number(a.hand_index||0)-Number(b.hand_index||0);
+      });
+      return attacks[0];
+    }
+    if(phase==='Deploy'){
+      // Beginner does not sequence multi-turn Casting, combo setup, or Warp
+      // Scroll tactical positioning. It can still use straightforward cards.
+      var basic=play.filter(function(a){var c=card(a.card_id);return !isAttackCard(c)&&!isTacticalFollowUpSetupCard(c)&&!isWarpScrollCard(c);});
+      if(!basic.length)return skip;
+      function value(a){
+        var c=card(a.card_id),family=cardFamily(c),score=0;
+        if(isHealCard(c))score=26;
+        else if(family==='Item')score=18;
+        else if(family==='Event')score=16;
+        else if(isBuffCard(c))score=19;
+        else score=8;
+        // Slightly favor cheap, obvious actions; no long-term prediction.
+        return score-Number(a.cost||0)*2;
+      }
+      basic.sort(function(a,b){return value(b)-value(a)||Number(a.hand_index||0)-Number(b.hand_index||0);});
+      return value(basic[0])>=9?basic[0]:skip;
+    }
+    return skip;
+  }
+  function chooseBeginnerAIDefense(state,rw){
+    var options=(rw&&rw.options)||[],damage=Math.max(0,Number(rw&&rw.damage||0));
+    if(!options.length)return null;
+    var target=rw&&sideHeroes(state,'AI')[rw.target_lane];
+    var lethal=!!(target&&damage>=Number(target.hp||0));
+    if(!lethal&&damage<40)return null;
+    // Accept the first straightforward Defense; do not run Intermediate's
+    // poison/lethal projection, card-chain valuation or advanced counter plan.
+    var plain=options.filter(function(a){return a&&!/^(dragon_scale|second_chance)$/.test(String(a.response_kind||''))&&!isUltimateCard(card(a.card_id));});
+    if(plain.length)return plain.slice().sort(function(a,b){return Number(cardCost(card(a.card_id))||0)-Number(cardCost(card(b.card_id))||0);})[0];
+    var racial=options.find(function(a){return a&&/^(dragon_scale|second_chance)$/.test(String(a.response_kind||''));});
+    if(racial&&(lethal||damage>=60))return racial;
+    if(lethal)return options[0];
+    return null;
+  }
   function chooseAIAction(state, phase){
     var legal=getLegalActions('AI',state);
+    if(!aiIntermediate(state))return chooseBeginnerAIAction(state,phase,legal);
     var nonSkip=legal.filter(function(a){ return a.type!=='SKIP'; });
     var playable=nonSkip.filter(function(a){ return a.type==='PLAY_CARD' && !isAIChoiceHeavyCard(card(a.card_id)) && aiHealMeetsUtilization(state,a); });
     if(aiIntermediate(state))playable=playable.filter(function(a){return !aiIntermediatePreserveSkillForRank(state,a);});
@@ -6805,6 +6906,7 @@
       lethal:hp>0&&(projected>=hp||instantDefeat)};
   }
   function chooseAIDefenseResponseOption(state,rw){
+    if(!aiIntermediate(state))return chooseBeginnerAIDefense(state,rw);
     var options=(rw&&rw.options)||[]; if(!options.length) return null;
     var target=rw&&sideHeroes(state,'AI')[rw.target_lane], incomingDamage=Number(rw&&rw.damage||0);
     var projectedThreat=aiIntermediate(state)?aiIntermediatePoisonLethalProjection(state,rw):null;
@@ -8774,11 +8876,13 @@
     return best;
   }
   function performAICastingEscapePreAction(state){
+    if(!aiIntermediate(state))return null;
     if(!state||state.turn!=='AI'||(state.phase!=='Deploy'&&state.phase!=='Reform')||manualRepositionUsedThisTurn(state,'AI'))return null;
     var pairs=manualRepositionPairsForSide(state,'AI'),plan=aiCastingEscapeRepositionPlan(state,pairs);if(!plan)return null;
     return performAIReposition(state,plan.pair)?plan:null;
   }
   function aiChooseRepositionPlan(state){
+    if(!aiIntermediate(state))return null;
     if(!state||state.turn!=='AI'||(state.phase!=='Deploy'&&state.phase!=='Reform')||manualRepositionUsedThisTurn(state,'AI'))return null;
     if(state.aiWarpScrollTurnStamp===runtimeTurnStamp(state))return null;
     var pairs=manualRepositionPairsForSide(state,'AI').filter(function(pair){return !aiMarksmanCounterfireLoss(state,pair);}); if(!pairs.length)return null;
@@ -8848,6 +8952,7 @@
     }
   };
   function performAIFenrirDefensivePreAction(state){
+    if(!aiIntermediate(state))return null;
     // AI's Reform action is normally reserved for the mandatory Tribute.
     // Manual Reposition is a separate legal action, so keep that Tribute:
     // resolve the Fenrir-only defensive movement before selecting Tribute.
@@ -11764,7 +11869,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     var winnerTitle=playerWon?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP';
     var winnerText=playerWon?'Choose your turn order.':'AI chooses '+(aiOrder==='SECOND'?'SECOND':'FIRST')+'.';
     var choices=playerWon?'<div class="gl-opening-turn-actions"><button class="gl-opening-start-button" type="button" data-local-turn-order="FIRST">GO FIRST</button><button class="gl-opening-start-button" type="button" data-local-turn-order="SECOND">GO SECOND</button></div>':'<p class="gl-opening-ai-decision">AI chose <strong>GO '+(aiOrder==='SECOND'?'SECOND':'FIRST')+'</strong> · Starting match automatically...</p>';
-    modal.innerHTML='<section class="gl-opening-coin-card result"><h2>Opening Coin Flip Result</h2><div class="gl-opening-coin-winner '+(playerWon?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+winnerTitle+'</strong><p>'+winnerText+'</p></div><div class="gl-opening-coin-result gl-coin-single-result">'+localCoinFace(outcome)+'</div>'+choices+'</section>';
+    modal.innerHTML='<section class="gl-opening-coin-card result" aria-label="Coin flip result"><div class="gl-opening-coin-winner '+(playerWon?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+winnerTitle+'</strong><p>'+winnerText+'</p></div><div class="gl-opening-coin-result gl-coin-single-result">'+localCoinFace(outcome)+'</div>'+choices+'</section>';
     prepareRenderedImages(modal);
     Array.prototype.forEach.call(modal.querySelectorAll('[data-local-turn-order]'),function(btn){btn.onclick=function(){confirmLocalStartGame(btn,btn.getAttribute('data-local-turn-order'));};});
   }
@@ -11772,7 +11877,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     if(!modal||SUPPRESS_RENDER){onComplete();return false;}
     outcome=String(outcome||'HEADS').toUpperCase()==='TAILS'?'TAILS':'HEADS';
     var visualFace=outcome==='HEADS'?'TAILS':'HEADS';
-    modal.innerHTML='<section class="gl-opening-coin-card flipping"><h2>Opening Coin Flip</h2><p>Flipping the coin...</p><div class="gl-opening-coin-flip-stage">'+localCoinFace(visualFace)+'</div></section>';
+    modal.innerHTML='<section class="gl-opening-coin-card flipping" aria-label="Coin flip"><p>Flipping the coin...</p><div class="gl-opening-coin-flip-stage">'+localCoinFace(visualFace)+'</div></section>';
     var coinReady=prepareRenderedImages(modal);
     var coin=modal.querySelector('.gl-opening-coin-flip-stage img'),step=0,totalSteps=8,halfDuration=72,finished=false;
     function finish(){
@@ -11801,7 +11906,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     if(IS_PVP_APP||!appState||!appState.preGame)return;
     var modal=document.getElementById('glLocalCoinModal');
     if(!modal){modal=document.createElement('div');modal.id='glLocalCoinModal';modal.className='gl-opening-coin-modal';document.body.appendChild(modal);}
-    modal.innerHTML='<section class="gl-opening-coin-card"><h2>Opening Coin Flip</h2><p>Choose Heads or Tails. The winner chooses to go FIRST or SECOND.</p><div class="gl-opening-coin-actions"><button type="button" data-local-coin="HEADS">'+localCoinFace('HEADS')+'<span>Heads</span></button><button type="button" data-local-coin="TAILS">'+localCoinFace('TAILS')+'<span>Tails</span></button></div></section>';
+    modal.innerHTML='<section class="gl-opening-coin-card" aria-label="Coin flip"><p>Choose Heads or Tails. The winner chooses to go FIRST or SECOND.</p><div class="gl-opening-coin-actions"><button type="button" data-local-coin="HEADS">'+localCoinFace('HEADS')+'<span>Heads</span></button><button type="button" data-local-coin="TAILS">'+localCoinFace('TAILS')+'<span>Tails</span></button></div></section>';
     prepareRenderedImages(modal);
     Array.prototype.forEach.call(modal.querySelectorAll('[data-local-coin]'),function(btn){btn.onclick=function(){resolveLocalCoinChoice(btn.getAttribute('data-local-coin'));};});
   }

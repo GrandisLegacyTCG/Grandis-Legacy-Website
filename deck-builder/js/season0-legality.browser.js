@@ -1,6 +1,6 @@
 /* Mirrors OSA season0-legality.cjs; deck-construction only. */
 'use strict';
-/* Player Rulebook v2.9 deck-construction validator for S0 draft decks.
+/* Player Rulebook v3.2 deck-construction validator for S0 draft decks.
    Separates explicitly codified deck rules from voluntary 'starter_safe' usability policy. */
 const build=()=>window.GL_S0_CATALOG;
 const classes={WAR:'Warrior',CLE:'Cleric',MAG:'Mage',THF:'Thief',ARC:'Archer'};
@@ -23,13 +23,13 @@ function validateDeck(deck,catalog=build(),options={}){
   qmap.set(id,(qmap.get(id)||0)+qty);sum+=qty;
  }
  if(sum!==50)err(`Main Deck must have exactly 50 cards, got ${sum}`);
- const ultimateClasses=new Set(),selectedUltimate=[];
+
  for(const [id,qty] of qmap){const c=all.get(id);
   if(!c){err(`Unknown/unavailable Main Deck card: ${id}`);continue;}
   if(!['Skill','Event','Item'].includes(c.family)){err(`Non-Main card in Main Deck: ${id}`);continue;}
   const cap=c.is_ultimate||c.is_special_event?1:3;
   if(qty>cap)err(`${id} exceeds ${cap}-copy limit (${qty})`);
-  if(c.is_ultimate){selectedUltimate.push(c);ultimateClasses.add(classes[c.class_code]);}
+
  }
  const goodPacks=[],usedHeroIds=new Set(),usedProgressions=new Set();
  const pk=Array.isArray(packages)?packages:[];
@@ -63,11 +63,15 @@ function validateDeck(deck,catalog=build(),options={}){
   }else err(`Invalid Shard kind: ${kind}`);
  }
  if(shTotal!==12)err(`Mana Deck must have exactly 12 Mana Shards, got ${shTotal}`);
- if(ultimateClasses.has(undefined))err('Unknown Ultimate Color Mana Shard mapping');
- if(ultimateClasses.size>3)err(`Maximum 3 different Ultimate Classes permitted in Mana Deck, got ${ultimateClasses.size}`);
- for(const c of ultimateClasses)if(shardMap.get(c)!==1)err(`Ultimate Class ${c} requires exactly 1 ${colorName(c)} Mana Shard`);
- for(const [c,q] of shardMap){if(q!==1)err(`${colorName(c)} Mana Shard exceeds 1`);if(!ultimateClasses.has(c))err(`Extraneous ${colorName(c)} Mana Shard without corresponding Ultimate`);}
- if(mana!==12-ultimateClasses.size)err(`Regular Mana Shards must be exactly ${12-ultimateClasses.size}, got ${mana}`);
+ // Rulebook v3.2, p.6: a Mana Deck can contain any color, at most
+ // one Shard of each color, with Regular Mana Shards filling the other slots.
+ // Do not force colors from selected Ultimate Skills or selected Heroes here.
+ // Hero-derived colors are the Deck Builder's automatic composition policy.
+ for(const [c,q] of shardMap){
+  if(q>1)err(`${colorName(c)} Mana Shard exceeds 1`);
+ }
+ if(mana!==12-[...shardMap.values()].reduce((sum,q)=>sum+q,0))
+  err(`Regular Mana Shards do not match the chosen Color Mana Shards`);
  // Usability advisories, not invented Rulebook deck restrictions.
  const chosenHeroes=goodPacks.flatMap(p=>p.heroes);
  const usableBy=h=>{return card=>card.eligible_rows.some(row=>h.rank>=row.rank&&h.accessible_class_path.some(cl=>norm(cl)===norm(row.class_name)));};
@@ -81,12 +85,26 @@ function validateDeck(deck,catalog=build(),options={}){
     if(strict)err(message);else warn(message);}
   }
  }
- return {ok:errors.length===0,errors,warnings,summary:{main_deck:sum,legacy_deck:goodPacks.length*4,legacy_packages:pk.length,shard_deck:shTotal,ultimate_classes:[...ultimateClasses].filter(Boolean).sort(),policy:strict?'starter_safe':'rulebook'}};
+ return {ok:errors.length===0,errors,warnings,summary:{main_deck:sum,legacy_deck:goodPacks.length*4,legacy_packages:pk.length,shard_deck:shTotal,color_classes:[...shardMap.keys()].sort(),hero_color_classes:heroColorClasses(pk,catalog),policy:strict?'starter_safe':'rulebook'}};
 }
-function deriveShardDeck(main,catalog=build()){
- const index=new Map(catalog.cards.map(c=>[c.card_id,c])),unique=new Set();
- for(const row of main){const c=index.get(getId(row));if(c?.is_ultimate)unique.add(classes[c.class_code]);}
- if(unique.size>3)throw Error('Ultimate selection exceeds 3 Color Mana Shard limit');
- return [{kind:'MANA',quantity:12-unique.size},...[...unique].sort().map(class_name=>({kind:'CLASS',class_name,quantity:1}))];
+// Read Rank III lineages for the full Hero progression. Pure Heroes have
+// one base lineage; hybrids have two different color lineages. Counting only
+// Rank I would omit the hybrid's second Color Mana Shard.
+function heroColorClasses(packages,catalog=build()){
+ const index=new Map((catalog?.cards||[]).map(card=>[card.card_id,card]));
+ const colors=new Set(),known=new Set(Object.values(classes));
+ for(const pack of Array.isArray(packages)?packages:[]){
+  const heroes=(pack?.hero_rank_ids||[]).map(id=>index.get(id)).filter(card=>card?.family==='Hero');
+  const highest=heroes.sort((a,b)=>(b.rank||0)-(a.rank||0))[0];
+  if(!highest)continue;
+  for(const name of [highest.base_class,...(highest.active_lineages||[])]){
+   if(known.has(name))colors.add(name);
+  }
+ }
+ return [...colors].sort();
 }
-window.GL_S0_LEGALITY={validateDeck,deriveShardDeck};
+function deriveShardDeck(main,catalog=build(),legacy_packages=[]){
+ const heroColors=heroColorClasses(legacy_packages,catalog);
+ return [{kind:'MANA',quantity:12-heroColors.length},...heroColors.map(class_name=>({kind:'CLASS',class_name,quantity:1}))];
+}
+window.GL_S0_LEGALITY={validateDeck,deriveShardDeck,heroColorClasses};

@@ -1,5 +1,5 @@
 /* Grandis Legacy Season 0 — Card Review: keyword/status explanations from
-   official Player Rulebook v3.1 EN (2026-11-10), pages 13–14.
+   official Player Rulebook v3.2 EN (2026-11-10), pages 13–14.
    Printed card RULES footer descriptions remain sourced from approved artwork.
    MANA COST +1/+2 are printed card-specific labels, not Rulebook keywords.
    Display only; no changes to deck legality, card effects, gameplay or OSA. */
@@ -19,8 +19,8 @@
   'INVINCIBLE':'The Hero cannot take damage from an opponent or receive new Status from an opponent. Existing Status remains active.',
   'ALL OPPONENTS':'Affects all opposing active Heroes, ignoring normal Area of Attack.',
   'REFLECT':'When this Hero is hit by an Attack, deal damage to the attacker as stated on the card.',
-  'MANA BURN':"Remove the stated number of Mana cards from your opponent's Mana Pool.",
-  'MANA STEAL':"Remove up to X Mana Shards from your opponent's Mana Pool. Then take as many as possible, up to the number removed, from your Mana Deck into your Mana Pool.",
+  'MANA BURN':"Remove as many Mana Shards as possible from your opponent's Mana Pool, up to the number stated on the card.",
+  'MANA STEAL':"Remove as many Mana Shards as possible from your opponent's Mana Pool, up to the number stated on the card. Then take as many Mana Shards as possible from your Mana Deck into your Mana Pool, up to the number removed.",
   'MANA COST +1':'The required Mana is 1 higher than the printed Mana Cost.',
   'MANA COST +2':'The required Mana is 2 higher than the printed Mana Cost.'
  });
@@ -75,7 +75,7 @@ function applyItemPrintedMetric(card,rootNode){
  effectCell.classList.remove('full-span');
 }
  const KEYS=Object.keys(EXPLANATIONS);
- // Player Rulebook v3.1 EN, p.14: verbatim status descriptions; no engine logic changes.
+ // Player Rulebook v3.2 EN, p.14: verbatim status descriptions; no engine logic changes.
  const STATUSES=Object.freeze({
   'Bleed':'This Hero cannot receive Healing. Bleed does not deal damage.',
   'Burn':'Whenever a played Card or activated Ability deals damage to this Hero, increase that damage by 10.',

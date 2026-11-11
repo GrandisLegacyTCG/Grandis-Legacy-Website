@@ -7,20 +7,18 @@ function s0Draft(){
    return p?{hero_rank_ids:p.cardIds.slice(),legacy_card_id:slot.legacyId||''}:null;
  }).filter(Boolean);
  let shard_deck;
- try{shard_deck=window.GL_S0_LEGALITY.deriveShardDeck(main_deck,window.GL_S0_CATALOG)}
+ try{shard_deck=window.GL_S0_LEGALITY.deriveShardDeck(main_deck,window.GL_S0_CATALOG,legacy_packages)}
  catch(e){shard_deck=[{kind:'MANA',quantity:12}];}
  return {main_deck,legacy_packages,shard_deck};
 }
 function s0Validation(){
- const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG);
- const ultClasses=new Set(draft.main_deck.filter(row=>window.GL_S0_CATALOG.cards.some(c=>c.card_id===row.card_id&&c.is_ultimate)).map(row=>row.card_id.split('-')[1]));
- if(ultClasses.size>3){v.errors.push('More than 3 Ultimate Class Shards are required');v.ok=false;}
+ const draft=s0Draft(),v=window.GL_S0_LEGALITY.validateDeck(draft,window.GL_S0_CATALOG,{policy:'rulebook'});
  return v;
 }
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.3+Provoke-Rank-II',rulebook:'v2.7.8',season:'S0',builder_version:'1.34.0',style,
+  source_authority:'R3.6-MainDeck-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.64',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

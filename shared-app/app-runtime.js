@@ -681,16 +681,28 @@ function setS0MusicVolume(percent){
   if(musicVolumeValue)musicVolumeValue.textContent=glMusicVolume+'%';
   try{window.localStorage?.setItem(GL_S0_MUSIC_VOLUME_KEY,String(glMusicVolume))}catch(_){}
 }
-function playS0BackgroundMusic(){
-  if(!glMusicEnabled||!glBackgroundMusic||!glBackgroundMusic.paused)return;
-  try{const p=glBackgroundMusic.play();if(p&&typeof p.catch==='function')p.catch(()=>{});}catch(_){}
+function glMusicGameplayActive(){
+  // Lobby, deck setup and Coin Flip never play BGM, even with saved Music ON.
+  // Opening animations are also pre-game; start after they complete.
+  return !lobbyIsOpen && !coinOverlay.classList.contains('open') &&
+    !openingPresentationActive && matchStartedAt>0 && !!st();
 }
+function syncS0MusicForGameState(){
+  if(!glBackgroundMusic)return;
+  if(!glMusicEnabled||!glMusicGameplayActive()){
+    if(!glBackgroundMusic.paused)glBackgroundMusic.pause();
+    return;
+  }
+  if(glBackgroundMusic.paused){
+    try{const p=glBackgroundMusic.play();if(p&&typeof p.catch==='function')p.catch(()=>{});}catch(_){}
+  }
+}
+function playS0BackgroundMusic(){syncS0MusicForGameState();}
 function setS0MusicEnabled(enabled){
   glMusicEnabled=!!enabled;
   try{window.localStorage?.setItem(GL_S0_MUSIC_STORAGE_KEY,glMusicEnabled?'on':'off')}catch(_){}
   if(musicSwitch)musicSwitch.checked=glMusicEnabled;
-  if(glMusicEnabled)playS0BackgroundMusic();
-  else if(glBackgroundMusic)glBackgroundMusic.pause();
+  syncS0MusicForGameState();
 }
 function closeSoundSettings(){if(!soundPanel||!soundBtn)return;soundPanel.hidden=true;soundBtn.setAttribute('aria-expanded','false')}
 function syncSoundButton(){
@@ -730,6 +742,7 @@ function deckFormationHtml(side){
   return '<div class="gl-lobby-formation">'+parts.join('')+'</div><div class="gl-lobby-rank-control" data-lobby-rank-side="'+esc(side)+'"><button type="button" data-lobby-rank-delta="-1" data-lobby-rank-side="'+esc(side)+'" aria-label="Previous rank">‹</button><strong>RANK '+['I','II','III'][Math.max(1,Math.min(3,Number(view.rank||1)))-1]+'</strong><button type="button" data-lobby-rank-delta="1" data-lobby-rank-side="'+esc(side)+'" aria-label="Next rank">›</button></div>';
 }
 function renderLobby(){
+  syncS0MusicForGameState();
   if(!lobbyIsOpen){lobbyOverlay.classList.remove('open');return}
   lobbyOverlay.classList.add('open');appRoot?.classList.add('gl-lobby-hidden');
   const opts=B()?.getStarterDeckOptions?.()||{},state=E()?.getDeckSetupState?.()||{},difficulty=String(state.difficulty||E()?.getAIDifficulty?.()||'beginner'),keys=Object.keys(opts).slice(0,difficulty==='beginner'?3:5);
@@ -816,14 +829,14 @@ function resetPresentationState(){
   glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
   if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
-  lobbyErrorText='';const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
-  resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();
+  lobbyErrorText='';syncS0MusicForGameState();const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
+  resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();syncS0MusicForGameState();
 }
 function beginOpeningPresentation(){
   if(openingPresentationActive||!openingCoinWinner||(openingChosenOrder!=='FIRST'&&openingChosenOrder!=='SECOND')||!coinOverlay.classList.contains('open'))return false;
   if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}
   const r=E().commitOpeningSetup?.(openingChoice,openingOutcome,openingFirstSide,openingChosenOrder);if(!r?.ok){coinOverlay.querySelector('.gl-coin-body').innerHTML='<p>'+esc(r?.error||'Could not begin the match.')+'</p>';return}
-  startMatchTimer();coinOverlay.classList.remove('open');openingPresentationActive=true;lastTurnBannerKey='';
+  startMatchTimer();coinOverlay.classList.remove('open');openingPresentationActive=true;lastTurnBannerKey='';syncS0MusicForGameState();
   (r.handEvents||[]).forEach(e=>{if(e?.id)seenPresentationEvents.add(e.id);const side=e.side==='AI'?'AI':'PLAYER';glHiddenCommittedDrawSlots[side].set(Number(e.hand_index),String(e.id||side+'-'+e.hand_index))});
   (r.manaEvents||[]).forEach(e=>glOpeningHiddenShardUids.add((e.side==='AI'?'AI':'PLAYER')+'|'+String(e.uid)));
   handRenderKey='';opponentHandRenderKey='';manaRenderKey='';renderNow();
@@ -836,7 +849,7 @@ function runOpeningHandGroups(events,manaEvents){
 }
 function runOpeningShardGroups(events){
   const groups=[];for(let i=0;i<3;i++)groups.push((events||[]).filter(e=>Number(e.group_index)===i));let gi=0;
-  const next=()=>{if(gi>=groups.length){glOpeningHiddenShardUids.clear();manaRenderKey='';renderMana();requestAnimationFrame(()=>setTimeout(()=>{previousVisualState=visualStateOf(st());presentationPrimed=true;openingPresentationActive=false;E().beginFirstTurn?.(openingFirstSide);setTimeout(renderNow,0)},180));return}const group=groups[gi++],parts=[];group.forEach(e=>{const side=e.side==='AI'?'AI':'PLAYER',host=side==='PLAYER'?playerManaHost:aiManaHost,to=host?.querySelector('.mana-card[data-uid="'+CSS.escape(String(e.uid))+'"]'),from=zoneEl(side,'Shard Deck');parts.push({src:'assets/ui/back-shard.webp',from:from?.querySelector('.zoneCard')||from,to});});runPairMotions(parts,220,()=>{group.forEach(e=>glOpeningHiddenShardUids.delete((e.side==='AI'?'AI':'PLAYER')+'|'+String(e.uid)));manaRenderKey='';renderMana();requestAnimationFrame(()=>setTimeout(next,20))})};next();
+  const next=()=>{if(gi>=groups.length){glOpeningHiddenShardUids.clear();manaRenderKey='';renderMana();requestAnimationFrame(()=>setTimeout(()=>{previousVisualState=visualStateOf(st());presentationPrimed=true;openingPresentationActive=false;E().beginFirstTurn?.(openingFirstSide);syncS0MusicForGameState();setTimeout(renderNow,0)},180));return}const group=groups[gi++],parts=[];group.forEach(e=>{const side=e.side==='AI'?'AI':'PLAYER',host=side==='PLAYER'?playerManaHost:aiManaHost,to=host?.querySelector('.mana-card[data-uid="'+CSS.escape(String(e.uid))+'"]'),from=zoneEl(side,'Shard Deck');parts.push({src:'assets/ui/back-shard.webp',from:from?.querySelector('.zoneCard')||from,to});});runPairMotions(parts,220,()=>{group.forEach(e=>glOpeningHiddenShardUids.delete((e.side==='AI'?'AI':'PLAYER')+'|'+String(e.uid)));manaRenderKey='';renderMana();requestAnimationFrame(()=>setTimeout(next,20))})};next();
 }
 function visualStateOf(s){
   const hero={};for(const side of ['PLAYER','AI']){hero[side]={};for(const lane of laneOrder){const h=sideHeroes(s,side)?.[lane];hero[side][lane]={card_id:h?.card_id||'',image_id:heroImageId(h)||'',legacy:!!h?.legacy_mode,hp:Number(h?.hp||0),exp_cards:Array.isArray(h?.exp_cards)?h.exp_cards.slice():[]}}}
@@ -3192,6 +3205,7 @@ function renderStatusReminder(s){
 }
 function renderNow(){
   const s=st();if(!s)return;
+  syncS0MusicForGameState();
   // Only normalize objectively inconsistent Response state. Mandatory gameplay choices are never force-cleared.
   if(repairBlockingStateIfNeeded(s)){setTimeout(renderNow,0);return;}
   const presentationPlan=buildPresentationPlan(s);
@@ -3285,6 +3299,6 @@ function initStableBattlefieldReviewGestures(){
 
 
 function initSidebarControls(){document.getElementById('fullHistoryBtn').onclick=()=>{hideSidebarHoverPreview();sidebar.classList.add('history-open');sidebar.classList.remove('battlelog-open')};document.getElementById('historyClose').onclick=()=>{hideSidebarHoverPreview();sidebar.classList.remove('history-open')};document.getElementById('battleLogBtn').onclick=()=>{hideSidebarHoverPreview();sidebar.classList.add('battlelog-open');sidebar.classList.remove('history-open');requestAnimationFrame(()=>{battleLogPanel.scrollTop=battleLogPanel.scrollHeight})};document.getElementById('battleLogClose').onclick=()=>{hideSidebarHoverPreview();sidebar.classList.remove('battlelog-open')};initSoundSettings();matchActionBtn.onclick=()=>{const s=st();if(s?.gameOver){openGameResult();return}if(!lobbyIsOpen&&confirm('Surrender this match?'))intent('executeConfirmedSurrender',[])};syncMatchActionButton(st());syncSoundButton();}
-function boot(){if(!E()||!B()){setTimeout(boot,50);return}B().setExternalHumanUi?.(true);E().setExternalHumanUi?.(true);B().setRenderSuppressed(true);document.getElementById('glPendingAttackDirectionLayer')?.remove();clearAuthoredDummyState();configureStaticZones();initStableBattlefieldReviewGestures();initSidebarControls();lockPrimaryActionWidth();renderLobby();updateMatchTimer();setInterval(updateMatchTimer,250);setInterval(()=>{if(!lobbyIsOpen)renderNow()},120);window.addEventListener('resize',()=>requestAnimationFrame(()=>{if(lobbyIsOpen)return;syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);placePhaseIndicator(document.querySelector('.phase-label.active'),false);renderAttackLine(st(),chainActions(st()))}),{passive:true});window.GL_GAME_UI={render:renderNow,state:st,intent,openLobby:()=>{lobbyIsOpen=true;renderLobby()},closeInspect:closeInspectModal};}
+function boot(){if(!E()||!B()){setTimeout(boot,50);return}B().setExternalHumanUi?.(true);E().setExternalHumanUi?.(true);B().setRenderSuppressed(true);document.getElementById('glPendingAttackDirectionLayer')?.remove();clearAuthoredDummyState();configureStaticZones();initStableBattlefieldReviewGestures();initSidebarControls();lockPrimaryActionWidth();renderLobby();updateMatchTimer();setInterval(updateMatchTimer,250);setInterval(()=>{if(!lobbyIsOpen)renderNow()},120);window.addEventListener('resize',()=>requestAnimationFrame(()=>{if(lobbyIsOpen)return;syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);placePhaseIndicator(document.querySelector('.phase-label.active'),false);renderAttackLine(st(),chainActions(st()))}),{passive:true});window.GL_GAME_UI={render:renderNow,state:st,intent,openLobby:()=>{lobbyIsOpen=true;syncS0MusicForGameState();renderLobby()},closeInspect:closeInspectModal};}
 boot();
 })();
