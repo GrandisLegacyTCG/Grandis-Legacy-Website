@@ -175,7 +175,7 @@ function syncFilterControlsFromState(){
 }
 function syncPoolGate(){
   // Card Pool remains exactly as selected, including with zero Heroes.
-  // AVAILABLE lists no playable cards until at least one Hero is selected.
+  // Style 1 shows disabled card previews until a Hero is selected; saved pool choice stays intact.
   const select=$('cardPoolSelect');
   select.value=state.sharedFilters.pool;
   select.disabled=false;
@@ -251,7 +251,9 @@ function filteredMainCards(){
     if(family==='Skill'&&state.filters.className&&card.classGroup!==state.filters.className)return false;
     if(state.filters.skillType&&!window.GL_S0_SUBTYPE_FILTER.matches(card,state.filters.skillType))return false;
     if(family!=='Item'){const mana=manaNumber(card);if(mana<state.sharedFilters.manaMin||mana>state.sharedFilters.manaMax)return false}
-    if(state.sharedFilters.pool==='available'&&!cardAvailable(card))return false;
+    // With no Hero selected, show all filtered cards as dimmed previews.
+    // They remain non-addable until a legal Hero is chosen.
+    if(state.sharedFilters.pool==='available'&&hasHeroes&&!cardAvailable(card))return false;
     return true;
   }).sort(idSort);
 }
@@ -312,7 +314,6 @@ function renderMainLibrary(){
       <span class="card-frame"><img src="${card.image}" alt="${esc(card.name)}">${qty?`<span class="owned-badge">×${qty}</span>`:''}${!available?'<span class="lock-dot">●</span>':''}<button class="library-review-button" type="button" draggable="false" data-open-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></span><span class="library-card-name">${esc(card.name)}</span>
     </article>`;
   }).join('');
-  if(!cards.length&&!hasHeroes&&state.sharedFilters.pool==='available')$('cardLibrary').innerHTML='<p class="s0-available-empty">Select a Hero in the Legacy Deck to view available cards. Or choose ALL CARDS to browse the full library.</p>';
   bindMainLibraryClicks();bindLibraryReviewButtons($('cardLibrary'));
 }
 function bindMainLibraryClicks(){
@@ -925,7 +926,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.6-MainDeck-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.64',style,
+  source_authority:'R3.7-MainDeck-Artwork_R3.6-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.65',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

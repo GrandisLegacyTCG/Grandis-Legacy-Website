@@ -2068,3 +2068,9 @@ body.gl-center-purify .gl-center-choice-card.is-selected{border-color:#fce383;bo
  .gl-exp-inspector-list{grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;padding:9px}
 }
 
+
+/* RC39 Mana loss banners reuse the COUNTERED! presentation queue. */
+.gl-counter-banner.is-mana{background:rgba(13,25,39,.97);border-color:#9ec6ee;box-shadow:0 8px 38px #000a,0 0 18px #7ca7d855}
+.gl-counter-banner.is-mana strong{color:#cae3ff;text-shadow:0 0 10px #629ed5}
+.gl-counter-banner.is-mana small{color:#edf4ff}
+

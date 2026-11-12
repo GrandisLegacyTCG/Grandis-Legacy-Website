@@ -244,10 +244,12 @@ function updateManaRange(){
   state.sharedFilters.manaMin=min;state.sharedFilters.manaMax=max;$('manaRangeValue').textContent=`${min}–${max}`;const minPct=min/9*100,maxPct=max/9*100;$('manaRangeTrack').style.background=`linear-gradient(to right,#30323d 0 ${minPct}%,#0aa8f6 ${minPct}% ${maxPct}%,#30323d ${maxPct}% 100%)`;
 }
 function filteredCards(){
-  const query=state.filters.search.trim().toLowerCase();
+  const query=state.filters.search.trim().toLowerCase(),hasHeroes=selectedProgressions().length>0;
   return state.cards.filter(card=>{
-    const compatible=cardCompatible(card),mana=manaNumber(card),haystack=String(card.name||'').toLowerCase();
-    if(state.sharedFilters.pool==='available'&&!cardAvailable(card))return false;
+    const mana=manaNumber(card),haystack=String(card.name||'').toLowerCase();
+    // Before a Hero is chosen, show the entire filtered library as disabled previews.
+    // The AVAILABLE CARDS preference stays selected; normal gating resumes once a Hero exists.
+    if(state.sharedFilters.pool==='available'&&hasHeroes&&!cardAvailable(card))return false;
     if(query&&!haystack.includes(query))return false;
     if(state.filters.family&&card.family!==state.filters.family)return false;
     if(state.filters.family==='Skill'){
@@ -281,7 +283,6 @@ function renderLibrary(){
   const root=$('cardLibrary'),scrollTop=root.scrollTop,cards=filteredCards(),mobile=isMobileMainDeck();$('resultCount').textContent=cards.length;
   root.classList.toggle('s2-mobile-card-grid',mobile);
   root.innerHTML=mobile?cards.map(card=>mobileMainCardTileHtml(card,Number(state.deck[card.id]||0),'library')).join(''):cards.map(libraryCardHtml).join('');
-  if(!cards.length&&!selectedProgressions().length&&state.sharedFilters.pool==='available')root.innerHTML='<p class="s0-available-empty">Select a Hero in the Legacy Deck to view available cards. Or choose ALL CARDS to browse the full library.</p>';
   root.scrollTop=scrollTop;
   if(mobile){bindMobileCardTiles(root);return}
   root.querySelectorAll('[data-library-card]').forEach(tile=>{
@@ -622,7 +623,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.6-MainDeck-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.64',style,
+  source_authority:'R3.7-MainDeck-Artwork_R3.6-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.65',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

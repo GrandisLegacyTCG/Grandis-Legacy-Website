@@ -1,0 +1,64 @@
+/* v1.65 responsive filter hotfix: preserve the approved compact 4 + 3
+   desktop grid when a split library pane is still wide enough for it.
+   Mobile continues to use its approved 2-column stacked layout. */
+@media (min-width:761px) {
+  /* A 400px split-panel threshold avoids collapsing useful desktop space.
+     The earlier 575px container breakpoint remains a fallback below 400px. */
+  @container (min-width:400px) {
+    .gl-filter-grid-style1,
+    .gl-filter-grid-style2 {
+      grid-template-columns:repeat(8,minmax(0,1fr))!important;
+      gap:10px 8px!important;
+    }
+    .gl-filter-grid-style1 > #classField,
+    .gl-filter-grid-style2 > #classField {grid-column:1 / span 2!important;grid-row:1!important;}
+    .gl-filter-grid-style1 > #skillTypeField,
+    .gl-filter-grid-style2 > #skillTypeField {grid-column:3 / span 2!important;grid-row:1!important;}
+    .gl-filter-grid-style1 > #keywordField,
+    .gl-filter-grid-style2 > #keywordField {grid-column:5 / span 2!important;grid-row:1!important;}
+    .gl-filter-grid-style1 > #effectField,
+    .gl-filter-grid-style2 > #effectField {grid-column:7 / span 2!important;grid-row:1!important;}
+    .gl-filter-grid-style1 > #manaField,
+    .gl-filter-grid-style2 > .mana-filter {grid-column:1 / span 3!important;grid-row:2!important;}
+    .gl-filter-grid-style1 > #cardPoolField,
+    .gl-filter-grid-style2 > #cardPoolField {grid-column:4 / span 3!important;grid-row:2!important;}
+    .gl-filter-grid-style1 > #resetFilters,
+    .gl-filter-grid-style2 > #resetFilters {grid-column:7 / span 2!important;grid-row:2!important;}
+  }
+  @container (min-width:400px) and (max-width:575px) {
+    .gl-filter-grid-style1 > .filter-field select,
+    .gl-filter-grid-style2 > label select {
+      font-size:10px!important;
+      padding-left:5px!important;
+      padding-right:2px!important;
+      text-overflow:ellipsis!important;
+    }
+    .gl-filter-grid-style1 .gl-pool-option,
+    .gl-filter-grid-style2 .gl-pool-option {
+      font-size:8px!important;
+      letter-spacing:-.035em!important;
+      padding-inline:0!important;
+    }
+  }
+}
+/* Do not let desktop-only placement rules leak into phone/tablet layout. */
+@media (max-width:760px) {
+  .gl-filter-grid-style1,.gl-filter-grid-style2 {
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px 8px!important;
+  }
+  .gl-filter-grid-style1 > #classField,
+  .gl-filter-grid-style2 > #classField {grid-column:1!important;grid-row:1!important;}
+  .gl-filter-grid-style1 > #skillTypeField,
+  .gl-filter-grid-style2 > #skillTypeField {grid-column:2!important;grid-row:1!important;}
+  .gl-filter-grid-style1 > #keywordField,
+  .gl-filter-grid-style2 > #keywordField {grid-column:1!important;grid-row:2!important;}
+  .gl-filter-grid-style1 > #effectField,
+  .gl-filter-grid-style2 > #effectField {grid-column:2!important;grid-row:2!important;}
+  .gl-filter-grid-style1 > #manaField,
+  .gl-filter-grid-style2 > .mana-filter {grid-column:1 / -1!important;grid-row:3!important;}
+  .gl-filter-grid-style1 > #cardPoolField,
+  .gl-filter-grid-style2 > #cardPoolField {grid-column:1 / -1!important;grid-row:4!important;}
+  .gl-filter-grid-style1 > #resetFilters,
+  .gl-filter-grid-style2 > #resetFilters {grid-column:1 / -1!important;grid-row:5!important;}
+}

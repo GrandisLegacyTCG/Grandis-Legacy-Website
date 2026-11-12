@@ -1,6 +1,4 @@
-# Local tools; never publish development caches.
-node_modules/
-__pycache__/
-*.log
-.DS_Store
 Thumbs.db
+.DS_Store
+node_modules/
+*.log

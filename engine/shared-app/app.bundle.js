@@ -6,7 +6,7 @@
   var GL_APP_MODE=String((typeof window!=='undefined'&&window.GL_APP_MODE)||'LOCAL_AI').toUpperCase();
   var IS_PVP_APP=GL_APP_MODE==='PVP';
   var IS_TUTORIAL_APP=GL_APP_MODE==='TUTORIAL';
-  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 RC38 · Artwork R3.6 · Rulebook v3.2');
+  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 RC39 · Main Deck Artwork R3.7 · Rulebook v3.2');
   var PHASES=['Draw','Deploy','Battle','Reform','End'];
   var LANE_ORDER=['LEFT','CENTER','RIGHT'];
   var EXP_MAX_TOTAL=700;
@@ -198,7 +198,6 @@
     if(!animationDocumentReady())return false;
     return playPreloadedAudio('engine/assets/audio/Card Sound.mp3',.55);
   }
-  var GL_AI_TURN_DIRECTOR={active:false,token:0,timer:null};
   var GL_TUTORIAL_AI_PHASE_GATE={waiting:false,phase:null,resume:null,sequence:0};
   var GL_TUTORIAL_AI_ACTION_GATE={waiting:false,phase:null,event_id:null,action_id:null,sequence:0,resume:null};
   var GL_TUTORIAL_AI_ACTION_GATED=Object.create(null);
@@ -242,20 +241,6 @@
     if(!GL_TUTORIAL_AI_ACTION_GATE.waiting||typeof GL_TUTORIAL_AI_ACTION_GATE.resume!=='function')return false;
     var fn=GL_TUTORIAL_AI_ACTION_GATE.resume;clearTutorialAIActionGate();fn();return true;
   }
-  function aiTurnDirectorAvailable(){ return !window.GL_PVP_SHARED_BOARD_ACTIVE && typeof window!=='undefined' && typeof setTimeout==='function'; }
-  function cancelAITurnDirector(){ GL_AI_TURN_DIRECTOR.token++; GL_AI_TURN_DIRECTOR.active=false; clearTutorialAIPhaseGate(); clearTutorialAIActionGate(); GL_TUTORIAL_AI_ACTION_GATED=Object.create(null); GL_TUTORIAL_CASTING_STAGE_GATED={STARTED:false,RESOLVED:false}; if(GL_AI_TURN_DIRECTOR.timer){ clearTimeout(GL_AI_TURN_DIRECTOR.timer); GL_AI_TURN_DIRECTOR.timer=null; } if(appState) appState.aiPresentationStatus=''; }
-  function aiDirectorSchedule(fn,delay){
-    var token=GL_AI_TURN_DIRECTOR.token;
-    if(GL_AI_TURN_DIRECTOR.timer) clearTimeout(GL_AI_TURN_DIRECTOR.timer);
-    function run(){
-      GL_AI_TURN_DIRECTOR.timer=null;
-      if(!GL_AI_TURN_DIRECTOR.active || token!==GL_AI_TURN_DIRECTOR.token) return;
-      if(tutorialGuideHoldActive()){GL_AI_TURN_DIRECTOR.timer=setTimeout(run,60);return;}
-      fn();
-    }
-    GL_AI_TURN_DIRECTOR.timer=setTimeout(run,Math.max(0,Number(delay||0)));
-  }
-  function aiDirectorStatus(state,text){ if(!state) return; state.aiPresentationStatus=text||''; if(!SUPPRESS_RENDER) render(); }
   var GL_BATTLE_FEEDBACK_QUEUE=[],GL_BATTLE_FEEDBACK_ACTIVE=0,GL_BATTLE_FEEDBACK_SEQUENCE=0,GL_LAST_BATTLE_AUDIO={src:'',at:0};
   var GL_BATTLE_VFX={
     pAttack:'engine/assets/battle/P.Attack.png',
@@ -1864,6 +1849,29 @@
     return state;
   }
   function pushLog(state,msg){ state.log=state.log||[]; state.log.unshift(msg); }
+  // RC38: show a result notice ONLY when the local player's Shard Pool lost
+  // physical Shards outside the ordinary Mana payment picker. Never disclose
+  // an opponent's face-down selection before it resolves. For Mana Burn/Steal,
+  // the center-choice animation flips the selected faces BEFORE it commits.
+  // Mana removal/Ability cost notifications are immutable COMMITTED events.
+  // The shared runtime presents them in the same queue as COUNTERED/RACIAL.
+  // Never create standalone DOM toast nodes in the gameplay engine.
+  function notifyLocalManaLoss(state,targetSide,sourceSide,effectName,removedShards){
+    var list=(removedShards||[]).filter(Boolean);
+    if(!state||targetSide!=='PLAYER'||!list.length)return false;
+    state.presentationEvents=Array.isArray(state.presentationEvents)?state.presentationEvents:[];
+    state.presentationEventSequence=Number(state.presentationEventSequence||0)+1;
+    state.presentationEvents.push({
+      id:'MANA-LOSS-'+state.presentationEventSequence,
+      type:'MANA_LOSS_RESOLVED',side:'PLAYER',source_side:sourceSide,
+      effect_name:String(effectName||'Ability'),
+      loss_kind:sourceSide==='PLAYER'?'ABILITY_SPEND':'OPPONENT_REMOVE',
+      removed_count:list.length,
+      removed_shards:list.map(function(sh){return {kind:sh.kind==='CLASS'?'CLASS':'MANA',class_name:sh.kind==='CLASS'?String(sh.class_name||''):''};})
+    });
+    if(state.presentationEvents.length>160)state.presentationEvents=state.presentationEvents.slice(-160);
+    return true;
+  }
   function restoreStateSnapshot(target,snapshot){
     Object.keys(target||{}).forEach(function(k){ delete target[k]; });
     Object.keys(snapshot||{}).forEach(function(k){ target[k]=clone(snapshot[k]); });
@@ -3482,6 +3490,26 @@
     if(deployActions.length) return true;
     return aiBattleAttackActions(state).some(function(a){ return a.source_lane===lane; });
   }
+  // RC38 Intermediate resource policy (12 Nov 2026): only draw Shards to
+  // prepare an ACTUALLY legal >=6-Mana Attack that cannot currently be paid.
+  // Check the printed/current source cost, target legality, Rank, readiness,
+  // timing and AoA using a virtual full GENERIC Shard Pool. Virtual Shards
+  // are NEVER drawn, observed or committed to the live state.
+  function aiIntermediateNeedsManaForExpensiveAttack(state){
+    if(!state||!aiIntermediate(state)||state.turn!=='AI'||state.phase!=='Deploy')return false;
+    var current=manaPoolCardsForSide(state,'AI'),deck=manaDeckForSide(state,'AI');
+    if(current.length>=GL_LAB_MANA_DECK_SIZE||!deck.length)return false;
+    var sim=clone(state),simPool=manaPoolCardsForSide(sim,'AI');
+    for(var idx=simPool.length;idx<GL_LAB_MANA_DECK_SIZE;idx++)
+      simPool.push(makeManaShard('GENERIC','','AI','RC38-RESOURCE-PROJECTION-'+idx));
+    syncManaCountForSide(sim,'AI');sim.phase='Battle';sim.pending=null;sim.responseWindow=null;
+    return getLegalActions('AI',sim).some(function(a){
+      if(a.type!=='PLAY_CARD'||Number(a.cost||0)<6)return false;
+      var c=card(a.card_id);
+      if(!c||!isAttackCard(c)||isAIChoiceHeavyCard(c,sim))return false;
+      return manaAvailableValueForCard(state,'AI',c)<Number(a.cost||0);
+    });
+  }
   function aiAncestralFocusUnlocksBattleAttack(state){
     if(!state || aiBattleAttackActions(state).length) return false;
     var sim=clone(state); gainMana(sim,'AI',2);
@@ -3501,14 +3529,20 @@
     if(!state||state.phase!=='Deploy'||racialTokenSpentThisTurn(state,'AI')||Number(state.aiRacial||0)<=0) return null;
     var candidates=[];
     LANE_ORDER.forEach(function(lane){ getActivatedRacialAbilities(state,'AI',lane).forEach(function(a){ candidates.push({lane:lane,ability:a}); }); });
-    var human=candidates.find(function(x){ return String(x.ability.abilityId||'').toLowerCase()==='human_ambition'; });
+    // Intermediate Alden reserves Human Ambition for an actual Aura Infusion
+    // Bolt release or a playable Colossal Dreadbolt finisher. The generic
+    // hand-size <= 5 fallback used to fire at the start of round 1, before
+    // Alden had either combo available. Other Human Heroes retain their
+    // independent hand-resource policy, except they also skip round 1.
+    var humans=candidates.filter(function(x){return String(x.ability.abilityId||'').toLowerCase()==='human_ambition';});
+    var alden=humans.find(function(x){return aiS4IsAldenHero((state.aiHeroes||{})[x.lane]);});
+    var human=alden||humans[0];
     if(human && (aiIntermediate(state)?
-      (aiStarterIs(state,4)&&aiS4DreadReady(state)?
-        aiS4HumanAmbitionFinisher(state):
-        ((state.aiHand||[]).length<=5||!aiHasNormalTributeSkill(state)||aiS4HumanAmbitionFinisher(state))):
+      (alden?aiS4HumanAmbitionFinisher(state):
+        (Number(state.round||1)>1&&((state.aiHand||[]).length<=4||aiIntermediateHasNoOtherSkillCard(state,null)))):
       (state.aiHand||[]).length<=2)) return {type:'RACIAL_ABILITY',side:'AI',source_lane:human.lane,ability_id:human.ability.abilityId,label:human.ability.label};
     var ancestral=candidates.find(function(x){ return String(x.ability.abilityId||'').toLowerCase()==='ancestral_focus'; });
-    if(ancestral && (aiIntermediate(state)?aiIntermediateElfFinishing(state):aiAncestralFocusUnlocksBattleAttack(state))) return {type:'RACIAL_ABILITY',side:'AI',source_lane:ancestral.lane,ability_id:ancestral.ability.abilityId,label:ancestral.ability.label};
+    if(ancestral && (aiIntermediate(state)?aiIntermediateNeedsManaForExpensiveAttack(state):aiAncestralFocusUnlocksBattleAttack(state))) return {type:'RACIAL_ABILITY',side:'AI',source_lane:ancestral.lane,ability_id:ancestral.ability.abilityId,label:ancestral.ability.label};
     return null;
   }
   function aiChooseAurexClassAbilityAction(state){
@@ -3909,16 +3943,55 @@
       return h&&isActiveHeroSlot(h)&&estimateAIDamage(sim,a)>=Number(h.hp||9999);
     });
   }
-  function aiIntermediatePositionBonus(state,action,target){
-    if(!action||!target||!action.target_lane)return 0;
-    var opp=sideHeroes(state,'PLAYER')||{},center=opp.CENTER;
-    if(isActiveHeroSlot(center))return action.target_lane==='CENTER'?240:-40;
-    var archerLane=null;
-    LANE_ORDER.forEach(function(lane){var h=(state.aiHeroes||{})[lane];
-      if(isActiveHeroSlot(h)&&baseFamilyForHero(h)==='Archer')archerLane=lane;
-    });
-    if(archerLane&&targetCoverage(archerLane).indexOf(action.target_lane)>=0)return 135;
-    return 0;
+  // RC39 Intermediate target strategy: CENTER is a fallback, not a lock.
+  // From Mana Regen 4+, choose the weakest *visible* Hero (remaining HP if
+  // any Hero has been injured, otherwise Max HP). A wounded 120/150 Hero
+  // does not outrank an undamaged 120/120 Hero: equal current HP breaks toward
+  // lower Max HP. Before Regen 4 the same wounded-HP logic applies once any
+  // opponent Hero has taken damage. This is scoring only, never target legality.
+  function aiIntermediatePositionBonus(state,action,target,lethal){
+    if(!state||!action||!target||!action.target_lane)return 0;
+    var opponent=sideHeroes(state,'PLAYER')||{},alive=LANE_ORDER.map(function(l){return opponent[l];})
+      .filter(function(h){return isActiveHeroSlot(h);});
+    if(!alive.length)return 0;
+    var currentHp=Math.max(0,Number(target.hp||0)),maxHp=Math.max(1,Number(target.maxHp||100)),
+      regen=Math.max(1,Number(state.aiManaRegen||1)),isCenter=action.target_lane==='CENTER',
+      allFull=alive.every(function(h){return Number(h.hp||0)>=Number(h.maxHp||100);}),
+      dynamicTargets=regen>=4||!allFull,
+      minCurrent=Math.min.apply(null,alive.map(function(h){return Number(h.hp||0);})),
+      highestMax=Math.max.apply(null,alive.map(function(h){return Number(h.maxHp||100);})),
+      gap=Math.max(0,currentHp-minCurrent),bonus=0;
+    if(dynamicTargets){
+      // Choosing a damaged Hero must be based on its *remaining* HP, rather
+      // than the fraction missing. Equal remaining HP favors lower Max HP.
+      bonus+=220-Math.min(320,gap*6);
+      if(gap<0.001)bonus+=Math.min(100,Math.max(0,(highestMax-maxHp)*2.5));
+      bonus+=isCenter?8:0;
+    }else{
+      // Opening, full-health board: keep some CENTER bias but let a fragile
+      // healer/support be a genuinely better attack target.
+      bonus+=isCenter?85:0;
+    }
+    var lineage=activeLineageForHero(target).map(function(x){return x.toLowerCase();}),
+      base=String(baseFamilyForHero(target)||'').toLowerCase(),
+      whiteSupport=base==='cleric'||lineage.indexOf('cleric')>=0;
+    if(whiteSupport)bonus+=dynamicTargets?115:135;
+    // Warrior/Red is a high-Defense late-game target. Only avoid it while
+    // above 60% HP AND another legal non-Warrior target exists for this
+    // actual attack. At or below 60%, remove the avoidance completely.
+    // A projected KO also overrides the defensive-avoidance heuristic.
+    if(base==='warrior'&&currentHp>maxHp*.60&&!lethal){
+      var legal=legalTargetLanesFor(state,'AI',action.card_id,action.source_lane)||[];
+      var hasAlternative=legal.some(function(l){var h=opponent[l];
+        return l!==action.target_lane&&isActiveHeroSlot(h)&&
+          String(baseFamilyForHero(h)||'').toLowerCase()!=='warrior';
+      });
+      if(hasAlternative){
+        if(regen>=4)bonus-=heroRank(target)>=3?270:225;
+        else if(heroRank(target)>=3)bonus-=110;
+      }
+    }
+    return bonus;
   }
   function aiIntermediateClassRacialBonus(state,action,target,type,damage){
     if(!action||!target)return 0;
@@ -4131,6 +4204,9 @@
     if(isAttackCard(c)&&regen<=4&&String(JSON.stringify((c.requirement||{}).printed_class_rank_requirements||[])).indexOf('2')!==-1)score-=95;
     if(isAttackCard(c)&&['S0-ARC-010','S0-ARC-021'].indexOf(c.card_id)>=0)score-=230;
     if(c.card_id==='S0-ARC-014')score-=220; // Keep Replenish loop alive.
+    // Never Tribute the only stored Draw enabler while a future Aura is
+    // still in Hand/Deck, unless a mandatory Rank Up leaves no better card.
+    if(aiAuraFutureUnplayed(state)&&aiAuraMainDeckDrawAmount(c.card_id))score-=850;
     // Trial v2.3: Bard Notes are much more valuable in Hand now that they
     // can be played without always ending up in Discard. Avoid Tributing
     // Zol/Lun/Vae until the exact Tribute that Ranks Up the selected Hero.
@@ -4210,10 +4286,126 @@
   // RC36.1 / Starter 4: Draw cards are a finisher resource, not a reason
   // to overfill Hand merely because Aura/Dreadbolt happens to be in Hand.
   function aiS4DrawAmount(id){
-    return id==='S0-ARC-005'||id==='S0-EVT-002'?2:(id==='S0-ARC-022'?3:0);
+    // Deploy-phase Draw enablers for Alden's Aura / Colossal combo.
+    return ['S0-ARC-005','S0-EVT-002','S0-CLE-028'].indexOf(id)>=0?2:(id==='S0-ARC-022'?3:0);
+  }
+  // RC39 Aura combo ownership: an Intermediate AI with living Alden/Arbalest
+  // reserves real Main Deck Draw cards while an unplayed Aura is in Hand/Deck.
+  // Never confuse a Mana-Shard draw, search-to-Hand, or class Draw replacement
+  // with a Main Deck card that can support the paid Aura casting.
+  function aiAuraMainDeckDrawAmount(id){
+    var amounts={
+      'S0-ARC-005':2, // Reload
+      'S0-ARC-014':1, // Replenish (returns 2 Archer Skills, then Draw 1)
+      'S0-THF-028':1, // Camouflage (usable while exhausted)
+      'S0-ARC-022':3, // Singularity Reload (usable while exhausted)
+      'S0-EVT-002':2, // Market Bargain
+      'S0-CLE-028':2, // Blessing of Accuracy (Vae condition)
+      'S0-CLE-013':3, // God's Blessing (discard condition)
+      'S0-EVT-001':5, // Begin Anew (shuffle Hand, Draw 5)
+      'S0-ARC-028':2, // Midnight Lullaby (conditional Attack)
+      'S0-CLE-031':3, // Grand Finale (conditional Defense)
+      'S0-ARC-029':1, // Swift Movement (conditional Response)
+      'S0-THF-030':1  // Flash Combo (draws only when attack hits)
+    };
+    return Number(amounts[id]||0);
+  }
+  function aiAuraDeployDrawAmount(id){
+    // Only deterministic Deploy-phase enablers are allowed to justify CAST.
+    // Responses / on-hit Attack draws cannot be promised two turns ahead.
+    return ['S0-ARC-005','S0-ARC-014','S0-THF-028','S0-ARC-022',
+      'S0-EVT-002','S0-CLE-028','S0-CLE-013','S0-EVT-001'].indexOf(id)>=0?
+      aiAuraMainDeckDrawAmount(id):0;
+  }
+  function aiAuraFutureUnplayed(state){
+    return !!(state&&aiIntermediate(state)&&aiS4HasLivingAlden(state)&&
+      ((state.aiHand||[]).indexOf('S0-ARC-021')>=0||(state.aiDeck||[]).indexOf('S0-ARC-021')>=0));
+  }
+  function aiAuraLiveDrawPriority(state,action){
+    if(!state||state.phase!=='Deploy'||!aiS4LiveAuraCastings(state).length)return null;
+    var id=action&&action.card_id,n=aiAuraDeployDrawAmount(id);
+    if(!n)return null;
+    var deck=(state.aiDeck||[]).length;
+    if(id==='S0-ARC-014'){
+      // Replenish actually returns two playable Archer Skills to the deck.
+      var recycle=aiReplenishDiscardOptions(state);
+      if(recycle.candidates.length<2||!aiIntermediateReplenishPicks(state,recycle.candidates,2))return null;
+      deck+=2;
+    }
+    if(id==='S0-EVT-001')deck+=(state.aiHand||[]).length-1;
+    n=Math.min(n,deck);
+    if(n<1||!aiS4DrawRoom(state,n))return null;
+    var casting=aiS4LiveAuraCastings(state);
+    var willRelease=casting.some(function(pc){return Number(pc.counters||0)+n>=requiredDrawCountersForCasting(card(pc.card_id));});
+    // The highest priority is to finish the CAST on the agreed deadline.
+    return {kind:willRelease?'AURA_RELEASE':'AURA_PROGRESS',score:willRelease?850:590};
+  }
+  function aiAuraDrawIsNeededNow(state,action){
+    if(!aiAuraFutureUnplayed(state)||!aiAuraMainDeckDrawAmount(action&&action.card_id))return true;
+    if(aiS4LiveAuraCastings(state).length)return true;
+    // Emergency exception: a proven same-turn Dreadbolt lethal, or an Attack
+    // with its own Draw rider that can immediately finish the whole match.
+    if(aiS4DrawAmount(action.card_id)>0){
+      var burst=aiS4DrawBurstDecision(state,action);
+      if(burst&&burst.kind==='DREAD_LETHAL_PLUS_10')return true;
+    }
+    var c=card(action.card_id);
+    if(c&&isAttackCard(c)&&aiIntermediateAttackWinsMatch(state,action))return true;
+    // Hand starvation before Aura has been found: permit a real Draw card to
+    // search for it. This is not a general 'Hand <=4' refill exception.
+    if((state.aiHand||[]).indexOf('S0-ARC-021')<0&&
+      (state.aiHand||[]).length<=2&&aiIntermediateHasNoOtherSkillCard(state,
+        c&&isSkillCard(c)?c.card_id:null))return true;
+    return false;
+  }
+  function aiAuraShouldReserveDraw(state,action){
+    return !!(aiIntermediate(state)&&aiAuraMainDeckDrawAmount(action&&action.card_id)>0&&
+      !aiAuraDrawIsNeededNow(state,action));
+  }
+  function aiIntermediateMainDeckDrawTwoCard(c){
+    // Only actual Draw 2 from the MAIN Deck. Mana-Shard draws, three-card
+    // draws, searches that put cards into Hand, and exchange/redraw abilities
+    // do not count. S0-ARC-028 is an Attack with a Draw 2 rider.
+    return !!(c&&['S0-ARC-005','S0-EVT-002','S0-CLE-028','S0-ARC-028'].indexOf(c.card_id)>=0);
+  }
+  function aiIntermediateHasNoOtherSkillCard(state,sourceCardId){
+    // A Draw 2 Skill cannot count itself as an alternative Skill in Hand.
+    // Count ALL other Skills, including temporarily unplayable ones: only
+    // a genuinely Skill-starved Hand qualifies for emergency Draw 2.
+    var remainingSource=sourceCardId?1:0;
+    return !(state.aiHand||[]).some(function(id){
+      if(remainingSource&&id===sourceCardId){remainingSource--;return false;}
+      return isSkillCard(card(id));
+    });
+  }
+  function aiIntermediateDrawTwoPermitted(state,action){
+    var c=card(action&&action.card_id);
+    if(!aiIntermediate(state)||!aiIntermediateMainDeckDrawTwoCard(c))return true;
+    if(aiAuraShouldReserveDraw(state,action))return false;
+    // Live Aura casting is an actual counter deadline, not a speculative
+    // reason to refill. Allow a legal progress Draw even at Hand >4.
+    if(aiAuraLiveDrawPriority(state,action))return true;
+    if((state.aiHand||[]).length<=4)return true;
+    if(aiIntermediateHasNoOtherSkillCard(state,isSkillCard(c)?c.card_id:null))return true;
+    // Alden's proven combo is the ONLY high-Hand exception. Holding an Aura
+    // or Ultimate without an immediately useful setup is not a combo.
+    if(!aiS4HasLivingAlden(state))return false;
+    if(state.phase==='Battle'&&c.card_id==='S0-ARC-028'){
+      var actual=Math.min(2,(state.aiDeck||[]).length);
+      return actual>0&&!aiS4AuraWillRelease(state,0)&&aiS4AuraWillRelease(state,actual);
+    }
+    if(state.phase!=='Deploy'||!aiS4DrawAmount(c.card_id))return false;
+    var decision=aiS4DrawBurstDecision(state,action);
+    return !!(decision&&['AURA_RELEASE','DREAD_LETHAL_PLUS_10'].indexOf(decision.kind)>=0);
+  }
+  function aiS4IsAldenHero(hero){
+    return isActiveHeroSlot(hero)&&/^S0-ARC-H00[789]$/.test(String(heroIdFrom(hero)||''));
+  }
+  function aiS4HasLivingAlden(state){
+    return !!(state&&LANE_ORDER.some(function(lane){return aiS4IsAldenHero((state.aiHeroes||{})[lane]);}));
   }
   function aiS4LiveAuraCastings(state){
-    if(!state||!aiIntermediate(state)||!aiStarterIs(state,4))return [];
+    if(!state||!aiIntermediate(state)||!aiS4HasLivingAlden(state))return [];
     return (state.pendingCastings||[]).filter(function(pc){
       if(!pc||pc.side!=='AI'||pc.card_id!=='S0-ARC-021'||pc.resolve_phase!=='counter_draw')return false;
       var lane=pc.original_source_lane||pc.source_lane,hero=(state.aiHeroes||{})[lane],target=(state.playerHeroes||{})[pc.locked_target_lane||pc.target_lane];
@@ -4227,7 +4419,7 @@
     });
   }
   function aiS4DreadReady(state){
-    if(!state||!aiIntermediate(state)||!aiStarterIs(state,4)||(state.aiHand||[]).indexOf('S0-ARC-025')<0)return false;
+    if(!state||!aiIntermediate(state)||!aiS4HasLivingAlden(state)||(state.aiHand||[]).indexOf('S0-ARC-025')<0)return false;
     return LANE_ORDER.some(function(lane){var hero=(state.aiHeroes||{})[lane],cls=heroClass(hero);
       return isActiveHeroSlot(hero)&&(cls==='Arbalest'||cls==='Grand Arbalest');
     });
@@ -4272,9 +4464,11 @@
     if(!n)return null;
     if(!deck)return {kind:'DRAW_EMPTY',score:-1000};
     var actuallyDrawn=Math.min(n,deck),fitsHand=aiS4DrawRoom(state,actuallyDrawn);
-    // Aura must ALREADY be paid and actively Casting. Aura merely held in
-    // Hand is no longer treated as a finisher setup.
-    if(fitsHand&&aiS4AuraWillRelease(state,actuallyDrawn))return {kind:'AURA_RELEASE',score:320};
+    // A live Aura always outranks a speculative Dreadbolt setup. Previously
+    // DREAD_SAVE could block Aura progress and create 3+ turn castings.
+    var liveAura=aiAuraLiveDrawPriority(state,action);
+    if(liveAura)return liveAura;
+    if(fitsHand&&!aiS4AuraWillRelease(state,0)&&aiS4AuraWillRelease(state,actuallyDrawn))return {kind:'AURA_RELEASE',score:850};
     // Colossal: only rank II/III, only a legal same-turn Attack, only if the
     // draw effect itself makes at least one living target HP + 10 reachable.
     if(aiS4DreadReady(state)){
@@ -4300,13 +4494,17 @@
     return sim;
   }
   function aiS4HumanAmbitionFinisher(state){
-    if(!state||!aiStarterIs(state,4)||!aiIntermediate(state)||(state.aiDeck||[]).length<2||(state.aiHand||[]).length>7)return false;
+    // Applies to Alden in starter 4 AND custom imported decks. The racial
+    // token is NOT a generic opening-hand refill on Intermediate difficulty.
+    if(!state||!aiS4HasLivingAlden(state)||!aiIntermediate(state)||(state.aiDeck||[]).length<2||(state.aiHand||[]).length>7)return false;
     var after=aiS4RacialDrawProjection(state,2);if(!after)return false;
     var projectedHand=(after.aiHand||[]).length;
-    if(projectedHand<=8&&aiS4AuraWillRelease(after,0))return true;
-    // Allow a temporary ninth card only if Dreadbolt itself will be played
-    // this Battle, bringing the Hand back within its eight-card End limit.
-    if(projectedHand<=9&&aiS4DreadReady(after)&&aiS4DreadCanFinish(after,0,null))return true;
+    if(projectedHand<=8&&!aiS4AuraWillRelease(state,0)&&aiS4AuraWillRelease(after,0))return true;
+    // Do not spend the racial token if Dreadbolt already had enough damage;
+    // the two extra Draws must turn a non-finisher into a same-turn finisher.
+    // Allow a temporary ninth card only when the Attack will return Hand <=8.
+    if(projectedHand<=9&&aiS4DreadReady(after)&&!aiS4DreadCanFinish(state,0,null)&&
+      aiS4DreadCanFinish(after,0,null))return true;
     // Only one normal Deploy card can be played per AI turn: plan at most
     // one extra draw effect, and require enough deck, Hand room and Mana.
     return getLegalActions('AI',after).some(function(a){
@@ -4319,41 +4517,56 @@
     });
   }
   function aiS4AuraCastPlan(state,action){
-    // RC36.3: Aura needs 5 ACTUAL Draws. A class Draw replacement gives only
-    // 2 per AI turn, i.e. without another *usable* Draw card Aura needs 3
-    // turns. Do not spend a Battle action on that speculative plan.
+    // RC39: apply to ANY Intermediate deck, not only Starter 4. Aura is
+    // committed only when a REAL, already-held Draw card can be played on the
+    // next Deploy and finish within 1–2 AI Draw Phases. A single Replenish or
+    // Camouflage Draw 1 is enough together with both Quick Reload Draw phases.
     if(!state||!action||action.card_id!=='S0-ARC-021'||
-      !aiIntermediate(state)||!aiStarterIs(state,4)||!action.source_lane)return null;
+      !aiIntermediate(state)||!action.source_lane)return null;
     var source=(state.aiHeroes||{})[action.source_lane],need=requiredDrawCountersForCasting(card('S0-ARC-021'));
     if(!isActiveHeroSlot(source)||hasStatus(source,'Sleep')||hasStatus(source,'Stun'))return null;
-    // Mandatory + replacement Draw is a *maximum of 2*, not sufficient by
-    // itself. At least five cards remain to avoid promising a future combo on
-    // an empty deck (the replacement returns just its own original card).
-    if((state.aiDeck||[]).length<need)return null;
-    // Simulate actual Aura payment and next Draw Phase Mana Regen; only known
-    // Draw cards ALREADY IN HAND are considered a reliable combo. Never rely
-    // on topdecking a lucky Draw Skill, or on a currently unused racial token.
+    var base=drawReplacementAbilityForHero(source)?2:1;
     var sim=aiManaSimulationAfterSetup(state,action,'Deploy',true);
     sim.turn='AI';sim.pending=null;sim.responseWindow=null;
     LANE_ORDER.forEach(function(lane){var h=(sim.aiHeroes||{})[lane];if(isActiveHeroSlot(h))h.exhausted=lane===action.source_lane;});
-    var replacement=drawReplacementAbilityForHero(source),base=replacement?2:1;
+    // Mark Aura's occupied Attachment slot. Otherwise Camouflage could look
+    // legal even though both actual slots would be taken after casting.
+    var castingHero=(sim.aiHeroes||{})[action.source_lane];
+    if(castingHero){
+      castingHero.attachments=Array.isArray(castingHero.attachments)?castingHero.attachments.slice():[null,null];
+      var free=castingHero.attachments.findIndex(function(a){return !a;});
+      if(free<0)return null;
+      castingHero.attachments[free]='S0-ARC-021';
+    }
+    var originalHand=state.aiHand||[],handAfterCast=Math.max(0,originalHand.length-1),best=null;
+    // Do not pretend the standard Draw is repeatable with fewer than the
+    // required physical cards. Replenish can add two actual cards to the deck.
     var support=getLegalActions('AI',sim).filter(function(a){
-      return a.type==='PLAY_CARD'&&aiS4DrawAmount(a.card_id)>0&&
-        (state.aiHand||[]).indexOf(a.card_id)!==-1;
+      if(a.type!=='PLAY_CARD'||!aiAuraDeployDrawAmount(a.card_id)||
+        originalHand.indexOf(a.card_id)<0||isAIChoiceHeavyCard(card(a.card_id),sim))return false;
+      if(a.card_id==='S0-ARC-014'){
+        var recycle=aiReplenishDiscardOptions(sim);
+        return recycle.candidates.length>=2&&!!aiIntermediateReplenishPicks(sim,recycle.candidates,2);
+      }
+      return true;
     });
-    if(!support.length)return null;
-    var handAfterCast=Math.max(0,(state.aiHand||[]).length-1),best=null;
     support.forEach(function(a){
-      var amount=aiS4DrawAmount(a.card_id),afterFirst=handAfterCast+1-1+amount;
-      // Do not commit Aura on a combo that requires overfilling Hand. Class
-      // replacement is net +1 Hand, not +2; Draw effects still gain N cards.
-      if(afterFirst>8)return;
-      var firstTurnDraw=base+amount,secondTurnDraw=2*base+amount;
-      var turns=firstTurnDraw>=need?1:(secondTurnDraw>=need?2:0);
+      var amount=aiAuraDeployDrawAmount(a.card_id),available=(state.aiDeck||[]).length;
+      if(a.card_id==='S0-ARC-014')available+=2;
+      else if(a.card_id==='S0-EVT-001')available+=Math.max(0,handAfterCast+base-1);
+      if(available<need)return;
+      var firstDraw=base+amount,totalTwoTurns=firstDraw+base;
+      var turns=firstDraw>=need?1:(totalTwoTurns>=need?2:0);
       if(!turns)return;
+      // Draw replacement records 2 ACTUAL Draw events, but returns the first
+      // card to the Deck before the replacement, so Hand only gains ONE card.
+      // The counter and Hand projections deliberately use different numbers.
+      var afterMandatory=handAfterCast+1;
+      var afterSetup=a.card_id==='S0-EVT-001'?amount:afterMandatory-1+amount;
+      if(afterMandatory>8||afterSetup>8)return;
       var plan={turns:turns,card_id:a.card_id,source_lane:a.source_lane,
-        first_turn_draws:firstTurnDraw,second_turn_draws:secondTurnDraw};
-      if(!best||plan.turns<best.turns||(plan.turns===best.turns&&firstTurnDraw>best.first_turn_draws))best=plan;
+        first_turn_draws:firstDraw,second_turn_draws:totalTwoTurns};
+      if(!best||plan.turns<best.turns||(plan.turns===best.turns&&firstDraw>best.first_turn_draws))best=plan;
     });
     return best;
   }
@@ -4414,8 +4627,18 @@
   function aiIntermediateDeployGate(state,action){
     var c=card(action.card_id);if(!c)return null;
     var id=c.card_id,hand=(state.aiHand||[]),count=hand.length;
+    if(aiAuraShouldReserveDraw(state,action))return -1000;
+    if(!aiIntermediateDrawTwoPermitted(state,action))return -1000;
+    var liveAuraDraw=aiAuraLiveDrawPriority(state,action);
+    if(liveAuraDraw)return liveAuraDraw.score-Number(action.cost||0);
+    if(isManaCatalystCard(c)||id==='S0-MAG-006'){
+      // Mana Potion (Item) / Meditation (Skill): Main Deck hand size is not
+      // relevant. Do not burn a resource for a cheap / already funded Attack.
+      if(!aiIntermediateNeedsManaForExpensiveAttack(state))return -1000;
+      return 200-Number(action.cost||0);
+    }
     if(['S0-ARC-005','S0-ARC-022','S0-CLE-029','S0-EVT-002'].indexOf(id)>=0){
-      var burst=aiStarterIs(state,4)?aiS4DrawBurstDecision(state,action):null;
+      var burst=aiS4HasLivingAlden(state)?aiS4DrawBurstDecision(state,action):null;
       if(burst&&burst.kind==='AURA_RELEASE')return burst.score-Number(action.cost||0);
       if(burst&&burst.kind==='DREAD_LETHAL_PLUS_10')return burst.score-Number(action.cost||0);
       // Reserve a Dreadbolt-specific draw for a proven HP+10 finishing window.
@@ -4425,7 +4648,9 @@
       // delay a 2-turn plan into a 3-turn release despite having Reload.
       // aiS4DrawBurstDecision has already checked live Aura and Hand capacity.
       if(burst&&burst.kind==='AURA_PROGRESS')return 270-Number(action.cost||0);
-      var hasRoom=count<=5||!aiHasNormalTributeSkill(state);
+      var hasRoom=aiIntermediateMainDeckDrawTwoCard(c)?
+        (count<=4||aiIntermediateHasNoOtherSkillCard(state,isSkillCard(c)?c.card_id:null)):
+        (count<=5||!aiHasNormalTributeSkill(state));
       if(!hasRoom)return -1000;
       return 110-Number(action.cost||0);
     }
@@ -4492,6 +4717,7 @@
     if(isResponseOnly(c))value+=75;
     if(isUltimateCard(c))value+=aiIntermediateSavedUltimate(id)?190:20;
     if(['S0-ARC-014','S0-ARC-021','S0-ARC-010','S0-ARC-025'].indexOf(id)>=0)value+=180;
+    if(aiAuraFutureUnplayed(state)&&aiAuraMainDeckDrawAmount(id))value+=850;
     if(['S0-ITM-017','S0-ITM-008','S0-ITM-018','S0-EVT-010'].indexOf(id)>=0)value+=100;
     if(count>1)value-=95;
     if(regen<=2)value-=cost*12;
@@ -4750,7 +4976,7 @@
     if(defeats)base+=345*defeats+(defeats>=remaining?380:0); // Tactical lethal may override CENTER focus.
     if(target && profiles.length===1){
       base+=aiTargetOpportunityBonus(state,action,target,profiles[0]);
-      base+=aiIntermediatePositionBonus(state,action,target);
+      base+=aiIntermediatePositionBonus(state,action,target,defeats>0);
       base+=aiIntermediateClassRacialBonus(state,action,target,type,damage);
     }
     if(isUltimateCard(c)){
@@ -4761,7 +4987,7 @@
       var owner=source;
       if(owner&&Number(owner.hp||0)>0&&Number(owner.hp||0)<=Number(owner.maxHp||100)*0.30&&/INVINCIBLE/i.test(String(c.card_text||'')))base+=230;
     }
-    if(aiStarterIs(state,4)&&c.card_id==='S0-ARC-021'){
+    if(c.card_id==='S0-ARC-021'){
       // A speculative 3-turn Aura is worse than a known, immediately usable
       // Arrow Barrage. Require a REAL 1- or 2-turn Draw combo in Hand.
       var auraPlan=aiS4AuraCastPlan(state,action);
@@ -4873,7 +5099,11 @@
     if(!aiIntermediate(state))return chooseBeginnerAIAction(state,phase,legal);
     var nonSkip=legal.filter(function(a){ return a.type!=='SKIP'; });
     var playable=nonSkip.filter(function(a){ return a.type==='PLAY_CARD' && !isAIChoiceHeavyCard(card(a.card_id)) && aiHealMeetsUtilization(state,a); });
-    if(aiIntermediate(state))playable=playable.filter(function(a){return !aiIntermediatePreserveSkillForRank(state,a);});
+    if(aiIntermediate(state))playable=playable.filter(function(a){
+      return !aiIntermediatePreserveSkillForRank(state,a)&&
+        !aiAuraShouldReserveDraw(state,a)&&aiIntermediateDrawTwoPermitted(state,a)&&
+        (a.card_id!=='S0-ARC-021'||!!aiS4AuraCastPlan(state,a));
+    });
     var futurePlan=state.aiPlan&&Number(state.aiPlan.not_before_round||0)>Number(state.round||0)?state.aiPlan:null;
     if(futurePlan&&futurePlan.preferred_card_id)playable=playable.filter(function(a){return a.card_id!==futurePlan.preferred_card_id;});
     // Check legal instant-Rank-Up Tributes BEFORE any stored follow-up or
@@ -8065,6 +8295,13 @@
       gained=drawManaCards(state,p.side,removed.length,(p.reason||'Mana take effect')+' gain');queueImmediateShardGainPresentation(state,p.side,gained,p.reason||'Mana take effect');
       pushLog(state,(p.reason||'Mana effect')+' moves '+gained.length+' top Shard'+(gained.length===1?'':'s')+' from '+p.side+' Shard Deck to its Shard Pool.');
     }
+    // The UI selection commits only after selected face-down Shards flip up
+    // and finish returning to the Shard Deck. Notify only the losing player.
+    var effectCardId=p.direct_source&&p.direct_source.card_id||p.continuation&&p.continuation.action&&p.continuation.action.card_id||null;
+    var effectLabel=effectCardId?cardName(card(effectCardId)):String(p.reason||'');
+    effectLabel=effectLabel.replace(/\s+(connected hits?|converted Attack connected hit).*$/i,'').trim()||
+      (p.mode==='REMOVE_AND_GAIN_OWN'?'Mana Steal':'Mana Burn');
+    notifyLocalManaLoss(state,targetSide,p.side,effectLabel,removed);
     var eventCard=p.direct_source&&p.direct_source.card_id||p.continuation&&p.continuation.action&&p.continuation.action.card_id||null;
     var eventId=p.direct_source&&p.direct_source.event_id||p.continuation&&p.continuation.action&&(p.continuation.action.player_event_id||p.continuation.action.ai_event_id)||null;
     if(eventCard)recordPlayedResolvedEffect(state,p.side,eventCard,null,'MANA BURN / STEAL',p.mode==='REMOVE_AND_GAIN_OWN'?'Mana Steal':'Mana Burn','Opponent Shards removed: '+removed.length+'; Mana Shards actually gained: '+gained.length+'. Opponent Shard identities remained face-down during selection.',eventId,'team');
@@ -9282,7 +9519,9 @@ function getActivatedHeroAbilities(state, side, lane){
   function resolveActivatedHeroAbility(state, side, lane, abilityId, targetLane){
     var v=validateActivatedHeroAbility(state,side,lane,abilityId,targetLane); if(!v.ok){ showInfo('Class Ability',v.reasons.join('\n')); return false; }
     var source=sideHeroes(state,side)[lane], target=sideHeroes(state,side)[targetLane], ability=v.ability;
-    if(!spendManaCardsAtOneEach(state,side,Number(ability.cost||0),'Class Ability'))return false;
+    var beforeAbilityPool=manaPoolCardsForSide(state,side).slice();
+    if(!spendManaCardsAtOneEach(state,side,Number(ability.cost||0),'Class Ability: '+String(ability.label||'Ability')))return false;
+    var afterAbilityPool=manaPoolCardsForSide(state,side),spentAbilityShards=beforeAbilityPool.filter(function(sh){return !afterAbilityPool.some(function(x){return x.uid===sh.uid;});});
     var amount=Number(ability.amount||0),classAbilityName=ability.label||'Class Ability';
     var eventExtra={action_line:'Action: '+(side==='PLAYER'?'You':'AI')+' used Class Ability '+classAbilityName+'.',source_side:side,source_lane:lane,target_side:side,target_lane:targetLane,result_lines:['Mana paid: '+Number(ability.cost||0)+'.']};
     var abilityEvent=!state.pvpHumanVsHuman?(side==='PLAYER'?recordLocalPlayerAction(state,'ABILITY',source.card_id,classAbilityName,'Class Ability activated.',eventExtra):recordOpponentAction(state,'ABILITY',source.card_id,'AI '+classAbilityName,'Class Ability activated.',eventExtra)):null;
@@ -9290,6 +9529,10 @@ function getActivatedHeroAbilities(state, side, lane){
     if(ability.exhaust){source.exhausted=true; source.exhaust_reason='Activated class ability used.';}
     if(ability.once_per_turn)source.class_ability_used_turn=runtimeTurnStamp(state);
     pushLog(state, side+' uses Class Ability '+classAbilityName+' from '+cardName(card(source.card_id))+' to heal '+targetLane+' by '+healed+'.');
+    // Crusader/Paladin own-Mana ability cost: no hidden selection, and not
+    // the regular card PAY MANA popup. One physical Shard per paid cost.
+    if(Number(ability.cost||0)>0&&side==='PLAYER'&&['Crusader','Paladin'].indexOf(heroClass(source))>=0)
+      notifyLocalManaLoss(state,side,side,classAbilityName,spentAbilityShards);
     if(abilityEvent)appendCardPlayedResultForSide(state,side,side==='PLAYER'?abilityEvent:null,side==='AI'?abilityEvent:null,['Actual healing: '+healed+'.'].concat(ability.exhaust?['Source Hero Exhausted.']:[]));
     if(state.pvpHumanVsHuman) recordPvpSideAction(state,side,'ABILITY',source.card_id,classAbilityName,side+' uses Class Ability '+classAbilityName+'.',{action_line:'Action: '+side+' used Class Ability '+classAbilityName+'.', source_side:side, source_lane:lane, target_side:side, target_lane:targetLane, result_lines:['Healed '+targetLane+' by '+amount+'.'].concat(ability.exhaust?['Source Hero Exhausted.']:[])});
     state.pending=null; activateNextSaintPurifyChoice(state); syncCounts(state); render(); return true;
@@ -9899,14 +10142,15 @@ function getActivatedHeroAbilities(state, side, lane){
   }
   // Trial presentation events are separate from Draw: they animate physical
   // EXP Cards returning to the Hand without triggering any Draw mechanics.
-  function trialRecordExpReturnPresentation(state,side,lane,returned,choiceAnimated){
+  function trialRecordExpReturnPresentation(state,side,lane,returned,choiceAnimated,rankUpId){
     if(!returned||!returned.length)return;
     state.presentationEvents=Array.isArray(state.presentationEvents)?state.presentationEvents:[];
     var offset=sideHand(state,side).length-returned.length;
     returned.forEach(function(id,i){
       state.presentationEventSequence=Number(state.presentationEventSequence||0)+1;
       state.presentationEvents.push({id:'TRIAL-EXP-RETURN-'+state.presentationEventSequence,type:'TRIAL_EXP_RETURNED_TO_HAND',
-        side:side,lane:lane,card_id:id,hand_index:offset+i,choice_animated:!!choiceAnimated,sequence:state.presentationEventSequence});
+        side:side,lane:lane,card_id:id,hand_index:offset+i,choice_animated:!!choiceAnimated,
+        rank_up_id:rankUpId||null,sequence:state.presentationEventSequence});
     });
     if(state.presentationEvents.length>160)state.presentationEvents=state.presentationEvents.slice(-160);
   }
@@ -9927,10 +10171,11 @@ function getActivatedHeroAbilities(state, side, lane){
     weighted.forEach(function(x){if(selected.length<quota&&selected.indexOf(x.idx)<0)selected.push(x.idx);});
     return trialMoveRankUpSelectedFromDiscard(state,side,candidates,selected);
   }
-  function trialQueueRankUpReturnChoice(state,side,lane,rank,quota,candidates){
+  function trialQueueRankUpReturnChoice(state,side,lane,rank,quota,candidates,rankUpId){
     if(!candidates.length)return false; // All-Ultimate EXP is auto-discarded.
     state.trialRankUpReturnQueue=state.trialRankUpReturnQueue||[];
-    state.trialRankUpReturnQueue.push({side:side,lane:lane,rank:rank,quota:quota,candidates:candidates.map(function(x){return {card_id:x.card_id,discard_index:x.discard_index};})});
+    state.trialRankUpReturnQueue.push({side:side,lane:lane,rank:rank,quota:quota,
+      rank_up_id:rankUpId||null,candidates:candidates.map(function(x){return {card_id:x.card_id,discard_index:x.discard_index};})});
     return true;
   }
   function trialActivateRankUpReturnChoice(state){
@@ -9942,7 +10187,7 @@ function getActivatedHeroAbilities(state, side, lane){
     // candidates are resolved against exact current indices before opening.
     if(!stillThere.length)return trialActivateRankUpReturnChoice(state);
     state.pending={type:'trial_rankup_return_exp',decision_side:next.side,side:next.side,lane:next.lane,rank:next.rank,
-      quota:next.quota,candidates:stillThere,selected_indices:[],committed:true,commit_stage:'post_commit'};
+      quota:next.quota,rank_up_id:next.rank_up_id||null,candidates:stillThere,selected_indices:[],committed:true,commit_stage:'post_commit'};
     pushLog(state,next.side+' must return '+Math.min(next.quota,stillThere.length)+' normal EXP Skill(s) to Hand after Rank '+next.rank+' Up. This is NOT a Draw.');
     return true;
   }
@@ -9971,7 +10216,7 @@ function getActivatedHeroAbilities(state, side, lane){
       showInfo('Rank Up EXP Return','The chosen EXP Card is no longer in the expected Discard position. No cards were moved.');return false;
     }
     var returned=trialMoveRankUpSelectedFromDiscard(appState,p.side,p.candidates,selected);
-    trialRecordExpReturnPresentation(appState,p.side,p.lane,returned,true);
+    trialRecordExpReturnPresentation(appState,p.side,p.lane,returned,true,p.rank_up_id);
     pushLog(appState,p.side+' Rank Up trial: '+returned.length+' normal EXP Skill(s) returned to Hand: '+returned.map(function(id){return cardName(card(id));}).join(', ')+'. Unselected EXP (including Ultimate) stays in Discard. No Draw.');
     appState.pending=null;closeChoice();trialActivateRankUpReturnChoice(appState);syncCounts(appState);render();return true;
   }
@@ -9982,7 +10227,15 @@ function getActivatedHeroAbilities(state, side, lane){
     var threshold=nextRankThreshold(hero); if(!threshold || Number(hero.exp_total||0)<threshold) return false;
     var beforeRank=heroRank(hero), beforeClass=heroClass(hero), beforeDrawReplacement=!!drawReplacementAbilityForHero(hero);
     var targetRank=beforeRank+1; var nextId=nextRankHeroId(state,side,lane,targetRank); if(nextId && !EXTERNAL_HUMAN_UI) queueLegacyDeckToFieldMotion(side,lane,nextId); if(!nextId){ pushLog(state,'Rank Up failed: no Rank '+targetRank+' Hero found in Legacy Deck package for '+lane+'.'); return false; }
-    var spentExpCards=(hero.exp_cards||[]).slice(); if(!EXTERNAL_HUMAN_UI) queueRankUpDiscardMotion(side,lane,spentExpCards);
+    // Rank Up owns the complete physical EXP stack at commit time, including
+    // the just-Tributed card. The presentation must never reconstruct it from
+    // an earlier rendered snapshot (which may be one card behind).
+    var previousHeroId=hero.card_id;
+    var spentExpCards=(hero.exp_cards||[]).slice();
+    state.presentationEvents=Array.isArray(state.presentationEvents)?state.presentationEvents:[];
+    state.presentationEventSequence=Number(state.presentationEventSequence||0)+1;
+    var rankUpId='RANK-UP-'+state.presentationEventSequence;
+    if(!EXTERNAL_HUMAN_UI) queueRankUpDiscardMotion(side,lane,spentExpCards);
     var discard=sideDiscard(state,side),expOffset=discard.length; spentExpCards.forEach(function(id){ discard.push(id); });
     var trialReturnCandidates=spentExpCards.map(function(id,i){return {card_id:id,discard_index:expOffset+i};}).filter(function(x){return nonUltimateSkillCard(card(x.card_id));});
     var oldHp=Number(hero.hp||0), oldMax=Number(hero.maxHp||100); var damageTaken=Math.max(0,oldMax-oldHp); hero.card_id=nextId; var nc=card(nextId), afterClass=heroClass(hero); var newMax=Number(nc.hp||oldMax||100); hero.maxHp=newMax; hero.hp=Math.max(1, Math.min(newMax, newMax-damageTaken)); hero.exp_cards=[]; hero.exp_total=Number(hero.exp_total||0);
@@ -9996,8 +10249,15 @@ function getActivatedHeroAbilities(state, side, lane){
     var automaticExpReturn=(side==='AI'&&!state.pvpHumanVsHuman)||containsUltimateExp;
     if(automaticExpReturn){
       trialReturned=trialAutoReturnRankUpExp(state,side,trialReturnCandidates,returnQuota);
-      trialRecordExpReturnPresentation(state,side,lane,trialReturned,false);
-    }else trialQueueRankUpReturnChoice(state,side,lane,targetRank,returnQuota,trialReturnCandidates);
+      trialRecordExpReturnPresentation(state,side,lane,trialReturned,false,rankUpId);
+    }else trialQueueRankUpReturnChoice(state,side,lane,targetRank,returnQuota,trialReturnCandidates,rankUpId);
+    // One immutable authoritative transaction. UI stages all EXP returns,
+    // discard motions and the new Hero from this exact committed stack.
+    state.presentationEvents.push({id:rankUpId,type:'RANK_UP_COMMITTED',
+      side:side,lane:lane,from_card_id:previousHeroId,to_card_id:nextId,
+      rank:targetRank,exp_card_ids:spentExpCards.slice(),return_quota:returnQuota,
+      automatic_return:automaticExpReturn});
+    if(state.presentationEvents.length>160)state.presentationEvents=state.presentationEvents.slice(-160);
     if(side==='PLAYER') state.manaRegen=Math.min(6,Number(state.manaRegen||1)+1); else state.aiManaRegen=Math.min(6,Number(state.aiManaRegen||1)+1);
     var roman=(targetRank===2?'II':(targetRank===3?'III':targetRank));
     var rankMsg='TRIAL Rank Up: '+cardName(nc)+' reached Rank '+roman+'. '+(automaticExpReturn?'Automatically returned '+trialReturned.length+' normal EXP Skill(s) to Hand.':'Must select '+Math.min(returnQuota,trialReturnCandidates.length)+' normal EXP Skill(s) to return to Hand.')+' No Rank Up Draw. Ultimate EXP goes to Discard. Gained +1 Mana Regen.';
@@ -10029,11 +10289,13 @@ function getActivatedHeroAbilities(state, side, lane){
     if(chosen.length<need) pool.filter(function(sh){return sh.kind==='CLASS';}).slice(0,need-chosen.length).forEach(function(sh){chosen.push(sh);});
     if(chosen.length<need)return false;
     chosen.forEach(function(sh){var idx=pool.findIndex(function(x){return x.uid===sh.uid;});if(idx>=0){var spent=pool.splice(idx,1)[0];returnManaShardToOwnerDeck(state,spent);}});
-    syncManaCountForSide(state,side);if(context&&need)pushLog(state,side+' spends '+need+' Mana Shard'+(need===1?'':'s')+' for '+context+'.');return true;
+    syncManaCountForSide(state,side);
+    if(context&&need)pushLog(state,side+' spends '+need+' Mana Shard'+(need===1?'':'s')+' for '+context+'.');return true;
   }
   function spendAllManaForCard(state,side,c){
     var pool=manaPoolCardsForSide(state,side),spent=pool.splice(0,pool.length),value=spent.reduce(function(sum,sh){return sum+manaShardValueForCard(sh,c);},0);
-    returnManaPaymentBatchToOwnerDeck(state,c,spent);syncManaCountForSide(state,side);return{ok:spent.length>0,value:value,shards:spent};
+    returnManaPaymentBatchToOwnerDeck(state,c,spent);syncManaCountForSide(state,side);
+    return{ok:spent.length>0,value:value,shards:spent};
   }
   function openingFirstSide(state){
     var first=state&&state.openingCoinFlip&&state.openingCoinFlip.firstPlayer;
@@ -11558,7 +11820,7 @@ function getActivatedHeroAbilities(state, side, lane){
     var root=$('app');
     root.innerHTML=''+
       '<main class="deck-setup-screen runtime-ui-v14-setup">'+
-        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="./" aria-label="Grandis Legacy homepage"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="deck-builder/">GO TO DECK BUILDER</a></nav>')+'</header>'+
+        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="https://grandislegacytcg.github.io/" aria-label="Grandis Legacy homepage"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-Deck-Builder/style-1/">GO TO DECK BUILDER</a><a id="aiLobbyTutorialButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-VS-AI/tutorial/">GO TO TUTORIAL</a><a id="aiLobbyPvpButton" class="ai-lobby-btn ai-lobby-btn--blue" href="https://grandislegacytcg.github.io/pvp/">GO TO PVP LOBBY</a></nav>')+'</header>'+
         '<section class="deck-setup-shell">'+deckSetupHtml()+'</section>'+ 
       '</main>';
     closeChoice();
@@ -15325,13 +15587,13 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       s.playerHeroes.CENTER.hp=140;s.playerHeroes.LEFT.hp=140;s.playerHeroes.RIGHT.hp=140;
       check('Human Ambition conserves racial token if no +10 lethal',aiS4HumanAmbitionFinisher(s)===false);
       s=fresh();s.aiStarterKey='s0_starter_05_white_green';hand(s,['S0-EVT-002','S0-WAR-001'],5);
-      check('Starter 5 ordinary draw <=5 unchanged',score(s,'S0-EVT-002')>0,score(s,'S0-EVT-002'));
+      check('Starter 5 ordinary Draw 2 withheld at 5 Hand',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
       s=fresh();hand(s,['S0-ARC-025','S0-EVT-002'],5);s.aiDeck=[];s.playerHeroes.CENTER.hp=70;
       check('Empty Main Deck does not waste draw effect',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
       s=fresh();hand(s,['S0-ARC-025','S0-EVT-002'],8);s.aiHeroes.CENTER.card_id='S0-ARC-H009';s.playerHeroes.CENTER.hp=60;
       check('Lethal Dreadbolt permits transient 9 Hand (8 after Attack)',score(s,'S0-EVT-002')>200,score(s,'S0-EVT-002'));
       s=fresh();hand(s,['S0-EVT-002','S0-WAR-001'],5);s.playerHeroes.CENTER.hp=80;
-      check('Starter 4 ordinary draw <=5 remains if no finisher',score(s,'S0-EVT-002')>0,score(s,'S0-EVT-002'));
+      check('Starter 4 ordinary Draw 2 withheld at 5 Hand',score(s,'S0-EVT-002')===-1000,score(s,'S0-EVT-002'));
       // Integration: a Draw setup also uses a Hero. An exhausted Arbalest
       // cannot perform the Colossal Attack in Battle, even when damage math
       // would otherwise meet the HP+10 threshold.
@@ -15372,8 +15634,27 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var anotherHeroBargain=getLegalActions('AI',s).find(function(a){return a.card_id==='S0-EVT-002'&&a.source_lane!=='CENTER';});
       check('Draw setup is held when it leaves insufficient Mana for Dreadbolt',!!anotherHeroBargain&&aiIntermediateDeployGate(s,anotherHeroBargain)===-1000,
         anotherHeroBargain?aiIntermediateDeployGate(s,anotherHeroBargain):'no setup');
-      s=fresh();hand(s,['S0-ARC-025','S0-WAR-001'],4);s.aiRacial=1;s.playerHeroes.CENTER.hp=100;
+      s=fresh();s.round=1;s.aiHeroes.CENTER.card_id='S0-ARC-H007';hand(s,['S0-WAR-001'],5);s.aiRacial=2;
       var racialPlan=aiChooseDeployRacialAction(s);
+      check('Alden Rank I turn 1 saves Human Ambition even with five Hand',!racialPlan||racialPlan.ability_id!=='human_ambition',racialPlan);
+      s=fresh();s.round=1;hand(s,['S0-WAR-001'],2);s.aiRacial=2;
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Alden Round 1 hand shortage does not bypass combo reservation',!racialPlan||racialPlan.ability_id!=='human_ambition',racialPlan);
+      s=fresh();hand(s,['S0-WAR-001'],2);s.aiRacial=2;
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Alden Rank II conserves racial at two Hand without active combo',!racialPlan||racialPlan.ability_id!=='human_ambition',racialPlan);
+      s=fresh();s.aiStarterKey='custom_deck';hand(s,['S0-WAR-001'],5);s.aiRacial=2;
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Custom Alden deck also saves racial without Aura or Dreadbolt',!racialPlan||racialPlan.ability_id!=='human_ambition',racialPlan);
+      s=fresh();s.aiStarterKey='custom_deck';hand(s,['S0-WAR-001'],6);s.aiRacial=2;aura(s,3);
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Custom Alden deck spends racial to release active Aura',!!racialPlan&&racialPlan.ability_id==='human_ambition',racialPlan);
+      s=fresh();hand(s,['S0-ARC-025','S0-WAR-001'],5);s.aiRacial=1;
+      LANE_ORDER.forEach(function(l){s.playerHeroes[l].hp=10;});
+      racialPlan=aiChooseDeployRacialAction(s);
+      check('Dreadbolt already lethal: Alden must not waste Human Ambition',!racialPlan||racialPlan.ability_id!=='human_ambition',racialPlan);
+      s=fresh();hand(s,['S0-ARC-025','S0-WAR-001'],4);s.aiRacial=1;s.playerHeroes.CENTER.hp=100;
+      racialPlan=aiChooseDeployRacialAction(s);
       check('Dreadbolt held: Human Ambition token is saved even at four Hand',!racialPlan||racialPlan.ability_id!=='human_ambition',
         racialPlan?racialPlan.ability_id:null);
       s=fresh();hand(s,['S0-ARC-025','S0-WAR-001'],7);s.aiRacial=1;s.playerHeroes.CENTER.hp=30;
@@ -15449,6 +15730,88 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
   }
   window.GL_V366_RUNTIME_UPDATE_QA_SELF_TEST=simulateV366RuntimeUpdateAudit;
   window.GL_V365_REGRESSION_QA_SELF_TEST=simulateV365RegressionAudit;
+  // RC38: designer-requested Intermediate Draw 2 threshold (12 Nov 2026).
+  // This is an AI policy test, not a change to the legal card mechanics.
+  window.GL_RC38_INTERMEDIATE_DRAW_TWO_HAND4_QA_SELF_TEST=function(){
+    var oldApp=appState,oldMatch=matchStarted,oldSuppress=SUPPRESS_RENDER,checks=[];
+    function check(name,ok,actual){checks.push({name:name,ok:!!ok,actual:actual===undefined?null:actual});}
+    function fresh(n){
+      var s=buildInitialMatchState();appState=s;matchStarted=true;SUPPRESS_RENDER=true;
+      s.preGame=null;s.turn='AI';s.phase='Deploy';s.round=3;s.aiDifficulty='intermediate';s.aiStarterKey='s0_starter_01_red_white';
+      s.pending=null;s.responseWindow=null;s.pendingCastings=[];s.aiPlan=null;s.aiRacial=2;
+      s.aiHeroes.LEFT.card_id='S0-WAR-H001';s.aiHeroes.CENTER.card_id='S0-ARC-H001';s.aiHeroes.RIGHT.card_id='S0-CLE-H001';
+      LANE_ORDER.forEach(function(l){var h=s.aiHeroes[l];h.exhausted=false;h.hp=100;h.maxHp=100;h.statuses=[];h.attachments=[null,null];});
+      s.aiHand=['S0-EVT-002'];while(s.aiHand.length<n)s.aiHand.push('S0-WAR-001');
+      s.aiDeck=Array(20).fill('S0-WAR-001');
+      manaPoolCardsForSide(s,'AI').splice(0);drawManaCards(s,'AI',12,'Draw2 policy QA');syncManaCountForSide(s,'AI');return s;
+    }
+    function action(s,id){return getLegalActions('AI',s).find(function(a){return a.type==='PLAY_CARD'&&a.card_id===id;});}
+    function combo(s,counters){s.aiHeroes.CENTER.card_id='S0-ARC-H008';s.pendingCastings=[{
+      card_id:'S0-ARC-021',side:'AI',source_lane:'CENTER',original_source_lane:'CENTER',
+      source_hero_card_id:'S0-ARC-H008',source_progression_id:'S0-ARC-H007',
+      target_side:'PLAYER',target_lane:'CENTER',locked_target_lane:'CENTER',
+      resolve_phase:'counter_draw',counters:counters,attachmentSlot:0
+    }];}
+    try{
+      initCards();var s=fresh(5),a=action(s,'S0-EVT-002');
+      check('Market Bargain legal but not selected at 5 Hand',!!a&&aiIntermediateDeployGate(s,a)===-1000&&chooseAIAction(s,'Deploy').card_id!=='S0-EVT-002',a&&aiIntermediateDeployGate(s,a));
+      s=fresh(4);a=action(s,'S0-EVT-002');
+      check('Market Bargain available at 4 Hand',!!a&&aiIntermediateDeployGate(s,a)>0,a&&aiIntermediateDeployGate(s,a));
+      s=fresh(5);s.aiHand[0]='S0-ARC-005';a=action(s,'S0-ARC-005');
+      check('Reload withheld at 5 Hand',!!a&&aiIntermediateDeployGate(s,a)===-1000,a&&aiIntermediateDeployGate(s,a));
+      s=fresh(4);s.aiHand[0]='S0-ARC-005';a=action(s,'S0-ARC-005');
+      check('Reload available at 4 Hand',!!a&&aiIntermediateDeployGate(s,a)>0,a&&aiIntermediateDeployGate(s,a));
+      s=fresh(5);s.aiHeroes.RIGHT.card_id='S0-CLE-H008';s.aiDiscard.push('S0-CLE-027');s.aiHand[0]='S0-CLE-028';a=action(s,'S0-CLE-028');
+      check('Blessing of Accuracy withheld at 5 Hand',!!a&&!aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(4);s.aiHeroes.RIGHT.card_id='S0-CLE-H008';s.aiDiscard.push('S0-CLE-027');s.aiHand[0]='S0-CLE-028';a=action(s,'S0-CLE-028');
+      check('Blessing of Accuracy available at 4 Hand',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(5);s.phase='Battle';s.aiHeroes.RIGHT.card_id='S0-CLE-H008';s.aiDiscard.push('S0-ARC-026','S0-CLE-026');s.aiHand[0]='S0-ARC-028';a=action(s,'S0-ARC-028');
+      check('Midnight Lullaby withheld at 5 Hand',!!a&&!aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(4);s.phase='Battle';s.aiHeroes.RIGHT.card_id='S0-CLE-H008';s.aiDiscard.push('S0-ARC-026','S0-CLE-026');s.aiHand[0]='S0-ARC-028';a=action(s,'S0-ARC-028');
+      check('Midnight Lullaby available at 4 Hand',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(5);var r=aiChooseDeployRacialAction(s);
+      check('Non-Alden Human Ambition withheld at 5 Hand',!r||r.ability_id!=='human_ambition',r&&r.ability_id);
+      s=fresh(4);r=aiChooseDeployRacialAction(s);
+      check('Non-Alden Human Ambition activated at 4 Hand',!!r&&r.ability_id==='human_ambition',r&&r.ability_id);
+      s=fresh(4);s.round=1;r=aiChooseDeployRacialAction(s);
+      check('Existing non-Alden round-1 conservation retained',!r||r.ability_id!=='human_ambition',r&&r.ability_id);
+      s=fresh(3);s.aiHeroes.CENTER.card_id='S0-ARC-H008';r=aiChooseDeployRacialAction(s);
+      check('Alden still saves Human Ambition without combo even at 3 Hand',!r||r.ability_id!=='human_ambition',r&&r.ability_id);
+      s=fresh(6);s.aiHeroes.CENTER.card_id='S0-ARC-H008';a=action(s,'S0-EVT-002');
+      check('Alden no active Aura cannot bypass threshold merely by existing',!!a&&!aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(6);combo(s,3);a=action(s,'S0-EVT-002');
+      check('Alden active Aura 3/5 can use Market Bargain above 4 Hand',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s.aiStarterKey='IMPORTED';
+      check('Custom-deck Alden also gets actual Aura combo exception',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(6);combo(s,2);a=action(s,'S0-EVT-002');
+      check('Alden Aura 2/5 with a real held Draw 2 may progress above Hand 4',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(6);combo(s,3);s.aiHand[0]='S0-ARC-005';a=action(s,'S0-ARC-005');
+      check('Alden active Aura permits Reload above 4 Hand',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(6);combo(s,3);s.aiHeroes.RIGHT.card_id='S0-CLE-H008';s.aiDiscard.push('S0-CLE-027');s.aiHand[0]='S0-CLE-028';a=action(s,'S0-CLE-028');
+      check('Alden active Aura permits Blessing of Accuracy Draw 2 above 4 Hand',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      s=fresh(6);s.phase='Battle';combo(s,3);s.aiHeroes.RIGHT.card_id='S0-CLE-H008';s.aiDiscard.push('S0-ARC-026','S0-CLE-026');s.aiHand[0]='S0-ARC-028';a=action(s,'S0-ARC-028');
+      check('Alden Aura can benefit from Midnight Lullaby Draw 2 above 4 Hand',!!a&&aiIntermediateDrawTwoPermitted(s,a),a&&aiIntermediateDrawTwoPermitted(s,a));
+      // Emergency Draw 2: no *other* Skill Card in Hand even above threshold.
+      s=fresh(6);s.aiHand=['S0-EVT-002','S0-ITM-002','S0-ITM-008','S0-EVT-003','S0-ITM-017','S0-EVT-007'];a=action(s,'S0-EVT-002');
+      check('Emergency Event Draw 2 allowed at 6 Hand with zero Skills',!!a&&aiIntermediateDeployGate(s,a)>0,a&&aiIntermediateDeployGate(s,a));
+      s.aiHand[5]='S0-WAR-001';a=action(s,'S0-EVT-002');
+      check('Emergency Event Draw 2 denied at 6 Hand with another Skill',!!a&&aiIntermediateDeployGate(s,a)===-1000,a&&aiIntermediateDeployGate(s,a));
+      s=fresh(6);s.aiHand=['S0-ARC-005','S0-ITM-002','S0-ITM-008','S0-EVT-003','S0-ITM-017','S0-EVT-007'];a=action(s,'S0-ARC-005');
+      check('Emergency Skill Draw 2 excludes itself when checking Skill starvation',!!a&&aiIntermediateDeployGate(s,a)>0,a&&aiIntermediateDeployGate(s,a));
+      s.aiHand[5]='S0-WAR-001';a=action(s,'S0-ARC-005');
+      check('Emergency Skill Draw 2 respects presence of second Skill',!!a&&aiIntermediateDeployGate(s,a)===-1000,a&&aiIntermediateDeployGate(s,a));
+      s=fresh(6);s.aiHand=['S0-ITM-002','S0-ITM-008','S0-EVT-003','S0-ITM-017','S0-EVT-007','S0-ITM-018'];var r=aiChooseDeployRacialAction(s);
+      check('Non-Alden Human Ambition permits emergency Skill-starved Hand',!!r&&r.ability_id==='human_ambition',r&&r.ability_id);
+      s.aiHeroes.CENTER.card_id='S0-ARC-H008';r=aiChooseDeployRacialAction(s);
+      check('Alden Human Ambition remains reserved for combo',!r||r.ability_id!=='human_ambition',r&&r.ability_id);
+      s=fresh(6);
+      check('Draw 3, search two, and Mana-Shard Draw 2 are NOT gated',
+        ['S0-ARC-022','S0-CLE-013','S0-CLE-029','S0-MAG-006','S0-ITM-005'].every(function(id){return aiIntermediateDrawTwoPermitted(s,{card_id:id});}));
+      s.aiDifficulty='beginner';check('Beginner AI behavior untouched',aiIntermediateDrawTwoPermitted(s,{card_id:'S0-EVT-002'}));
+      return{ok:checks.every(function(x){return x.ok;}),passed:checks.filter(function(x){return x.ok;}).length,total:checks.length,checks:checks};
+    }catch(err){return{ok:false,error:String(err&&err.stack||err),passed:checks.filter(function(x){return x.ok;}).length,total:checks.length,checks:checks};}
+    finally{appState=oldApp;matchStarted=oldMatch;SUPPRESS_RENDER=oldSuppress;}
+  };
   window.GL_V351_DRAW_REPLACEMENT_AURA_AUDIT_SELF_TEST=simulateV350RangePrimalAuraAudit;
   window.GL_V350_RANGE_PRIMAL_AURA_AUDIT_SELF_TEST=simulateV350RangePrimalAuraAudit;
 
