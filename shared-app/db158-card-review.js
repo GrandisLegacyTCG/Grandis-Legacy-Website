@@ -1,58 +1,12 @@
-/* Card Review UI: Deck Builder v1.58 layout/typography/keyword explanations.
-   Read-only presentation. Source of ALL card values is active OSA S0 DEV45 consumer.
+/* Card Review UI: Deck Builder v1.66 view-model/renderer/keyword explanations.
+   Read-only presentation. Printed values are copied from the 242-card Deck Builder v1.66 source registry.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
   var files=['app.css','s0-enhancements-v1.32.2.css','s0-shared-header-review.css','s0-part7-revision-v1.36.css','s0-part7-revision-v1.38.css','s0-part7-revision-v1.39.css','s0-review-v1.41.css','s0-review-v1.42.css','s0-review-v1.43.css','s0-review-v1.44.css','s0-ui-v1.49.css','s0-hotfix-v1.49.1.css','s0-layout-v1.50.css','s0-modal-parity-v1.52.css','s0-review-v1.54.css','s0-review-v1.56.css','s0-review-v1.57.css','s0-launch-v1.58.css','s0-rulebook-v2.9-review-v1.58.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function source(id){var d=g.GL_CARD_DEFINITIONS||{};return(d.cards||[]).find(function(c){return c.card_id===id;})||null;}
-  function rankRoman(v){var m=String(v||'').match(/(?:Rank\s*)?(I{1,3}|[123])\b/i);return m?({1:'I',2:'II',3:'III'}[m[1]]||m[1].toUpperCase()):'I';}
-  // Translate OSA S0 canonical printed records to the v1.58 review view-model.
-  // No card values are copied from Deck Builder/S1 data. Differences must be
-  // recorded as OSA discrepancies, not silently patched in a read-only UI.
-  function getCard(id){
-    var c=source(id);if(!c)return null;
-    var ident=c.identity||{},original=(c.printed||{}).rows||[];
-    var rows=original.map(function(r,i){return {
-      row_id:r.row_id||String(i+1),label:r.label||'Effect',
-      damage_text:String(r.damage!=null?r.damage:(r.damage_text||'')),
-      effect_text:r.effect||r.effect_text||r.text||'',
-      text:r.text||r.effect||r.effect_text||''};});
-    if((c.family==='Item'||c.family==='Event')&&rows.length&&!rows.some(function(r){return r.text||r.effect_text;})){
-      rows[0].effect_text=c.card_text||c.printed?.text||'';rows[0].text=rows[0].effect_text;
-    }
-    if(c.family==='Legacy'){
-      var ab=rows.find(function(r){return /LEGACY_ABILITY/i.test(r.label);});
-      var replace=rows.find(function(r){return /LEGACY_REPLACEMENT/i.test(r.label);});
-      rows=ab?[{label:'Legacy Ability',text:ab.text,effect_text:ab.effect_text}]:rows;
-    }
-    // Designer-approved local front (pending synchronization into a later OSA):
-    // Card Review must reflect the latest supplied print, not the older OSA
-    // consumer's cached Item effect. This does not modify gameplay legality.
-    var reviewedText=c.card_text||c.printed?.text||'';
-    var reviewedClasses=((c.requirement||{}).legal_base_classes||[]);
-    if(c.card_id==='S0-ITM-011'){
-      reviewedText="This turn, attach this card to the Hero that used it. When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns.";
-      reviewedClasses=['Archer','Thief','Warrior'];
-      rows=[{row_id:'1',label:'Item Effect',damage_text:'',effect_text:reviewedText,text:reviewedText}];
-    }
-    var roman=rankRoman(ident.rank||c.class_rank||c.rank_numeric);
-    var rank=({I:1,II:2,III:3})[roman]||1;
-    var cost=c.cost_display||((c.cost||{}).mana!=null?String(c.cost.mana)+' Mana':'No Mana cost');
-    var ult=((c.requirement||{}).ultimate||{});
-    var code=c.class_group||c.card_id.split('-')[1]||'';
-    var baseClass={WAR:'Warrior',MAG:'Mage',ARC:'Archer',CLE:'Cleric',THF:'Thief'}[code]||'';
-    // R3.6 Fenrir Ironfang is sourced directly from the canonical card registry.
-    var reviewName=c.name;
-    return {id:c.card_id,name:reviewName,family:c.family==='Legacy'?'LegacyModeDefinition':c.family,
-      classification:c.classification||c.action_category||'',classGroup:ident.class||c.display_class||c.class_family||baseClass||'',
-      rank:rank,rankNumeric:rank,race:c.race||ident.race||'',hp:c.hp,
-      image:'card-art/'+c.card_id+'.webp',cost:cost,text:reviewedText,rows:rows,
-      ultimate:{isUltimate:!!c.is_ultimate,owner:c.card_id==='S0-ARC-018'?'Fenrir Ironfang':c.card_id==='S0-CLE-031'
-        ?'Only Melody can use this card or tribute it with a White Mana Shard for EXP.'
-        :(ult.owner||'')},
-      requiredBaseClasses:reviewedClasses,
-      rules:c.family==='Legacy'?((replace||{}).text||''):(c.printed?.rules||''),sourceCardId:c.card_id};
-  }
+  // Deck Builder v1.66 is the authoritative Review presentation data. Gameplay
+  // continues to use VS AI's canonical engine card definitions independently.
+  function getCard(id){return g.GL_DB166_REVIEW_CARDS?.[id]||null;}
   function documentHtml(c,progressionIds){
     var base=escape(new URL('./',g.document.baseURI).href);
     var styles=files.map(function(f){return '<link rel="stylesheet" href="assets/review-db158/css/'+f+'">';}).join('');
@@ -65,9 +19,11 @@
       '<div class="review-header"><div><span id="reviewEyebrow" class="dialog-eyebrow"></span><h2 id="reviewTitle"></h2></div><button id="reviewClose" class="dialog-close review-close" type="button" aria-label="Close">×</button></div>'+
       '<div class="review-layout"><div class="review-art-column"><img id="reviewArt" class="review-art" alt="Card review"></div><div class="review-detail-column"><div id="reviewStats" class="review-stats"></div><div id="reviewRows" class="review-rows"></div></div></div>'+
       '<div id="reviewProgression" class="review-progression" hidden><span>HERO LINEAGES</span><div id="reviewProgressionCards" class="review-progression-cards"></div></div></div></div>'+
-      '<script src="assets/review-db158/js/s0-review-clarity.js"><\/script><script src="assets/review-db158/js/review-renderer-v158.js"><\/script>'+
-      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);setTimeout(reportHeight,350);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);})();<\/script></body></html>';
+      '<script src="assets/review-db158/js/s0-review-clarity.js?v=rc40-p5-review166"><\/script><script src="assets/review-db158/js/review-renderer-v158.js?v=rc40-p5-review166"><\/script>'+
+      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(reportReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(reportReady,1800);})();<\/script></body></html>';
   }
-  function mount(el,cardId,progressionIds){var c=getCard(cardId);if(!el||!c)return false;el.innerHTML='';var frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';frame.style.colorScheme='light';frame.setAttribute('title',c.name+' — Deck Builder v1.58 card review');frame.setAttribute('loading','eager');frame.setAttribute('scrolling',Array.isArray(progressionIds)&&progressionIds.length?'auto':'no');frame.setAttribute('aria-label',c.name+' card review');frame.srcdoc=documentHtml(c,progressionIds);el.appendChild(frame);return true;}
-  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'OSA Season 0 DEV45',view:'Deck Builder v1.58',heroFooter:'lobby-only'};
+  function mount(el,cardId,progressionIds){var c=getCard(cardId);if(!el||!c)return false;el.innerHTML='';var frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';frame.style.colorScheme='light';frame.setAttribute('title',c.name+' — Deck Builder v1.66 card review');frame.setAttribute('loading','eager');frame.setAttribute('scrolling',Array.isArray(progressionIds)&&progressionIds.length?'auto':'no');frame.setAttribute('aria-label',c.name+' card review');frame.srcdoc=documentHtml(c,progressionIds);el.appendChild(frame);return true;}
+  function warmStyles(){if(g.__GL_REVIEW_STYLES_PREWARMED)return;g.__GL_REVIEW_STYLES_PREWARMED=true;files.forEach(function(file){var link=g.document.createElement('link');link.rel='preload';link.as='style';link.href='assets/review-db158/css/'+file;g.document.head.appendChild(link);});}
+  if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',function(){setTimeout(warmStyles,300);},{once:true});else setTimeout(warmStyles,300);
+  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main Deck R3.8 / Legacy Deck R3.7',view:'Deck Builder v1.66',heroFooter:'lobby-only'};
 })(window);

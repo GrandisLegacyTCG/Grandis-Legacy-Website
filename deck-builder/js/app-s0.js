@@ -182,7 +182,41 @@ function syncPoolGate(){
   for(const option of select.options)option.disabled=false;
   syncPoolChoiceButtons();
 }
-function setLibraryTab(tab){
+/* Style 1 has a separate scrollable Deck pane on desktop. Keep its preview
+   synchronized with the Heroes / Legacies library tab without scrolling the page
+   itself (or changing the shared deck, rank, or active filter). */
+function focusLegacyDeckPreview(tab){
+  if(tab!=='heroes'&&tab!=='legacies')return;
+  if(!window.matchMedia('(min-width: 761px)').matches)return; // mobile has stacked panels
+  const deckPane=document.querySelector('.deck-shell');
+  const legacySection=$('legacyDeckSection');
+  if(!deckPane||!legacySection||legacySection.querySelector('.deck-section-body').hidden)return;
+
+  // When returning to Heroes, restore the initial right-pane framing first.
+  if(tab==='heroes')deckPane.scrollTop=0;
+  const heading=tab==='heroes'
+    ? legacySection.querySelector('.subsection-title')
+    : legacySection.querySelector('.legacy-subtitle');
+  const cards=tab==='heroes'
+    ? legacySection.querySelector('.formation-wrap')
+    : $('legacySlotsGrid');
+  if(!heading||!cards)return;
+
+  const viewport=deckPane.getBoundingClientRect();
+  const top=heading.getBoundingClientRect().top;
+  const bottom=cards.getBoundingClientRect().bottom;
+  const inset=14;
+  // Scroll only far enough to expose the full requested group, keeping its
+  // heading visible. Scroll is constrained by the pane's own scrollHeight.
+  const required=Math.max(0,bottom-(viewport.bottom-inset));
+  const allowed=Math.max(0,top-(viewport.top+inset));
+  if(required>0)deckPane.scrollTop+=Math.min(required,allowed);
+  // In a very short viewport, prioritize the group heading if both cannot fit.
+  if(tab==='legacies'&&heading.getBoundingClientRect().top<viewport.top+inset){
+    deckPane.scrollTop+=heading.getBoundingClientRect().top-(viewport.top+inset);
+  }
+}
+function setLibraryTab(tab,{focusDeck=false}={}){
   if(!['heroes','legacies','skills','events','items'].includes(tab))return;
   state.libraryTab=tab;
   syncFilterControlsFromState();
@@ -190,6 +224,7 @@ function setLibraryTab(tab){
   const legacyContext=tab==='heroes'||tab==='legacies';
   state.sectionOpen.legacy=legacyContext;state.sectionOpen.main=!legacyContext;
   updateSectionState();updateFilterVisibility();$('libraryContent').scrollTop=0;renderLibrary();
+  if(focusDeck && legacyContext)requestAnimationFrame(()=>focusLegacyDeckPreview(tab));
 }
 function updateSectionState(){
   for(const section of ['legacy','main']){
@@ -640,19 +675,50 @@ function effectMetric(card,row={}){
   if(!label)return null;
   return {label,value};
 }
-function skillEffectText(row={},metric=null){
-  let effect=String(row.effect_text||row.text||'').trim();
-  if(!metric)return effect||String(row.damage_text||'—').trim()||'-';
-  // Numeric-only Attack rows have no printed effect text beyond the damage number.
-  // Expand their REVIEW ONLY into a readable action while preserving the numeric metric.
-  // Do not infer damage type for Area/Casting or rewrite any nonnumeric card effects.
-  if(/^\s*[+-]?\d+\s*$/.test(effect) && /^(?:PHYSICAL|MAGICAL) DAMAGE$/.test(metric.label)){
-    return `Deal ${metric.value} ${metric.label==='PHYSICAL DAMAGE'?'Physical':'Magical'} damage.`;
+function skillEffectText(row={},metric=null,card=null){
+  const effect=String(row.effect_text||row.text||'').trim();
+  const rawValue=String(row.damage_text||'').trim();
+  const isAttack=/^(?:Physical|Magical|Area|Casting) Attack$/i.test(String(card?.classification||''));
+  const type=metric&&/^(?:PHYSICAL|MAGICAL) DAMAGE$/.test(metric.label)
+    ?(metric.label==='PHYSICAL DAMAGE'?'Physical':'Magical'):'';
+  const damageText=(value,damageType=type)=>`Deal ${value} ${damageType} damage.`;
+
+  // The shared CONDITION box on some attacks contains a prerequisite sentence
+  // followed by the printed damage/multiplier sentence. Display the first in
+  // CONDITION once, and the second under each Rank with its printed number.
+  const printedCondition=String(card?.printedConditionText||'').trim();
+  if(isAttack&&type&&/^\d+$/.test(rawValue)&&(!effect||/^[+-]?\d+$/.test(effect))&&printedCondition){
+    const match=printedCondition.match(/^([\s\S]*?[.!?])\s+((?:Deal|Multiply)\b[\s\S]*)$/i);
+    if(match){
+      const mechanic=match[2].trim();
+      if(/^Deal\s+(?:Area\s+)?(?:Physical|Magical)\s+damage\b/i.test(mechanic)){
+        return mechanic.replace(/^Deal\s+((?:Area\s+)?(?:Physical|Magical))\s+damage\b/i,
+          (_m,t)=>`Deal ${metric.value} ${t} damage`);
+      }
+      if(/^Multiply\b/i.test(mechanic))return `${damageText(metric.value)} ${mechanic}`;
+    }
   }
-  if(/DAMAGE$/.test(metric.label)&&metric.label!=='DAMAGE REDUCTION')effect=effect.replace(/^(?:Deal|Inflict)\s+[+-]?\d+[^.]*?damage\.\s*/i,'').trim();
-  else if(metric.label==='DAMAGE REDUCTION')effect=effect.replace(/^Block\s+[+-]?\d+[^.]*?damage[^.]*\.\s*/i,'').trim();
-  else if(metric.label==='HEALING DONE')effect=effect.replace(/^(?:Heal|Restore)[^.]*?[+-]?\d+[^.]*\.\s*/i,'').trim();
-  return effect||'—';
+
+  if(!metric)return effect||String(row.damage_text||'—').trim()||'—';
+  if(isAttack&&type){
+    const detail=/^[+-]?\d+$/.test(effect)?'':effect;
+    // Add the numeric print to an existing typed damage sentence in-place.
+    // Preserve the surrounding original text and damage mechanism verbatim.
+    const typed=/\b(Deal(?:s)?\s+)(\d+\s+)?((?:Area\s+)?(?:Physical|Magical))(\s+damage\b)/i;
+    if(typed.test(detail))return detail.replace(typed,(_m,verb,oldNumber,kind,suffix)=>
+      `${verb}${oldNumber||metric.value+' '}${kind}${suffix}`);
+    const prelude=detail.match(/^((?:(?:MELEE|RANGE|PIERCING|SURE HIT)\s+)+)/)?.[1]||'';
+    const remaining=detail.slice(prelude.length);
+    return `${prelude}${damageText(metric.value)}${remaining?' '+remaining:''}`.trim();
+  }
+  let remaining=effect;
+  if(/DAMAGE$/.test(metric.label)&&metric.label!=='DAMAGE REDUCTION')
+    remaining=remaining.replace(/^(?:Deal|Inflict)\s+[+-]?\d+[^.]*?damage\.\s*/i,'').trim();
+  else if(metric.label==='DAMAGE REDUCTION')
+    remaining=remaining.replace(/^Block\s+[+-]?\d+[^.]*?damage[^.]*\.\s*/i,'').trim();
+  else if(metric.label==='HEALING DONE')
+    remaining=remaining.replace(/^(?:Heal|Restore)[^.]*?[+-]?\d+[^.]*\.\s*/i,'').trim();
+  return remaining||'—';
 }
 function itemClassText(card){if(card.printedClassRequirement)return card.printedClassRequirement;
   const classes=Array.isArray(card.requiredBaseClasses)?card.requiredBaseClasses.filter(Boolean):[];
@@ -677,7 +743,7 @@ function heroReviewHtml(card){
   if(dualRow)detailBlocks.push(`<div class="review-hero-dual-section"><span>DUAL CLASS</span><p>${esc(dualRow.text||'—')}</p></div>`);
   detailBlocks.push(`<div class="review-hero-block hero-racial-section">
     <div class="review-hero-group"><span>RACE</span><strong>${esc(card.race||'—')}</strong></div>
-    <div class="review-hero-group"><span>RACIAL TRAITS</span><strong>${esc(racialName)}</strong><p>${esc(racialRow?.text||card.text||'—')}</p></div>
+    <div class="review-hero-group"><span>RACIAL TRAITS</span><strong>${esc(racialName)}</strong><p>${esc(racialRow?.text||card.text||'—')}</p>${card.printedRacialDamageReduction?`<div class="review-hero-numeric"><span>DAMAGE REDUCTION</span><strong>${esc(card.printedRacialDamageReduction)}</strong></div>`:''}</div>
   </div>`);
   detailBlocks.push(`<div class="review-hero-block hero-class-section">
     <div class="review-hero-class-summary">
@@ -700,7 +766,7 @@ function standardReviewHtml(card){
     ['EXP TRIBUTE',card.ultimate?.isUltimate?'200 EXP':'100 EXP']
   );
   else if(card.family==='LegacyModeDefinition')stats.push(['CARD TYPE','LEGACY'],['CLASS',card.classGroup||'—']);
-  else stats.push(['CARD TYPE',String(card.family||'CARD').toUpperCase()],['SUBTYPE',card.classification||reviewType(card)],['MANA COST',reviewCost(card)]);
+  else stats.push(['CARD TYPE',String(card.family||'CARD').toUpperCase()],['SUBTYPE',card.family==='Event'?(card.classification==='Normal Event'?'Regular':card.classification==='Special Event'?'Special':card.classification||reviewType(card)):card.classification||reviewType(card)],['MANA COST',reviewCost(card)]);
   $('reviewStats').innerHTML=`<div class="review-summary ${stats.length===4?'four-column-summary':''}">
     ${stats.map(([label,value])=>`<div class="review-summary-item"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join('')}
   </div>`;
@@ -711,10 +777,10 @@ function standardReviewHtml(card){
       const parsed=rowClassRank(row.label);
       const metric=effectMetric(card,row);
       const rankText=isUltimate&&/Rank\s+III/i.test(parsed.rank)&&index===rows.length-1?`Ultimate ${parsed.rank}`:parsed.rank;
-      const effectText=skillEffectText(row,metric);
+      const effectText=skillEffectText(row,metric,card);
       const rankClass=isUltimate&&/^Ultimate\s+Rank\s+III$/i.test(rankText)?' class="ultimate-rank"':'';
       if(metric){
-        return `<div class="review-effect-row has-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-metric"><span>${esc(metric.label)}</span><strong>${esc(metric.value)}</strong>${metric.damageType?`<small class="review-metric-type">${esc(metric.damageType)}</small>`:''}</div><div class="review-effect-info"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`;
+        return `<div class="review-effect-row has-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-metric"><span>${esc(metric.label)}</span><strong>${esc(metric.value)}</strong>${metric.damageType?`<small class="review-metric-type">${esc(metric.damageType)}</small>`:''}</div>${effectText?`<div class="review-effect-info"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div>`:''}</div>`;
       }
       return `<div class="review-effect-row no-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-info full-span"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`;
     }).join('');
@@ -841,7 +907,7 @@ function downloadJson(object){const safe=(object.deck_name||'Grandis_Legacy_Deck
 async function exportDeck(){const object=exportObject();if(!object.is_valid||countDeck()!==50){toast('Export requires a valid deck with exactly 50 cards');return}downloadJson(object);toast('Deck exported')}
 
 function bindStaticEvents(){
-  document.querySelectorAll('.library-tab').forEach(button=>button.addEventListener('click',()=>setLibraryTab(button.dataset.libraryTab)));
+  document.querySelectorAll('.library-tab').forEach(button=>button.addEventListener('click',()=>setLibraryTab(button.dataset.libraryTab,{focusDeck:true})));
   document.querySelectorAll('[data-section-toggle]').forEach(button=>button.addEventListener('click',()=>toggleSection(button.dataset.sectionToggle)));
   $('filterToggle').addEventListener('click',()=>{const panel=$('filterPanel'),open=panel.hidden;panel.hidden=!open;$('filterToggle').setAttribute('aria-expanded',String(open))});
   $('searchInput').addEventListener('input',event=>{state.filters.search=event.target.value;renderLibrary()});
@@ -926,7 +992,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.7-MainDeck-Artwork_R3.6-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.65',style,
+  source_authority:'R3.8-MainDeck_R3.7-LegacyDeck-PlayerRulebook-v3.3',rulebook:'v3.3',season:'S0',builder_version:'1.66',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

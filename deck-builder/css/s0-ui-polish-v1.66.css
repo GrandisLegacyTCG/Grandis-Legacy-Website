@@ -1,0 +1,290 @@
+/* Deck Builder v1.66 - minor alignment pass (2026-11-14).
+   Presentation-only: no card effects, deck rules, filter logic, or version changes. */
+
+/* The chevron occupies a centered, fixed right-hand zone of the FILTER button.
+   Its position no longer depends on the width of the word FILTER. */
+#filterToggle.filter-toggle {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 28px !important;
+  align-items: center !important;
+  justify-items: center !important;
+  column-gap: 0 !important;
+  padding: 0 7px !important;
+  text-align: center !important;
+}
+#filterToggle.filter-toggle .filter-chevron {
+  display: block !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 auto !important;
+  align-self: center !important;
+  justify-self: center !important;
+  object-fit: contain !important;
+}
+
+/* Style 1 - accordion chevrons share the same right inset on both deck sections. */
+.main-deck-header-controls .main-deck-header-right {
+  padding-right: 14px !important;
+}
+@media (max-width: 760px) {
+  .main-deck-header-controls .main-deck-header-right {
+    padding-right: 24px !important;
+  }
+}
+
+/* Both styles - center the rank arrows in their entire clickable cells. */
+.rank-control > button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  justify-self: stretch !important;
+  text-align: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+.rank-control > button svg {
+  display: block !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 auto !important;
+  flex: 0 0 18px !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2.2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  transform: none !important;
+}
+.rank-control > strong {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Style 2 - keep the established Hero dimensions; bring each Legacy frame
+   to precisely the same width and accessory-row height as its Hero peer. */
+@media (min-width: 1181px) {
+  .legacy-view .legacy-slot {
+    width: clamp(178px, 12vw, 204px) !important;
+  }
+}
+@media (min-width: 761px) and (max-width: 1180px) {
+  .legacy-view .legacy-slot {
+    width: clamp(158px, 14.2vw, 172px) !important;
+  }
+}
+@media (min-width: 1181px) and (max-height: 760px) {
+  .legacy-view .legacy-slot {
+    width: clamp(164px, 11.7vw, 180px) !important;
+  }
+}
+@media (min-width: 761px) {
+  .legacy-view .hero-slot .position-label {
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+}
+@media (min-width: 761px) and (max-height: 760px) {
+  .legacy-view .hero-slot .position-label {
+    height: 31px !important;
+    min-height: 31px !important;
+  }
+}
+@media (max-width: 760px) {
+  /* Mobile already has matched three-column card widths; retain those rules. */
+  .legacy-view .hero-slot .position-label {
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+}
+
+
+/* Deck Builder v1.66 - 14 Nov 2026 follow-up (UI only).
+   A. Match the Hero/Legacy caption controls; B. give rank arrows their own
+   visible buttons without resizing the outer pager; C. style the FILTER arrow
+   as a distinct button-like segment, while retaining one accessible toggle. */
+
+/* Style 1: position text and Legacy selector are the same height. */
+.formation-slot .formation-position,
+.legacy-slot .legacy-slot-select,
+.legacy-slot .legacy-select-wrap {
+  box-sizing: border-box !important;
+  height: 42px !important;
+  min-height: 42px !important;
+}
+.formation-slot .formation-position { display: grid !important; place-items: center !important; }
+.legacy-slot .legacy-select-wrap { margin-top: 8px !important; }
+
+/* Style 2: keep the existing control height by breakpoint (34px/31px/32px).
+   Align the card-caption baselines across the two desktop halves as well. */
+@media (min-width: 761px) {
+  .legacy-view .hero-slot .position-label,
+  .legacy-view .legacy-slot .legacy-select {
+    box-sizing: border-box !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    line-height: 1.2 !important;
+  }
+}
+@media (min-width: 1181px) and (min-height: 761px) {
+  .legacy-view .legacy-slots-grid { transform: translateY(10px); }
+}
+@media (min-width: 761px) and (max-width: 1180px) and (min-height: 761px) {
+  .legacy-view .legacy-slots-grid { transform: translateY(6px); }
+}
+@media (min-width: 761px) and (max-height: 760px) {
+  .legacy-view .hero-slot .position-label,
+  .legacy-view .legacy-slot .legacy-select {
+    box-sizing: border-box !important;
+    height: 31px !important;
+    min-height: 31px !important;
+    max-height: 31px !important;
+  }
+  .legacy-view .legacy-slots-grid { transform: translateY(6px); }
+}
+@media (max-width: 760px) {
+  .legacy-view .hero-slot .position-label,
+  .legacy-view .legacy-slot .legacy-select {
+    box-sizing: border-box !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* Both styles: visually separated, precisely centered rank arrow buttons.
+   Using percentages rather than fixed px keeps the original outer pager size. */
+.rank-control > button {
+  box-sizing: border-box !important;
+  width: calc(100% - 6px) !important;
+  height: calc(100% - 6px) !important;
+  min-height: 0 !important;
+  align-self: center !important;
+  justify-self: center !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid #454954 !important;
+  border-radius: 5px !important;
+  background: #252730 !important;
+  color: #fff !important;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.rank-control > button:hover:not(:disabled) {
+  background: #343845 !important;
+  border-color: #818696 !important;
+}
+.rank-control > button:focus-visible {
+  outline: 2px solid #0aa8f6 !important;
+  outline-offset: -2px !important;
+}
+.rank-control > button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Both styles: FILTER is a single real button with a visual split-button arrow.
+   The chevron segment is centered in its own full-height rectangular cell. */
+#filterToggle.filter-toggle {
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  text-align: center !important;
+}
+#filterToggle .filter-toggle-label {
+  flex: 1 1 auto !important;
+  display: grid !important;
+  place-items: center !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 2px !important;
+  transform: none !important;
+}
+#filterToggle .filter-toggle-arrow {
+  flex: 0 0 30px !important;
+  align-self: stretch !important;
+  display: grid !important;
+  place-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-left: 1px solid #454954 !important;
+  background: #282b34 !important;
+  border-radius: 0 6px 6px 0 !important;
+  transform: none !important;
+}
+#filterToggle .filter-toggle-arrow > .filter-chevron {
+  display: block !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+#filterToggle:hover .filter-toggle-arrow,
+#filterToggle[aria-expanded="true"] .filter-toggle-arrow {
+  background: #363a46 !important;
+}
+#filterToggle:focus-visible {
+  outline: 2px solid #0aa8f6 !important;
+  outline-offset: 2px !important;
+}
+/* Style 1 pager originally sizes itself from the (now smaller) arrow buttons. */
+#legacyDeckSection .rank-control { height: 33px !important; }
+
+/* v1.66 UI follow-up: button hit zones stay centered, but are only highlighted
+   on interaction. Do not add resting inner strokes to the outer pager/filter. */
+.rank-control > button {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.rank-control > button:hover:not(:disabled) {
+  border-color: transparent !important;
+  background: rgba(255, 255, 255, .09) !important;
+  box-shadow: none !important;
+}
+.rank-control > button:focus-visible {
+  border-color: transparent !important;
+  background: rgba(255, 255, 255, .09) !important;
+}
+/* The FILTER chevron stays in a separate fixed hit/visual zone, with no
+   divider or darker panel when idle (including while expanded). */
+#filterToggle .filter-toggle-arrow,
+#filterToggle[aria-expanded="true"] .filter-toggle-arrow {
+  border-left-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#filterToggle:hover .filter-toggle-arrow,
+#filterToggle:focus-visible .filter-toggle-arrow {
+  background: rgba(255, 255, 255, .09) !important;
+}
+
+
+/* Deck Builder v1.66 - UI interaction hotfix, 14 November 2026.
+   Both styles: only the FILTER arrow area receives a hover fill.
+   Style 1: keep Deck Name aligned when the right pane gains/loses a scrollbar. */
+
+#filterToggle.filter-toggle:hover {
+  border-color: #3d3f4a !important;
+  background: #1b1c23 !important;
+}
+#filterToggle.filter-toggle:hover .filter-toggle-arrow {
+  background: transparent !important;
+}
+#filterToggle.filter-toggle .filter-toggle-arrow:hover,
+#filterToggle.filter-toggle:focus-visible .filter-toggle-arrow {
+  background: rgba(255,255,255,.09) !important;
+}
+
+@media (min-width: 761px) {
+  .builder-layout > .deck-shell {
+    scrollbar-gutter: stable;
+    overflow-anchor: none;
+  }
+}

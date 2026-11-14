@@ -1,6 +1,6 @@
 /* Mirrors OSA season0-legality.cjs; deck-construction only. */
 'use strict';
-/* Player Rulebook v3.2 deck-construction validator for S0 draft decks.
+/* Player Rulebook v3.3 deck-construction validator for S0 draft decks.
    Separates explicitly codified deck rules from voluntary 'starter_safe' usability policy. */
 const build=()=>window.GL_S0_CATALOG;
 const classes={WAR:'Warrior',CLE:'Cleric',MAG:'Mage',THF:'Thief',ARC:'Archer'};
@@ -63,7 +63,7 @@ function validateDeck(deck,catalog=build(),options={}){
   }else err(`Invalid Shard kind: ${kind}`);
  }
  if(shTotal!==12)err(`Mana Deck must have exactly 12 Mana Shards, got ${shTotal}`);
- // Rulebook v3.2, p.6: a Mana Deck can contain any color, at most
+ // Rulebook v3.3, p.6: a Mana Deck can contain any color, at most
  // one Shard of each color, with Regular Mana Shards filling the other slots.
  // Do not force colors from selected Ultimate Skills or selected Heroes here.
  // Hero-derived colors are the Deck Builder's automatic composition policy.

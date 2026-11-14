@@ -55,8 +55,12 @@ const modalHoverPreview=document.createElement('div');modalHoverPreview.classNam
 const sidebarHoverPreview=document.createElement('div');sidebarHoverPreview.className='gl-sidebar-hover-preview';sidebarHoverPreview.setAttribute('aria-hidden','true');const sidebarHoverImg=document.createElement('img');sidebarHoverPreview.appendChild(sidebarHoverImg);document.body.appendChild(sidebarHoverPreview);
 const turnBanner=document.createElement('div');turnBanner.className='gl-turn-banner';turnBanner.setAttribute('aria-live','polite');document.body.appendChild(turnBanner);
 const counterBanner=document.createElement('div');counterBanner.className='gl-counter-banner';counterBanner.setAttribute('aria-live','polite');counterBanner.setAttribute('aria-atomic','true');document.body.appendChild(counterBanner);
-const seenCounterMessages=new Set(),seenRacialMessages=new Set(),seenManaLossMessages=new Set(),presentationNoticeQueue=[];let counterBannerTimer=null,presentationNoticeActive=false;
-const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><a class="gl-lobby-home" href="./" aria-label="Grandis Legacy homepage"><img class="gl-lobby-logo" src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a><h1 id="glLobbyTitle">VS AI LOBBY</h1><nav class="gl-lobby-app-actions" aria-label="Grandis Legacy applications"><a class="gl-lobby-app-link" href="deck-builder/">GO TO DECK BUILDER</a></nav></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
+// Response Counter chains get a separate, persistent horizontal live notification.
+// This is NOT Card Played / Full Card History; it is battlefield feedback only.
+const counterChainBanner=document.createElement('div');counterChainBanner.className='gl-counter-chain-banner';counterChainBanner.setAttribute('role','status');counterChainBanner.setAttribute('aria-live','polite');counterChainBanner.setAttribute('aria-atomic','true');document.body.appendChild(counterChainBanner);
+const shownCompletedCounterChains=new Set();let currentCounterChainId='',counterChainRenderedSig='',counterChainHoldTimer=null;
+const seenCounterMessages=new Set(),seenRacialMessages=new Set(),seenManaLossMessages=new Set(),seenDiscardMessages=new Set(),presentationNoticeQueue=[];let counterBannerTimer=null,presentationNoticeActive=false;
+const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><a class="gl-lobby-home" href="./" aria-label="Grandis Legacy home"><img class="gl-lobby-logo" src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a><h1 id="glLobbyTitle">VS AI LOBBY</h1><nav class="gl-lobby-app-actions" aria-label="Grandis Legacy applications"><a class="gl-lobby-app-link" href="deck-builder/">GO TO DECK BUILDER</a><a class="gl-lobby-app-link gl-lobby-app-link--pvp" href="https://grandislegacytcg.web.id/pvp/">GO TO PVP</a></nav></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
 const coinOverlay=document.createElement('div');coinOverlay.className='gl-coin-overlay';coinOverlay.innerHTML='<section class="gl-coin-card" role="dialog" aria-modal="true" aria-label="Coin flip"><div class="gl-coin-body"></div></section>';document.body.appendChild(coinOverlay);
 const progressionOverlay=document.createElement('div');progressionOverlay.className='gl-progression-overlay';progressionOverlay.innerHTML='<section class="gl-progression-card" role="dialog" aria-modal="true" aria-labelledby="glProgressionTitle"><header><div><span>HERO PROGRESSION</span><h2 id="glProgressionTitle">Hero Progression</h2></div><button type="button" class="gl-progression-close">Close</button></header><div class="gl-progression-row"></div><p>Select a Rank card to open Card Review.</p></section>';document.body.appendChild(progressionOverlay);
 const resultOverlay=document.createElement('div');resultOverlay.className='gl-result-overlay';resultOverlay.innerHTML='<section class="gl-result-card" role="dialog" aria-modal="true" aria-labelledby="glResultTitle"><header><span>GAME RESULT</span><h2 id="glResultTitle">Match Complete</h2></header><div class="gl-result-body"></div></section>';document.body.appendChild(resultOverlay);
@@ -101,8 +105,7 @@ const glExternallyPresentedShardUids=new Set();
 const laneOrder=['LEFT','CENTER','RIGHT'];
 function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
 function cv(id){return id?E().cardView(id):null;}
-const GL_S0_ART_VERSIONS={"S0-ARC-001":"r3.7","S0-ARC-002":"r3.7","S0-ARC-003":"r3.7","S0-ARC-004":"r3.7","S0-ARC-005":"r3.7","S0-ARC-006":"r3.7","S0-ARC-007":"r3.7","S0-ARC-008":"r3.7","S0-ARC-009":"r3.7","S0-ARC-010":"r3.7","S0-ARC-011":"r3.7","S0-ARC-012":"r3.7","S0-ARC-013":"r3.7","S0-ARC-015":"r3.7","S0-ARC-016":"r3.7","S0-ARC-017":"r3.7","S0-ARC-018":"r3.7","S0-ARC-H001":"r3.6","S0-ARC-H002":"r3.6","S0-ARC-H003":"r3.6","S0-ARC-H005":"r3.6","S0-ARC-H006":"r3.6","S0-ARC-H008":"r3.6","S0-ARC-H009":"r3.6","S0-CLE-H002":"r3.6","S0-CLE-H003":"r3.6","S0-CLE-H005":"r3.6","S0-CLE-H006":"r3.6","S0-CLE-H008":"r3.6","S0-CLE-H009":"r3.6","S0-MAG-H002":"r3.6","S0-MAG-H003":"r3.6","S0-MAG-H005":"r3.6","S0-MAG-H006":"r3.6","S0-MAG-H008":"r3.6","S0-MAG-H009":"r3.6","S0-THF-H002":"r3.6","S0-THF-H003":"r3.6","S0-THF-H005":"r3.6","S0-THF-H006":"r3.6","S0-THF-H008":"r3.6","S0-THF-H009":"r3.6","S0-WAR-H002":"r3.6","S0-WAR-H003":"r3.6","S0-WAR-H005":"r3.6","S0-WAR-H006":"r3.6","S0-WAR-H008":"r3.6","S0-WAR-H009":"r3.6"};
-function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp'+(GL_S0_ART_VERSIONS[id]?'?v='+GL_S0_ART_VERSIONS[id]:''):'';}
+function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp?v=gl-vs-ai-s0-rc40-r38-r37-20261114':'';}
 function glBindPlayerHandArtwork(card, img, id) {
   const fallback='assets/ui/back-main.webp';
   card.classList.add('gl-hand-art','gl-hand-art-loading');
@@ -122,6 +125,7 @@ function glBindPlayerHandArtwork(card, img, id) {
   img.src=art(id);
   if (img.complete && img.naturalWidth>0) showWhenDecoded();
 }
+
 
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -547,19 +551,35 @@ function choicePreviewModeFromCandidateZone(p){
   return /(^|_|\b)(deck|deck_search|deck_top|main|main_deck)(_|\b|$)/.test(z)&&!/discard|legacy_deck/.test(z)?'fixed':'contextual';
 }
 let lobbyReviewProgressionIds=[];
-function closeCardReview(){cardReviewOverlay.classList.remove('open');lobbyReviewProgressionIds=[];const body=cardReviewOverlay.querySelector('.gl-card-review-body');if(body)body.innerHTML='';}
+function closeCardReview(){
+  cardReviewOverlay.classList.remove('open');
+  lobbyReviewProgressionIds=[];
+  // Preserve the ready iframe. Reopening the same card does not recreate 19 stylesheets.
+}
 function openCardReview(cardId,options=null){
-  if(!cardId)return;const v=cv(cardId),body=cardReviewOverlay.querySelector('.gl-card-review-body');
+  if(!cardId)return;
+  const v=cv(cardId),body=cardReviewOverlay.querySelector('.gl-card-review-body');
   if(options?.lobbyLineageIds)lobbyReviewProgressionIds=options.lobbyLineageIds.slice(0,3);
   else if(!options?.keepLobbyLineage)lobbyReviewProgressionIds=[];
+  const key=String(cardId)+'|'+lobbyReviewProgressionIds.join(',');
+  const previous=body.querySelector('.gl-db158-review-frame');
+  if(previous&&body.dataset.glReviewKey===key&&body.classList.contains('gl-review-ready')){
+    cardReviewOverlay.classList.add('open');return;
+  }
+  body.classList.remove('gl-review-ready');
+  body.dataset.glReviewKey=key;
   let html='';try{html=window.GL_CARD_PREVIEW_QA?.html?.(cardId)||''}catch{}
-  if(!window.GL_DB158_REVIEW?.mount?.(body,cardId,lobbyReviewProgressionIds))body.innerHTML='<button type="button" class="gl-card-review-close" aria-label="Close card review">×</button>'+(html||('<img class="gl-card-review-image" src="'+esc(art(cardId))+'" alt="'+esc(v?.name||'Card Review')+'">'));
+  if(!window.GL_DB158_REVIEW?.mount?.(body,cardId,lobbyReviewProgressionIds)){
+    body.innerHTML='<button type="button" class="gl-card-review-close" aria-label="Close card review">×</button>'+(html||('<img class="gl-card-review-image" src="'+esc(art(cardId))+'" alt="'+esc(v?.name||'Card Review')+'">'));
+    body.classList.add('gl-review-ready');
+  }
   cardReviewOverlay.classList.add('open');
 }
 cardReviewOverlay.addEventListener('click',e=>{if(e.target.closest('.gl-card-review-close'))closeCardReview()});
 window.addEventListener('message',e=>{
   const frame=cardReviewOverlay.querySelector('.gl-db158-review-frame');
   if(!frame||e.source!==frame.contentWindow)return;
+  if(e.data?.kind==='GL_S0_REVIEW_READY'){cardReviewOverlay.querySelector('.gl-card-review-body')?.classList.add('gl-review-ready');return;}
   if(e.data?.kind==='GL_S0_REVIEW_CLOSE'){closeCardReview();return;}
   if(e.data?.kind==='GL_S0_REVIEW_RANK'&&cardReviewOverlay.classList.contains('open')){
     const next=String(e.data.cardId||'');
@@ -589,7 +609,11 @@ function openPlayedDetail(side,eventId){
   playedDetailOverlay.classList.add('open');
 }
 playedDetailOverlay.querySelector('.gl-played-detail-close').onclick=closePlayedDetail;
-playedDetailOverlay.addEventListener('click',e=>{if(e.target===playedDetailOverlay)closePlayedDetail()});
+playedDetailOverlay.addEventListener('click',e=>{
+  const link=e.target.closest?.('[data-gl-linked-event]');
+  if(link){e.preventDefault();e.stopPropagation();openPlayedDetail(link.dataset.glLinkedSide,link.dataset.glLinkedEvent);return;}
+  if(e.target===playedDetailOverlay)closePlayedDetail();
+});
 function adaptiveStageActive(){return document.documentElement.classList.contains('gl-adaptive-stage');}
 function currentUiScale(){return adaptiveStageActive()?1:(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale'))||1);}
 /* Viewport rectangles for screen-space portals (VFX, arrows, moving cards,
@@ -818,10 +842,10 @@ function renderCoinResult(){
     if(openingChosenOrder!=='SECOND')openingChosenOrder='FIRST';
     openingFirstSide=openingChosenOrder==='FIRST'?'AI':'PLAYER';
   }
-  const winner='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong><p>'+(won?'Choose whether to take the first or second turn.':'AI chooses '+openingChosenOrder+'.')+'</p></div>';
+  const winner='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong>'+(won?'<p>Choose whether to take the first or second turn.</p>':'')+'</div>';
   const art='<div class="gl-coin-result gl-coin-single-result"><img src="'+coinFaceSrc(openingOutcome)+'" alt="Coin result: '+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div>';
   const actions=won?'<div class="gl-coin-turn-actions"><button class="gl-coin-start" type="button" data-gl-coin-order="FIRST">GO FIRST</button><button class="gl-coin-start" type="button" data-gl-coin-order="SECOND">GO SECOND</button></div>':
-    '<p class="gl-coin-ai-decision">AI chose <strong>GO '+openingChosenOrder+'</strong> · Starting match...</p>';
+    '<p class="gl-coin-ai-decision">AI CHOSE TO <strong>GO '+openingChosenOrder+'</strong></p>';
   body.innerHTML=winner+art+actions;
   body.querySelectorAll('[data-gl-coin-order]').forEach(btn=>btn.onclick=()=>chooseCoinTurnOrder(btn.dataset.glCoinOrder));
   if(!won){
@@ -853,7 +877,7 @@ function resetPresentationState(){
   glPresentationEpoch++;
   for(const batch of [...glTrialReturnBatches])batch.cancel();
   glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
-  if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();seenManaLossMessages.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();glManualTrialReturnEventIds.clear();glPresentedTrialReturnEventIds.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
+  if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();seenManaLossMessages.clear();seenDiscardMessages.clear();shownCompletedCounterChains.clear();currentCounterChainId='';counterChainRenderedSig='';clearTimeout(counterChainHoldTimer);counterChainHoldTimer=null;counterChainBanner.classList.remove('show');counterChainBanner.replaceChildren();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana','is-discard');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();glManualTrialReturnEventIds.clear();glPresentedTrialReturnEventIds.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';syncS0MusicForGameState();const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();syncS0MusicForGameState();
@@ -889,6 +913,50 @@ function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=f
   const im=document.createElement('img');im.className='gl-flying-card'+(ghost?' gl-return-ghost':'');im.src=src;if(ghost)im.style.opacity='.55';im.style.left=fr.left+'px';im.style.top=fr.top+'px';im.style.width=fr.width+'px';im.style.height=fr.height+'px';animationLayer.appendChild(im);if(playSound)E()?.playCardMotionSound?.();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{im.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';im.style.transform='translate('+(tr.left-fr.left)+'px,'+(tr.top-fr.top)+'px)';im.style.width=tr.width+'px';im.style.height=tr.height+'px';im.style.opacity=ghost?'.42':'.72'}));
   setTimeout(()=>{im.remove();glPresentationActive=Math.max(0,glPresentationActive-1);glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);if(typeof onFinish==='function')onFinish(true)},duration+20);return true;
+}
+function flyPublicSelectedPickup(event,fromEl,toEl,onFinish){
+  if(!event?.card_id||!toEl)return false;
+  const from=fromEl&&uiRect(fromEl),target=uiRect(toEl),vw=window.innerWidth,vh=window.innerHeight;
+  if(!target||target.width<1||target.height<1)return false;
+  const side=event.side==='AI'?'AI':'PLAYER',epoch=glPresentationEpoch;
+  const width=Math.min(146,Math.max(90,Math.round(vw*.12))),height=Math.round(width*1.4);
+  const left=Math.max(10,Math.min(vw-width-10,target.left+target.width/2-width/2));
+  const preferred=side==='AI'?target.bottom+20:target.top-height-20;
+  const top=Math.max(8,Math.min(vh-height-8,preferred));
+  const destLeft=target.left+target.width/2-width/2,destTop=target.top+target.height/2-height/2;
+  const origin=from&&from.width>=1?from:{left:target.left,top:target.top,width:target.width,height:target.height};
+  glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+3200);
+  const img=document.createElement('img');img.className='gl-flying-card gl-public-pickup-reveal';img.src=art(event.card_id);img.alt='';img.draggable=false;
+  img.style.left=origin.left+'px';img.style.top=origin.top+'px';img.style.width=origin.width+'px';img.style.height=origin.height+'px';
+  img.style.transform='rotateY(0deg)';animationLayer.appendChild(img);
+  E()?.playCardMotionSound?.();
+  const isCurrent=()=>epoch===glPresentationEpoch;
+  const later=(delay,fn)=>setTimeout(()=>{if(!isCurrent()){img.remove();return;}fn();},delay);
+  let settled=false;
+  const finish=()=>{if(settled)return;settled=true;img.remove();if(!isCurrent())return;
+    glPresentationActive=Math.max(0,glPresentationActive-1);glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);
+    if(typeof onFinish==='function')onFinish();};
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(!isCurrent())return;
+    img.style.transition='left 350ms ease,top 350ms ease,width 350ms ease,height 350ms ease,transform 180ms ease';
+    img.style.left=left+'px';img.style.top=top+'px';img.style.width=width+'px';img.style.height=height+'px';
+  }));
+  // Hold 2,000ms after arriving, not including travel or flip duration.
+  later(2350,()=>{
+    img.style.transition='transform 150ms ease';img.style.transform='rotateY(90deg)';
+    later(155,()=>{
+      img.src='assets/ui/back-main.webp';img.style.transition='none';img.style.transform='rotateY(-90deg)';
+      void img.offsetWidth;
+      img.style.transition='transform 150ms ease';img.style.transform='rotateY(0deg)';
+      later(165,()=>{
+        const final=uiRect(toEl);const dw=Math.max(1,final.width||target.width),dh=Math.max(1,final.height||target.height);
+        img.style.transition='left 320ms ease,top 320ms ease,width 320ms ease,height 320ms ease,opacity 320ms ease';
+        img.style.left=(final.left||destLeft)+'px';img.style.top=(final.top||destTop)+'px';img.style.width=dw+'px';img.style.height=dh+'px';img.style.opacity='.74';
+        later(345,finish);
+      });
+    });
+  });
+  return true;
 }
 function flyToHeroOrientation(src,fromEl,toEl,side,lane,duration=390,onFinish,playSound=true){
   if(!src||!fromEl||!toEl)return false;
@@ -1142,7 +1210,12 @@ function showNextPresentationNotice(){
   const desc=document.createElement('small');desc.textContent=item.detail;
   counterBanner.append(header,desc);
   counterBanner.classList.toggle('is-racial',item.kind==='racial');
+  // Part 5: turn notice shares the owner colors with Card Played badges.
+  // Leave Countered, Racial, Mana and Discard banners untouched.
+  counterBanner.classList.toggle('is-turn-player',item.kind==='turn'&&item.title==='YOUR TURN');
+  counterBanner.classList.toggle('is-turn-ai',item.kind==='turn'&&item.title==='AI TURN');
   counterBanner.classList.toggle('is-mana',item.kind==='mana');
+  counterBanner.classList.toggle('is-discard',item.kind==='discard');
   counterBanner.style.setProperty('--gl-notice-duration',item.duration+'ms');
   counterBanner.classList.remove('show');void counterBanner.offsetWidth;counterBanner.classList.add('show');
   clearTimeout(counterBannerTimer);
@@ -1152,15 +1225,41 @@ function showNextPresentationNotice(){
   },item.duration);
 }
 function queuePresentationNotice(kind,title,detail,duration){
-  presentationNoticeQueue.push({kind,title,detail,duration});
+  presentationNoticeQueue.push({kind,title,detail,duration:2000});
   showNextPresentationNotice();
 }
-function showCommittedCounterBanner(evt){
-  if(!evt||evt.type!=='CARD_NEGATED'||!evt.target_card_id)return;
-  const by=evt.counter_side==='PLAYER'?'You':(evt.counter_side==='AI'?'AI':'Opponent'),
-        targetOwner=evt.target_side==='PLAYER'?'your':"opponent's",
-        via=cv(evt.counter_card_id)?.name||'Response',target=cv(evt.target_card_id)?.name||'card';
-  queuePresentationNotice('counter','COUNTERED!',by+' used '+via+' to negate '+targetOwner+' '+target+'.',2000);
+// Render a committed chain as individual boxes, one per played card.
+// The engine's cardPlayedCancelTraces records legal nesting and LIFO resolution.
+function renderCounterChainNotification(state){
+  if(!presentationPrimed||(typeof openingPresentationActive!=='undefined'&&openingPresentationActive))return;
+  const traces=Object.values(state?.cardPlayedCancelTraces||{}).filter(t=>t&&Array.isArray(t.steps)&&t.steps.length>=2);
+  if(!traces.length)return;
+  traces.sort((a,b)=>Number(String(a.id||'').split('-').at(-1)||0)-Number(String(b.id||'').split('-').at(-1)||0));
+  // A finished chain is shown once, rather than replayed on each 120ms render.
+  const active=traces.filter(t=>!shownCompletedCounterChains.has(t.id));
+  const trace=active.at(-1);
+  if(!trace)return;
+  const sig=trace.id+'|'+trace.steps.map(t=>t.side+':'+t.card_id+':'+t.outcome).join('|')+'|'+!!trace.complete;
+  if(sig!==counterChainRenderedSig){
+    counterChainRenderedSig=sig;currentCounterChainId=trace.id;
+    const row=document.createElement('div');row.className='gl-counter-chain-row';
+    trace.steps.forEach((step,index)=>{
+      if(index){const link=document.createElement('span');link.className='gl-counter-chain-link';link.textContent='→ COUNTER →';row.appendChild(link);}
+      const box=document.createElement('div');box.className='gl-counter-chain-card '+(step.side==='PLAYER'?'is-player':'is-ai');
+      box.textContent=cv(step.card_id)?.name||String(step.card_id||'Card');
+      box.title=(step.outcome==='PENDING'?'Response pending':String(step.outcome))+' — '+box.textContent;
+      row.appendChild(box);
+    });
+    counterChainBanner.replaceChildren(row);counterChainBanner.classList.add('show');
+    requestAnimationFrame(()=>{row.scrollLeft=row.scrollWidth;});
+  }
+  if(trace.complete&&!shownCompletedCounterChains.has(trace.id)){
+    shownCompletedCounterChains.add(trace.id);
+    clearTimeout(counterChainHoldTimer);
+    counterChainHoldTimer=setTimeout(()=>{
+      if(currentCounterChainId===trace.id){counterChainBanner.classList.remove('show');currentCounterChainId='';counterChainRenderedSig='';}
+    },3500);
+  }else if(!trace.complete){clearTimeout(counterChainHoldTimer);counterChainHoldTimer=null;}
 }
 function showCommittedRacialBanner(evt){
   if(!evt||evt.type!=='RACIAL_TOKEN_USED'||Number(evt.token_cost||0)<=0)return;
@@ -1185,29 +1284,43 @@ function describeRemovedShards(shards){
 function showCommittedManaLossBanner(evt){
   if(!evt||evt.type!=='MANA_LOSS_RESOLVED'||evt.side!=='PLAYER'||Number(evt.removed_count||0)<=0)return;
   const self=evt.loss_kind==='ABILITY_SPEND'&&evt.source_side==='PLAYER';
-  const effect=self?String(evt.effect_name||'Ability'):
-    (String(evt.effect_name||'').toLowerCase().includes('steal')?'Mana Steal':'Mana Burn');
-  const subject=self?'You':'Opponent';
+  // Keep the actual committed effect title (not a guessed Burn/Steal type).
+  const effect=String(evt.effect_name||(self?'Ability':'Mana Removal'));
   const amount=describeRemovedShards(evt.removed_shards||[]);
   const desc=(self?'Spent ':'Removed ')+amount+'.';
-  queuePresentationNotice('mana',subject+' used '+effect+'.',desc,2000);
+  queuePresentationNotice('mana',effect,desc,2000);
+}
+function showCommittedDiscardBanner(evt){
+  if(!evt||evt.type!=='CARDS_DISCARDED_RESOLVED'||evt.target_side!=='PLAYER')return;
+  const count=Number(evt.discard_count||(evt.card_names||[]).length||0);
+  if(!count)return;
+  const source=cv(evt.source_card_id)?.name||'Card Effect';
+  const names=(evt.card_names||[]).join(', ');
+  const zone=evt.from_zone==='EXP'?(String(evt.target_hero_name||'Hero')+"'s EXP"):
+    evt.from_zone==='MAIN_DECK'?'your Main Deck':evt.from_zone==='FIELD'?'your Field':'your Hand';
+  const desc=count===1?names+' discarded from '+zone+'.':
+    count+' cards discarded from '+zone+': '+names+'.';
+  queuePresentationNotice('discard',source,desc,2000);
 }
 function showNewCounterEvents(s){
   (s?.presentationEvents||[]).forEach(evt=>{
     if(!evt?.id)return;
     if(evt.type==='CARD_NEGATED'&&!seenCounterMessages.has(evt.id)){
-      seenCounterMessages.add(evt.id);if(presentationPrimed)showCommittedCounterBanner(evt);
+      seenCounterMessages.add(evt.id); // The live horizontal chain is rendered from committed cardPlayedCancelTraces.
     }else if(evt.type==='RACIAL_TOKEN_USED'&&!seenRacialMessages.has(evt.id)){
       seenRacialMessages.add(evt.id);if(presentationPrimed)showCommittedRacialBanner(evt);
     }else if(evt.type==='MANA_LOSS_RESOLVED'&&!seenManaLossMessages.has(evt.id)){
       seenManaLossMessages.add(evt.id);if(presentationPrimed)showCommittedManaLossBanner(evt);
+    }else if(evt.type==='CARDS_DISCARDED_RESOLVED'&&!seenDiscardMessages.has(evt.id)){
+      seenDiscardMessages.add(evt.id);if(presentationPrimed)showCommittedDiscardBanner(evt);
     }
   });
+  renderCounterChainNotification(s);
 }
-function showTurnBannerFor(s){const key=String(s.turn)+'|'+Number(s.round||1);if(openingPresentationActive||!s.turn||lastTurnBannerKey===key)return;lastTurnBannerKey=key;turnBanner.innerHTML='<strong>'+(s.turn==='PLAYER'?'YOUR TURN':'AI TURN')+'</strong><small>ROUND '+Number(s.round||1)+'</small>';turnBanner.classList.remove('show');void turnBanner.offsetWidth;turnBanner.classList.add('show');clearTimeout(showTurnBannerFor.t);showTurnBannerFor.t=setTimeout(()=>turnBanner.classList.remove('show'),900)}
+function showTurnBannerFor(s){const key=String(s.turn)+'|'+Number(s.round||1);if(openingPresentationActive||!s.turn||lastTurnBannerKey===key)return;lastTurnBannerKey=key;queuePresentationNotice('turn',s.turn==='PLAYER'?'YOUR TURN':'AI TURN','ROUND '+Number(s.round||1),2000);}
 function buildPresentationPlan(s){
   showNewCounterEvents(s);
-  const cur=visualStateOf(s),prev=previousVisualState,plan={draws:[],returns:[],expReturns:[],shards:[],heroTransitions:[],moved:[]};
+  const cur=visualStateOf(s),prev=previousVisualState,plan={draws:[],picks:[],returns:[],expReturns:[],shards:[],heroTransitions:[],moved:[]};
   if(openingPresentationActive){(cur.presentation||[]).forEach(e=>{if(e?.id&&e.reason==='OPENING_HAND')seenPresentationEvents.add(e.id)});previousVisualState=cur;return plan;}
   // Rank Up presentation is a committed engine transaction, not an inference
   // from two UI snapshots. That snapshot omits the just-Tributed EXP whenever
@@ -1217,6 +1330,7 @@ function buildPresentationPlan(s){
     seenPresentationEvents.add(e.id);
     if(!presentationPrimed)return;
     if(e.type==='CARD_DRAWN')plan.draws.push(e);
+    else if(e.type==='CARD_PUBLIC_PICKUP')plan.picks.push(e);
     else if(e.type==='CARD_RETURNED_TO_DECK')plan.returns.push(e);
     else if(e.type==='TRIAL_EXP_RETURNED_TO_HAND')plan.expReturns.push(e);
     else if(e.type==='RANK_UP_COMMITTED'&&e.side&&e.lane&&e.to_card_id)
@@ -1262,6 +1376,10 @@ function buildPresentationPlan(s){
     const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
     if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,String(e.id||side+'-'+idx));
   });
+  (plan.picks||[]).forEach(e=>{
+    const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
+    if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,String(e.id));
+  });
   previousVisualState=cur;if(!presentationPrimed)presentationPrimed=true;return plan;
 }
 function preparePresentationTargets(plan){
@@ -1275,7 +1393,7 @@ function preparePresentationTargets(plan){
 }
 function runPresentationPlan(plan,s){
   showTurnBannerFor(s);
-  const draws=(plan.draws||[]).slice(),expReturns=(plan.expReturns||[]).slice(),returns=(plan.returns||[]).flatMap(e=>Array.from({length:Math.min(24,Math.max(0,Math.floor(Number(e.count)||0)))},()=>({side:e.side}))),shards=(plan.shards||[]).slice(),rankTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='rank'),legacyTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='legacy');
+  const picks=(plan.picks||[]).slice(),draws=(plan.draws||[]).slice(),expReturns=(plan.expReturns||[]).slice(),returns=(plan.returns||[]).flatMap(e=>Array.from({length:Math.min(24,Math.max(0,Math.floor(Number(e.count)||0)))},()=>({side:e.side}))),shards=(plan.shards||[]).slice(),rankTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='rank'),legacyTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='legacy');
   function runShardSequence(index){
     if(index>=shards.length){if(rankTransitions.length)glRankPresentationRunning=Math.max(0,glRankPresentationRunning-1);return;}
     const x=shards[index],from=zoneEl(x.side,'Shard Deck'),host=x.side==='PLAYER'?playerManaHost:aiManaHost,to=host?.querySelector('.mana-card[data-uid="'+CSS.escape(String(x.uid))+'"]');
@@ -1292,7 +1410,7 @@ function runPresentationPlan(plan,s){
     if(!flyBetween('assets/ui/back-main.webp',from,to,300,next,index===0,true))next();
   }
   function runDrawSequence(index){
-    if(index>=draws.length){runShardSequence(0);return;}
+    if(index>=draws.length){runPublicPickupSequence(0);return;}
     const e=draws[index],side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index),from=zoneEl(side,'Main Deck'),hand=side==='PLAYER'?playerHandTrack:oppHandTrack,to=hand?.querySelector('.hand-card[data-hand-index="'+idx+'"]');
     if(to)to.classList.add('gl-presentation-hidden');
     const done=()=>{
@@ -1301,6 +1419,24 @@ function runPresentationPlan(plan,s){
       requestAnimationFrame(()=>setTimeout(()=>runDrawSequence(index+1),28));
     };
     if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,done))done();
+  }
+
+  // Public REVEAL for a specific selected card taken from Main Deck/Discard.
+  // Draw effects are intentionally excluded. Face-up display lasts 2 seconds,
+  // then the card flips to a back and enters Hand in its usual orientation.
+  function runPublicPickupSequence(index){
+    if(index>=picks.length){runShardSequence(0);return;}
+    const e=picks[index],side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
+    const from=zoneEl(side,e.from_zone==='Discard'?'Discard Pile':'Main Deck');
+    const hand=side==='PLAYER'?playerHandTrack:oppHandTrack;
+    const to=hand?.querySelector('.hand-card[data-hand-index="'+idx+'"]');
+    if(to)to.classList.add('gl-presentation-hidden');
+    const done=()=>{
+      if(glHiddenCommittedDrawSlots[side].get(idx)===String(e.id))glHiddenCommittedDrawSlots[side].delete(idx);
+      if(to)to.classList.remove('gl-presentation-hidden');
+      requestAnimationFrame(()=>setTimeout(()=>runPublicPickupSequence(index+1),35));
+    };
+    if(!flyPublicSelectedPickup(e,from?.querySelector('.zoneCard')||from,to||hand,done))done();
   }
   // Both 2-card and 3-card automatic returns use the SAME visual transaction.
   // Human returns are owned by the selector-to-Hand batch; they must never be
@@ -1731,6 +1867,7 @@ function centerChoiceModeFor(s){
   }
   // Trial Return EXP uses the exact same foreground selector as DISCARD.
   if(p.type==='trial_rankup_return_exp'||p.type==='scouting_exp_selection')return'discard';
+  if(p.type==='legacy_defeat_choice')return'legacy';
   if(p.type==='saint_purify_choice')return'purify';
   if(p.type==='s0_bard_draw_choice')return'bard';
   if(p.type==='draw_replacement_choice')return'draw-replacement';
@@ -1745,7 +1882,7 @@ let lastCenterChoiceBodyMode='';
 function setCenterChoiceBodyMode(mode){
   const changed=mode!==lastCenterChoiceBodyMode;
   lastCenterChoiceBodyMode=mode;
-  ['pay','opponent-shard','opponent-hand','magic-scope','bard','discard','purify','draw-replacement','stoneblood'].forEach(x=>document.body.classList.toggle('gl-center-'+x,mode===x));
+  ['pay','opponent-shard','opponent-hand','magic-scope','bard','discard','legacy','purify','draw-replacement','stoneblood'].forEach(x=>document.body.classList.toggle('gl-center-'+x,mode===x));
   document.body.classList.toggle('gl-center-choice-active',!!mode);
   centerFocusBackdrop.classList.toggle('is-visible',!!mode);
   if(mode){
@@ -1759,6 +1896,7 @@ function setCenterChoiceBodyMode(mode){
 function centerChoiceOrigin(mode,p){
   if(mode==='discard'&&p?.type==='trial_rankup_return_exp')return heroCardEl(p.side||'PLAYER',p.lane);
   if(mode==='discard'&&p?.type==='scouting_exp_selection')return heroCardEl(p.target_side||'AI',p.target_lane);
+  if(mode==='legacy')return zoneEl(p?.side||'PLAYER','Legacy Deck');
   if(mode==='bard'||mode==='discard'||mode==='draw-replacement')return document.querySelector('.hand.bottom');
   if(mode==='purify')return heroCardEl(p?.target_side||'PLAYER',p?.target_lane);
   if(mode==='stoneblood')return document.querySelector('.battlefield .player-heroes');
@@ -1886,6 +2024,22 @@ function renderCenterChoiceStage(s){
       return {key:String(i),idx:i,front:purifyStatusArt(statusName),back:purifyStatusArt(statusName),faceUp:true,selected:i===selected,clickable:true,label:String(x.label||'Status')};
     });
     otherTarget=heroCardEl(p.target_side||'PLAYER',p.target_lane);
+  }else if(mode==='legacy'){
+    // The engine owns eligible Base-Class Legacy cards and the mandatory gate.
+    // These are NOT the separate Legacy-Ability choices from Main Deck / Discard.
+    const candidates=(p.candidates||[]),selected=selectedChoiceIndex(p),side=p.side||'PLAYER';
+    const fallen=cv(p.defeated_card_id)?.name||'Hero';
+    identity='legacy-defeat|'+String(p.choice_id||'')+'|'+side+'|'+String(p.lane||'')+'|'+candidates.map(x=>typeof x==='string'?x:(x.card_id||x.id||'')).join('|');
+    sig=identity+'|'+String(selected)+'|'+String(!!p.committing);
+    titleText='CHOOSE LEGACY CARD';
+    helperText=fallen+' was defeated in '+String(p.lane||'the battlefield')+'. Choose the matching Base Class Legacy.';
+    statusText=(selected==null?0:1)+' / 1 SELECTED';
+    cards=candidates.map((raw,i)=>{
+      const id=typeof raw==='string'?raw:(raw.card_id||raw.id);
+      return {key:String(i),idx:i,card_id:id,front:art(id),back:'assets/ui/back-legacy.webp',faceUp:true,selected:i===selected,clickable:!p.committing,label:cv(id)?.name||id};
+    });
+    selectedTarget=heroCardEl(side,p.lane);
+    otherTarget=zoneEl(side,'Legacy Deck');
   }else if(mode==='bard'){
     const ids=s.playerHand||[],chosen=new Set((p.selected_indices||[]).map(Number));
     const max=Number(p.max_count||1),rank=max>1?'MAESTRO':'BARD';
@@ -1911,21 +2065,22 @@ function renderCenterChoiceStage(s){
     const selected=new Set(chosen.map(Number));
     const required=scouting?1:expReturn?Math.min(Number(p.quota||0),available.length):legacy?Number(p.required_cost||1):response?Number(p.required_discard_count||1):
       cleanup?Number(p.required||1):Number(p.required_count||1);
+    const legacyMin=legacy?Math.max(1,Number(p.min_cost??required)):required;
     const responseCard=response?cv(p.response_option?.card_id):null;
     const sourceCard=legacy?cv(p.card_id):search?cv(p.source_card_id):null;
     const name=(responseCard||sourceCard)?.name||'Card';
     identity='discard|'+p.type+'|'+String(p.resolve_to||'')+'|'+name+'|'+
-      available.map(c=>String(c.hand_index??c.index??c.discard_index??c.exp_index??'')+':'+c.card_id).join('|')+'|'+required;
+      available.map(c=>String(c.hand_index??c.index??c.discard_index??c.exp_index??'')+':'+c.card_id).join('|')+'|'+required+'|'+legacyMin;
     sig=identity+'|'+[...selected].sort((a,b)=>a-b).join(',');
-    titleText=scouting?'SCOUTING — DISCARD OPPONENT EXP':expReturn?'RANK '+(Number(p.rank)===2?'II':'III')+' — RETURN EXP':cleanup?'HAND LIMIT — DISCARD':(legacy?'LEGACY COST — '+name.toUpperCase():
+    titleText=scouting?'SCOUTING — DISCARD OPPONENT EXP':expReturn?'RANK '+(Number(p.rank)===2?'II':'III')+' — RETURN EXP':cleanup?'HAND LIMIT — DISCARD':(legacy?'LEGACY — '+name.toUpperCase():
       response?name.toUpperCase()+' — DISCARD COST':name.toUpperCase()+' — CHOOSE DISCARD');
     helperText=scouting?'Select 1 normal Skill EXP Card from opponent '+String(p.target_lane||'')+'. Ultimate EXP cannot be discarded.':
       expReturn?'Select exactly '+required+' normal EXP Skill Card'+(required===1?'':'s')+' to return to Hand. Confirm unlocks only after all required cards are selected. Remaining EXP goes to Discard. Return is NOT Draw.':
       cleanup?'Discard exactly '+required+' card(s) to meet the Hand limit.':
-      legacy?'Select '+required+' eligible Skill card(s) to pay the Legacy Ability cost.':
+      legacy?'Discard '+(legacyMin===required?String(required):(legacyMin+'–'+required))+' eligible '+String(p.ability?.cost?.discard_from_hand?.filter?.class_family||'')+' Skill'+(required===1?'':'s')+'.':
       response?'Select '+required+' other Hand card(s) as the Response cost. No cost is spent before confirmation.':
       'Choose the required Hand card to discard.';
-    statusText=selected.size+' / '+required+' SELECTED';
+    statusText=legacy?selected.size+' SELECTED':selected.size+' / '+required+' SELECTED';
     cards=available.map((c,i)=>({key:String(i),idx:i,card_id:c.card_id,front:art(c.card_id),
       back:'assets/ui/back-main.webp',faceUp:true,selected:selected.has(i),clickable:true,
       label:cv(c.card_id)?.name||c.card_id}));
@@ -1995,7 +2150,30 @@ function renderCenterChoiceStage(s){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=p.candidates?.[i]?.card_id,front=c.querySelector('.gl-center-choice-front img');if(front&&id)bindContextualModalPreview(front,id)});
   }
 
-  if(mode==='purify'){
+  if(mode==='legacy'){
+    cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{
+      const id=cards[i]?.card_id;
+      if(id)bindClassChoiceHoverPreview(c,id);
+      c.onclick=()=>{if(!centerChoiceBusy&&!p.committing)intent('selectLegacyDefeatChoice',[i])};
+    });
+    const selected=selectedChoiceIndex(p);
+    makeBtn('CONFIRM LEGACY','gl-center-choice-primary',!!p.committing||selected==null||!cards[selected],async()=>{
+      if(centerChoiceBusy)return;
+      const current=st()?.pending;
+      if(current?.type!=='legacy_defeat_choice'||current.choice_id!==p.choice_id||selectedChoiceIndex(current)!==selected)return;
+      centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');
+      centerChoiceStage.querySelector('.gl-center-choice-copy')?.classList.add('is-fading');
+      centerChoiceStage.querySelector('.gl-center-choice-actions')?.classList.add('is-fading');
+      await Promise.all([...cardsHost.querySelectorAll('.gl-center-choice-card')].map((card,i)=>
+        animateCenterChoiceTo(card,i===selected?selectedTarget:otherTarget,i===selected?460:380)));
+      const live=st()?.pending;
+      if(live?.type==='legacy_defeat_choice'&&live.choice_id===p.choice_id&&selectedChoiceIndex(live)===selected){
+        const committed=intent('handleChoiceConfirm',[]);
+        if(committed!==false)return;
+      }
+      resetCenterChoiceVisualState();centerChoiceRenderSig='';renderCenterChoiceStage(st());
+    });
+  }else if(mode==='purify'){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{
       const status=p.status_choices?.[i];
       const caption=document.createElement('span');caption.className='gl-purify-status-caption';
@@ -2040,6 +2218,7 @@ function renderCenterChoiceStage(s){
       p.selected_index==null?0:1;
     const need=scouting?1:expReturn?Math.min(Number(p.quota||0),(p.candidates||[]).length):legacy?Number(p.required_cost||1):cleanup?Number(p.required||1):
       response?Number(p.required_discard_count||1):Number(p.required_count||1);
+    const minNeed=legacy?Math.max(1,Number(p.min_cost??need)):need;
     const canCancel=legacy||response||(p.type==='card_search_choice'&&p.resolve_to==='gods_blessing_precommit');
     if(canCancel)makeBtn('CANCEL','gl-center-choice-cancel',false,()=>{
       if(centerChoiceBusy)return;
@@ -2047,8 +2226,8 @@ function renderCenterChoiceStage(s){
       else intent('cancelPendingAction',[]);
     });
     const needsMana=response&&Number(p.mana_cost||0)>0;
-    makeBtn(scouting?'DISCARD '+selectedCount+' / 1 EXP':expReturn?'RETURN '+selectedCount+' / '+need+' EXP':needsMana?'CONTINUE TO MANA':(cleanup?'DISCARD SELECTED':'DISCARD & CONFIRM'),
-      'gl-center-choice-primary',selectedCount!==need,async()=>{
+    makeBtn(scouting?'DISCARD '+selectedCount+' / 1 EXP':expReturn?'RETURN '+selectedCount+' / '+need+' EXP':needsMana?'CONTINUE TO MANA':(cleanup?'DISCARD SELECTED':legacy?'DISCARD & ACTIVATE':'DISCARD & CONFIRM'),
+      'gl-center-choice-primary',selectedCount<minNeed||selectedCount>need,async()=>{
         if(centerChoiceBusy)return;
         if(needsMana){
           // Do not discard or spend anything before the final PAY. The selected
@@ -3081,15 +3260,15 @@ function playedChronology(a,b){
   if(x!==y)return x-y;
   return String(a.id||'').localeCompare(String(b.id||''));
 }
-function allEvents(s){const a=[];(s.playerPlayedEvents||[]).forEach(e=>a.push({...e,side:'PLAYER'}));(s.opponentPlayedEvents||[]).forEach(e=>a.push({...e,side:'AI'}));return a.sort(playedChronology)}
+function allEvents(s){const a=[];(s.playerPlayedEvents||[]).forEach(e=>a.push({...e,side:'PLAYER'}));(s.opponentPlayedEvents||[]).forEach(e=>a.push({...e,side:'AI'}));(E()?.getCommittedPublicDiscardCards?.()||[]).forEach(e=>a.push(e));return a.sort(playedChronology)}
 function renderHistory(s,chain){
-  const activeIds=new Set(chain.map(a=>a.card_id+'|'+a.side)),events=allEvents(s).filter(e=>e.card_id&&!activeIds.has(e.card_id+'|'+e.side));
+  const activeIds=new Set(chain.map(a=>a.card_id+'|'+a.side)),events=allEvents(s).filter(e=>e.card_id&&(e.card_movement_only||!activeIds.has(e.card_id+'|'+e.side)));
   events.forEach(e=>{const k=e.id||[e.side,e.card_id,e.timestamp].join('|');if(!historyKnown.has(k)){historyKnown.add(k);resolvedHistory.push(e)}else{const old=resolvedHistory.find(x=>(x.id||[x.side,x.card_id,x.timestamp].join('|'))===k);if(old)Object.assign(old,e)}});
   resolvedHistory.sort(playedChronology);
   const draw=(host,arr,keepSix=false)=>{
-    const sig=JSON.stringify(arr.map(e=>[e.id||'',e.side||'',e.card_id||'',Number(e.timestamp||0),e.resolution_state||'']))+'|six:'+String(!!keepSix);
+    const sig=JSON.stringify(arr.map(e=>[e.id||'',e.side||'',e.card_id||'',Number(e.timestamp||0),e.resolution_state||'',e.card_movement_only?'DISCARDED':'']))+'|six:'+String(!!keepSix);
     if(host.dataset.glHistorySig===sig)return false;hideSidebarHoverPreview();host.dataset.glHistorySig=sig;host.innerHTML='';
-    arr.forEach(e=>{const v=cv(e.card_id);if(!v)return;const d=document.createElement('button');d.type='button';d.className='played-card gl-played-clickable';d.title='View Card Played detail';const im=document.createElement('img');im.src=art(e.card_id);im.alt=v.name;im.draggable=false;d.appendChild(im);const o=document.createElement('span');o.className='played-owner';o.textContent=e.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(o);const badge=document.createElement('span');badge.className='gl-played-result-badge '+(e.resolution_state==='NEGATED'?'is-negated':'is-resolved');badge.textContent=e.resolution_state==='NEGATED'?'NEGATED':'RESOLVED';d.appendChild(badge);d.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();hideSidebarHoverPreview();openPlayedDetail(e.side,e.id)});host.appendChild(d);bindSidebarPreview(im)});
+    arr.forEach(e=>{const v=cv(e.card_id);if(!v)return;const d=document.createElement('button');d.type='button';d.className='played-card gl-played-clickable'+(e.card_movement_only?' gl-played-discarded':'');d.title=e.card_movement_only?'View discarded card':'View Card Played detail';const im=document.createElement('img');im.src=art(e.card_id);im.alt=v.name;im.draggable=false;d.appendChild(im);const badge=document.createElement('span');badge.className='gl-played-result-badge '+(e.side==='PLAYER'?'is-you':'is-opponent');badge.textContent=e.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(badge);if(e.card_movement_only){const label=document.createElement('span');label.className='gl-played-discard-label';label.textContent='DISCARDED';d.appendChild(label);}d.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();hideSidebarHoverPreview();openPlayedDetail(e.side,e.id)});host.appendChild(d);bindSidebarPreview(im)});
     if(keepSix){for(let i=host.children.length;i<6;i++){const ph=document.createElement('div');ph.className='played-card gl-played-placeholder';host.appendChild(ph)}}
     return true;
   };
@@ -3122,7 +3301,9 @@ function choiceCardTile(id,idx,selected,selectHandler,previewMode='contextual'){
   article.append(previewBtn,select);return article;
 }
 function renderAllowedModal(s){
-  const p=s.pending,allowed=['card_search_choice','legacy_defeat_choice','legacy_card_choice','crystal_ball_reorder'];
+  // Defeat Legacy choices use the center stage; only source-zone searches
+  // (Main Deck / Discard Pile) retain the standard card-list popup.
+  const p=s.pending,allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
     if(!p&&inspectState){renderInspectModal();return}
     // The generic modal is polled every 120 ms but DOES NOT own the preview

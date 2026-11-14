@@ -1,5 +1,5 @@
 /* Grandis Legacy Season 0 — Card Review: keyword/status explanations from
-   official Player Rulebook v3.2 EN (2026-11-10), pages 13–14.
+   official Player Rulebook v3.3 EN (2026-11-14), pages 13–14.
    Printed card RULES footer descriptions remain sourced from approved artwork.
    MANA COST +1/+2 are printed card-specific labels, not Rulebook keywords.
    Display only; no changes to deck legality, card effects, gameplay or OSA. */
@@ -75,14 +75,14 @@ function applyItemPrintedMetric(card,rootNode){
  effectCell.classList.remove('full-span');
 }
  const KEYS=Object.keys(EXPLANATIONS);
- // Player Rulebook v3.2 EN, p.14: verbatim status descriptions; no engine logic changes.
+ // Player Rulebook v3.3 EN, p.14: rewritten subject-neutral explanations of each Status; no engine changes.
  const STATUSES=Object.freeze({
-  'Bleed':'This Hero cannot receive Healing. Bleed does not deal damage.',
-  'Burn':'Whenever a played Card or activated Ability deals damage to this Hero, increase that damage by 10.',
-  'Freeze':'This Hero cannot DODGE or swap positions.',
-  'Poison':"This Hero takes 10 damage during its owner's End Phase.",
-  'Sleep':'This Hero cannot use Skill or Event Cards, except Skills with DODGE. It wakes up when hit by another Attack.',
-  'Stun':'This Hero cannot use Skill or Event Cards, activate Racial Traits, BLOCK, DODGE, or swap positions. It cannot initiate other active effects.'
+  'Bleed':'Prevents the affected Hero from receiving Healing. Does not deal damage.',
+  'Burn':'Increases damage dealt to the affected Hero by a played Card or activated Ability by 10.',
+  'Freeze':'Prevents the affected Hero from using DODGE or swapping positions.',
+  'Poison':"Deals 10 damage to the affected Hero during that Hero's owner's End Phase.",
+  'Sleep':'Prevents the affected Hero from using Skill or Event Cards, except Skills with DODGE. Ends when the affected Hero is hit by another Attack.',
+  'Stun':'Prevents the affected Hero from using Skill or Event Cards, activating Racial Traits, using BLOCK or DODGE, or swapping positions. Also prevents it from initiating other active effects.'
  });
  const STATUS_COLORS=Object.freeze({Bleed:'#e46b6b',Burn:'#f6a24b',Freeze:'#79d7f6',Poison:'#a5d65a',Sleep:'#b895ee',Stun:'#f2d72e'});
  const STATUS_NAME_PATTERN=/\b(Bleed|Burn|Freeze|Poison|Sleep|Stun)\b/g;
@@ -145,10 +145,17 @@ function applyItemPrintedMetric(card,rootNode){
   fragment.append(document.createTextNode(value.slice(from)));p.replaceChildren(fragment);
  }
  function printedConditions(card,rows){
+  if(card?.printedConditionText){
+    const condition=String(card.printedConditionText).trim();
+    const numericOnlyRows=card.family==='Skill'&&rows.length>0&&
+      rows.every(r=>/^\d+$/.test(String(r.damage_text||''))&&!String(r.effect_text||'').trim());
+    if(numericOnlyRows){
+      const parts=condition.match(/^([\s\S]*?[.!?])\s+((?:Deal|Multiply)\b[\s\S]*)$/i);
+      if(parts)return [parts[1]]; // The damage/multiplier sentence is in the Rank effect.
+    }
+    return [condition];
+  }
   const cardConditions=conditionsIn(card.text);
-  // Permafrost metadata repeats its single top-level printed CONDITION in
-  // both Rank rows. Never mistake that storage duplication for two boxes
-  // on the physical card. Distinct conditions remain separate.
   const stored=cardConditions.length?cardConditions:rows.flatMap(row=>conditionsIn(row.effect_text||row.text||''));
   return [...new Set(stored.map(value=>value.replace(/\s+/g,' ').trim()))];
  }
@@ -193,7 +200,7 @@ function applyItemPrintedMetric(card,rootNode){
   }
   // REVIEW ONLY: numeric Area Attacks read "Deal 50 Area Magical damage.",
   // not "Deal Area 50 Magical damage." Preserve suffixes such as Stun/HEAL.
-  if(/^\d+$/.test(damage)){
+  if(!card?.printedExactEffect && /^\d+$/.test(damage)){
    const effect=p.textContent||'';
    if(/\bDeal\s+Area\s+(?:Physical|Magical)\s+damage\b/i.test(effect)){
     p.textContent=effect.replace(/\b(Deal)\s+Area\s+(Physical|Magical)(\s+damage)\b/i,

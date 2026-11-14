@@ -393,7 +393,51 @@ function effectMetric(card,row={}){
   if(!label)return null;
   return {label,value};
 }
-function skillEffectText(row={},metric=null){let effect=String(row.effect_text||row.text||'').trim();if(!metric)return effect||String(row.damage_text||'—').trim()||'—';if(/^\s*[+-]?\d+\s*$/.test(effect)&&/^(?:PHYSICAL|MAGICAL) DAMAGE$/.test(metric.label))return `Deal ${metric.value} ${metric.label==='PHYSICAL DAMAGE'?'Physical':'Magical'} damage.`;if(/DAMAGE$/.test(metric.label)&&metric.label!=='DAMAGE REDUCTION')effect=effect.replace(/^(?:Deal|Inflict)\s+[+-]?\d+[^.]*?damage\.\s*/i,'').trim();else if(metric.label==='DAMAGE REDUCTION')effect=effect.replace(/^Block\s+[+-]?\d+[^.]*?damage[^.]*\.\s*/i,'').trim();else if(metric.label==='HEALING DONE')effect=effect.replace(/^(?:Heal|Restore)[^.]*?[+-]?\d+[^.]*\.\s*/i,'').trim();return effect||'—'}
+function skillEffectText(row={},metric=null,card=null){
+  const effect=String(row.effect_text||row.text||'').trim();
+  const rawValue=String(row.damage_text||'').trim();
+  const isAttack=/^(?:Physical|Magical|Area|Casting) Attack$/i.test(String(card?.classification||''));
+  const type=metric&&/^(?:PHYSICAL|MAGICAL) DAMAGE$/.test(metric.label)
+    ?(metric.label==='PHYSICAL DAMAGE'?'Physical':'Magical'):'';
+  const damageText=(value,damageType=type)=>`Deal ${value} ${damageType} damage.`;
+
+  // The shared CONDITION box on some attacks contains a prerequisite sentence
+  // followed by the printed damage/multiplier sentence. Display the first in
+  // CONDITION once, and the second under each Rank with its printed number.
+  const printedCondition=String(card?.printedConditionText||'').trim();
+  if(isAttack&&type&&/^\d+$/.test(rawValue)&&(!effect||/^[+-]?\d+$/.test(effect))&&printedCondition){
+    const match=printedCondition.match(/^([\s\S]*?[.!?])\s+((?:Deal|Multiply)\b[\s\S]*)$/i);
+    if(match){
+      const mechanic=match[2].trim();
+      if(/^Deal\s+(?:Area\s+)?(?:Physical|Magical)\s+damage\b/i.test(mechanic)){
+        return mechanic.replace(/^Deal\s+((?:Area\s+)?(?:Physical|Magical))\s+damage\b/i,
+          (_m,t)=>`Deal ${metric.value} ${t} damage`);
+      }
+      if(/^Multiply\b/i.test(mechanic))return `${damageText(metric.value)} ${mechanic}`;
+    }
+  }
+
+  if(!metric)return effect||String(row.damage_text||'—').trim()||'—';
+  if(isAttack&&type){
+    const detail=/^[+-]?\d+$/.test(effect)?'':effect;
+    // Add the numeric print to an existing typed damage sentence in-place.
+    // Preserve the surrounding original text and damage mechanism verbatim.
+    const typed=/\b(Deal(?:s)?\s+)(\d+\s+)?((?:Area\s+)?(?:Physical|Magical))(\s+damage\b)/i;
+    if(typed.test(detail))return detail.replace(typed,(_m,verb,oldNumber,kind,suffix)=>
+      `${verb}${oldNumber||metric.value+' '}${kind}${suffix}`);
+    const prelude=detail.match(/^((?:(?:MELEE|RANGE|PIERCING|SURE HIT)\s+)+)/)?.[1]||'';
+    const remaining=detail.slice(prelude.length);
+    return `${prelude}${damageText(metric.value)}${remaining?' '+remaining:''}`.trim();
+  }
+  let remaining=effect;
+  if(/DAMAGE$/.test(metric.label)&&metric.label!=='DAMAGE REDUCTION')
+    remaining=remaining.replace(/^(?:Deal|Inflict)\s+[+-]?\d+[^.]*?damage\.\s*/i,'').trim();
+  else if(metric.label==='DAMAGE REDUCTION')
+    remaining=remaining.replace(/^Block\s+[+-]?\d+[^.]*?damage[^.]*\.\s*/i,'').trim();
+  else if(metric.label==='HEALING DONE')
+    remaining=remaining.replace(/^(?:Heal|Restore)[^.]*?[+-]?\d+[^.]*\.\s*/i,'').trim();
+  return remaining||'—';
+}
 function itemClassText(card){if(card.printedClassRequirement)return card.printedClassRequirement;const classes=Array.isArray(card.requiredBaseClasses)?card.requiredBaseClasses.filter(Boolean):[];return classes.length?classes.join(' • '):'All Classes'}
 function heroReviewHtml(card){
   const rows=card.rows||[];
@@ -414,7 +458,7 @@ function heroReviewHtml(card){
   if(dualRow)detailBlocks.push(`<div class="review-hero-dual-section"><span>DUAL CLASS</span><p>${esc(dualRow.text||'—')}</p></div>`);
   detailBlocks.push(`<div class="review-hero-block hero-racial-section">
     <div class="review-hero-group"><span>RACE</span><strong>${esc(card.race||'—')}</strong></div>
-    <div class="review-hero-group"><span>RACIAL TRAITS</span><strong>${esc(racialName)}</strong><p>${esc(racialRow?.text||card.text||'—')}</p></div>
+    <div class="review-hero-group"><span>RACIAL TRAITS</span><strong>${esc(racialName)}</strong><p>${esc(racialRow?.text||card.text||'—')}</p>${card.printedRacialDamageReduction?`<div class="review-hero-numeric"><span>DAMAGE REDUCTION</span><strong>${esc(card.printedRacialDamageReduction)}</strong></div>`:''}</div>
   </div>`);
   detailBlocks.push(`<div class="review-hero-block hero-class-section">
     <div class="review-hero-class-summary">
@@ -437,11 +481,11 @@ function standardReviewHtml(card){
     ['EXP TRIBUTE',card.ultimate?.isUltimate?'200 EXP':'100 EXP']
   );
   else if(card.family==='LegacyModeDefinition')stats.push(['CARD TYPE','LEGACY'],['CLASS',card.classGroup||'—']);
-  else stats.push(['CARD TYPE',String(card.family||'CARD').toUpperCase()],['SUBTYPE',card.classification||reviewType(card)],['MANA COST',reviewCost(card)]);
+  else stats.push(['CARD TYPE',String(card.family||'CARD').toUpperCase()],['SUBTYPE',card.family==='Event'?(card.classification==='Normal Event'?'Regular':card.classification==='Special Event'?'Special':card.classification||reviewType(card)):card.classification||reviewType(card)],['MANA COST',reviewCost(card)]);
   $('reviewStats').innerHTML=`<div class="review-summary ${stats.length===4?'four-column-summary':''}">
     ${stats.map(([label,value])=>`<div class="review-summary-item"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join('')}
   </div>`;
-const rows=card.rows?.length?card.rows:[{label:'Effect',text:card.text}];if(card.family==='Skill'){const isUltimate=Boolean(card.ultimate?.isUltimate),effectRows=rows.map((row,index)=>{const parsed=rowClassRank(row.label),metric=effectMetric(card,row),rankText=isUltimate&&/Rank\s+III/i.test(parsed.rank)&&index===rows.length-1?`Ultimate ${parsed.rank}`:parsed.rank,effectText=skillEffectText(row,metric),rankClass=isUltimate&&/^Ultimate\s+Rank\s+III$/i.test(rankText)?' class="ultimate-rank"':'';if(metric)return `<div class="review-effect-row has-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-metric"><span>${esc(metric.label)}</span><strong>${esc(metric.value)}</strong>${metric.damageType?`<small class="review-metric-type">${esc(metric.damageType)}</small>`:''}</div><div class="review-effect-info"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`;return `<div class="review-effect-row no-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-info full-span"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`}).join(''),rules=isUltimate&&card.ultimate?.owner?`<div class="review-ultimate-rules"><span>ULTIMATE RULES</span><p>${esc(/\bcan use this card\b/i.test(String(card.ultimate.owner))?card.ultimate.owner:`Only ${card.ultimate.owner} can use this card or Tribute it for EXP.`)}</p></div>`:'';$('reviewRows').innerHTML=effectRows+rules}else if(card.family==='Item'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-effect-row item-effect-row no-metric"><div><span>CLASS</span><strong>${esc(itemClassText(card))}</strong></div><div><span>RANK</span><strong>All Ranks</strong></div><div class="review-effect-info full-span"><span>ITEM EFFECT</span><p>${esc(effect||'—')}</p></div></div>`}else if(card.family==='Event'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-generic-row review-large-effect"><span>EVENT EFFECT</span><p>${esc(effect||'—')}</p></div>`}else if(card.family==='LegacyModeDefinition'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-generic-row"><span>LEGACY ABILITY</span><p>${esc(effect||'—')}</p></div>${card.rules?`<div class="review-generic-row legacy-rules-row"><span>RULES</span><p>${esc(card.rules)}</p></div>`:''}`}else{$('reviewRows').innerHTML=rows.map(row=>`<div class="review-generic-row"><span>${esc(String(row.label||'CARD EFFECT').toUpperCase())}</span><p>${esc(row.text||row.effect_text||row.damage_text||'—')}</p></div>`).join('')}}
+const rows=card.rows?.length?card.rows:[{label:'Effect',text:card.text}];if(card.family==='Skill'){const isUltimate=Boolean(card.ultimate?.isUltimate),effectRows=rows.map((row,index)=>{const parsed=rowClassRank(row.label),metric=effectMetric(card,row),rankText=isUltimate&&/Rank\s+III/i.test(parsed.rank)&&index===rows.length-1?`Ultimate ${parsed.rank}`:parsed.rank,effectText=skillEffectText(row,metric,card),rankClass=isUltimate&&/^Ultimate\s+Rank\s+III$/i.test(rankText)?' class="ultimate-rank"':'';if(metric)return `<div class="review-effect-row has-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-metric"><span>${esc(metric.label)}</span><strong>${esc(metric.value)}</strong>${metric.damageType?`<small class="review-metric-type">${esc(metric.damageType)}</small>`:''}</div>${effectText?`<div class="review-effect-info"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div>`:''}</div>`;return `<div class="review-effect-row no-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-info full-span"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`}).join(''),rules=isUltimate&&card.ultimate?.owner?`<div class="review-ultimate-rules"><span>ULTIMATE RULES</span><p>${esc(/\bcan use this card\b/i.test(String(card.ultimate.owner))?card.ultimate.owner:`Only ${card.ultimate.owner} can use this card or Tribute it for EXP.`)}</p></div>`:'';$('reviewRows').innerHTML=effectRows+rules}else if(card.family==='Item'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-effect-row item-effect-row no-metric"><div><span>CLASS</span><strong>${esc(itemClassText(card))}</strong></div><div><span>RANK</span><strong>All Ranks</strong></div><div class="review-effect-info full-span"><span>ITEM EFFECT</span><p>${esc(effect||'—')}</p></div></div>`}else if(card.family==='Event'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-generic-row review-large-effect"><span>EVENT EFFECT</span><p>${esc(effect||'—')}</p></div>`}else if(card.family==='LegacyModeDefinition'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-generic-row"><span>LEGACY ABILITY</span><p>${esc(effect||'—')}</p></div>${card.rules?`<div class="review-generic-row legacy-rules-row"><span>RULES</span><p>${esc(card.rules)}</p></div>`:''}`}else{$('reviewRows').innerHTML=rows.map(row=>`<div class="review-generic-row"><span>${esc(String(row.label||'CARD EFFECT').toUpperCase())}</span><p>${esc(row.text||row.effect_text||row.damage_text||'—')}</p></div>`).join('')}}
 function openCardReview(cardId){
   const card=cardById(cardId);if(!card)return;const dialog=$('cardReviewDialog');dialog.dataset.reviewKind=card.family==='Hero'?'hero':card.family==='Skill'?'skill':card.family==='Item'?'item':card.family==='Event'?'event':card.family==='LegacyModeDefinition'?'legacy':'standard';$('reviewTitle').textContent=card.name;$('reviewEyebrow').textContent=reviewEyebrow(card);$('reviewArt').src=card.image;$('reviewArt').alt=card.name;if(card.family==='Hero'){heroReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhanceHero(card,$('reviewRows'));}else {standardReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhance(card,$('reviewRows'));}
   const progression=state.progressionByHeroId.get(card.id),box=$('reviewProgression');if(progression){box.hidden=false;$('reviewProgressionCards').innerHTML=progression.cardIds.map(id=>{const hero=cardById(id);return `<button class="review-progression-card ${id===card.id?'active':''}" type="button" data-review-rank-id="${id}"><img src="${hero.image}" alt="${esc(hero.name)}"></button>`}).join('');document.querySelectorAll('[data-review-rank-id]').forEach(button=>button.addEventListener('click',()=>openCardReview(button.dataset.reviewRankId)))}else{box.hidden=true;$('reviewProgressionCards').innerHTML=''}
@@ -623,7 +667,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.7-MainDeck-Artwork_R3.6-LegacyDeck-PlayerRulebook-v3.2',rulebook:'v3.2',season:'S0',builder_version:'1.65',style,
+  source_authority:'R3.8-MainDeck_R3.7-LegacyDeck-PlayerRulebook-v3.3',rulebook:'v3.3',season:'S0',builder_version:'1.66',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,
